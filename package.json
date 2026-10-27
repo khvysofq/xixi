@@ -1,0 +1,12 @@
+{
+  "name": "xixi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "xixi的许愿池 simple HTTP server",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
