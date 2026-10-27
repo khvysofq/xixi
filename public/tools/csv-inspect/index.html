@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSV 体检 · 希希的工具箱</title>
+<meta name="description" content="拖入 CSV/TSV，本地识别分隔符与编码，给出每列类型、数值列合计/最值与高频值。数据不上传。">
+<link rel="icon" href="/icon.png" type="image/png">
+<style>
+  :root {
+    --ink: #25211d; --paper: #f6f1e8; --card: #fffdf9; --accent: #d84f2b;
+    --gold: #f5c542; --green: #2f8f5b; --muted: #7a6f61; --line: #ddd3c4;
+    --bad: #b02a1a; --warn: #b6801b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--ink); line-height: 1.5;
+    background:
+      radial-gradient(circle at 12% 10%, rgba(245,197,66,.3), transparent 30%),
+      radial-gradient(circle at 88% 6%, rgba(216,79,43,.14), transparent 28%),
+      var(--paper);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { width: min(1180px, calc(100% - 28px)); margin: 0 auto; padding: 22px 0 60px; }
+  header.top { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: clamp(1.5rem, 3.6vw, 2.2rem); }
+  .crumb { color: var(--muted); font-size: .95rem; }
+  .crumb a { color: var(--accent); text-decoration: none; font-weight: 700; }
+  .panel { margin-top: 16px; padding: 18px; border: 3px solid var(--ink); border-radius: 22px;
+    background: var(--card); box-shadow: 6px 7px 0 rgba(37,33,29,.12); }
+  .drop { display: grid; place-items: center; gap: 6px; padding: 30px 18px; border: 3px dashed var(--line);
+    border-radius: 18px; text-align: center; color: var(--muted); cursor: pointer; }
+  .drop.hot { border-color: var(--accent); background: #fdf1e9; color: var(--ink); }
+  .drop b { color: var(--ink); font-size: 1.05rem; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  button { font: inherit; font-weight: 700; padding: 9px 16px; border: 2.5px solid var(--ink); border-radius: 14px;
+    background: #fff8ea; color: var(--ink); cursor: pointer; box-shadow: 3px 4px 0 rgba(37,33,29,.14); }
+  button:hover:not(:disabled) { background: var(--gold); }
+  button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+  button.primary { background: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { background: #c0431f; }
+  .kv { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .chip { font-size: .86rem; padding: 5px 11px; border-radius: 999px; background: #fff8ea; border: 2px solid var(--line); }
+  .chip b { font-weight: 800; }
+  .status { margin-top: 12px; padding: 10px 13px; border-radius: 14px; background: #f2ece2; color: var(--muted); font-size: .93rem; min-height: 41px; }
+  .status.err { background: rgba(176,42,26,.1); color: var(--bad); }
+  .status.ok { background: rgba(47,143,91,.12); color: #215f3d; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { padding: 8px 10px; border-bottom: 1.5px solid var(--line); text-align: left; vertical-align: top; }
+  th { position: sticky; top: 0; background: #fff8ea; z-index: 2; font-weight: 800; white-space: nowrap; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .scroll { max-height: 460px; overflow: auto; margin-top: 14px; border: 2px solid var(--line); border-radius: 14px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88rem; }
+  .badge { font-size: .78rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(47,143,91,.15); color: #215f3d; }
+  .badge.num { background: rgba(216,79,43,.14); color: #9c3517; }
+  .badge.date { background: rgba(245,197,66,.35); color: #6b5205; }
+  .badge.text { background: #eee7db; color: var(--muted); }
+  .top-vals { color: var(--muted); font-size: .87rem; }
+  h2 { margin: 26px 0 6px; font-size: 1.15rem; }
+  h2:first-child { margin-top: 0; }
+  input[type="search"] { font: inherit; padding: 8px 12px; border: 2.5px solid var(--ink); border-radius: 12px; background: #fff; min-width: 200px; }
+  [hidden] { display: none !important; }
+  .hint { color: var(--muted); font-size: .9rem; margin-top: 10px; }
+  footer.site { margin-top: 22px; color: var(--muted); font-size: .88rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>CSV 体检</h1>
+    <span class="crumb"><a href="/">← 希希的工具箱</a></span>
+  </header>
+
+  <section class="panel">
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="拖入或点击选择 CSV 文件">
+      <b>把 CSV / TSV 拖到这里</b>
+      <span>或者点一下选文件。也可试试 <a href="#" id="demo">载入示例</a></span>
+      <span class="mono">解析全在浏览器本地，文件不发往任何服务器</span>
+    </div>
+    <input type="file" id="file" accept=".csv,.tsv,.txt,.tab" hidden>
+    <div class="status" id="status">等文件。</div>
+    <div class="kv" id="meta"></div>
+    <div class="row">
+      <button id="dl-clean" disabled>下载清洗后的 CSV</button>
+      <button id="dl-stats" disabled>下载列统计</button>
+      <button id="copy-names" disabled>复制列名</button>
+    </div>
+    <p class="hint">数值识别会忽略千分位逗号、￥/¥ 与空格；百分比按 0–100 的数值看待。超大文件（几十万行）建议直接用桌面工具。</p>
+  </section>
+
+  <section class="panel" id="stats-box" hidden>
+    <h2>列统计</h2>
+    <div class="row"><input type="search" id="colq" placeholder="筛选列名…" aria-label="筛选列"></div>
+    <div class="scroll">
+      <table id="stats">
+        <thead><tr>
+          <th>#</th><th>列名</th><th>判定</th><th class="n">有值</th><th class="n">空</th><th class="n">唯一</th>
+          <th class="n">合计</th><th class="n">最小</th><th class="n">最大</th><th class="n">平均</th><th>高频值</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h2>前 <span id="pv-n">100</span> 行预览</h2>
+    <div class="scroll">
+      <table id="preview"><thead></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <footer class="site">希希的工具箱 · CSV 体检</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var PREVIEW_ROWS = 100;
+  var TOP_VALUES = 4;
+  var state = { text: null, name: '', size: 0, delimiter: ',', encoding: 'utf-8', header: null, rows: [], stats: null };
+
+  var el = function (id) { return document.getElementById(id); };
+  var drop = el('drop'), fileInput = el('file'), statusEl = el('status'), meta = el('meta');
+
+  function setStatus(msg, kind) {
+    statusEl.textContent = msg;
+    statusEl.className = 'status' + (kind ? ' ' + kind : '');
+  }
+
+  function chip(label, value) {
+    var s = document.createElement('span');
+    s.className = 'chip';
+    s.appendChild(document.createTextNode(label + ' '));
+    var b = document.createElement('b');
+    b.textContent = value;
+    s.appendChild(b);
+    return s;
+  }
+
+  /* ---------- 编码识别：UTF-8 优先，非法字节回落 GBK/GB18030 ---------- */
+  function decode(buffer) {
+    var bytes = new Uint8Array(buffer);
+    var bom = bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+    var body = bom ? bytes.subarray(3) : bytes;
+    if (typeof TextDecoder === 'undefined') {
+      // 只有纯 ASCII 才能逐字节安全拼，否则宁可报错，不交乱码
+      for (var j = 0; j < body.length; j++) {
+        if (body[j] > 127) throw new Error('当前环境缺少文本解码能力，读不了非 ASCII 文件；请在主流浏览器里打开本页。');
+      }
+      return { text: String.fromCharCode.apply(null, Array.prototype.slice.call(body)), encoding: 'ascii' };
+    }
+    try {
+      return { text: new TextDecoder('utf-8', { fatal: true }).decode(body), encoding: bom ? 'utf-8-bom' : 'utf-8' };
+    } catch (e) { /* 不是合法 UTF-8，往下试国标 */ }
+    var names = ['gb18030', 'gbk'];
+    for (var i = 0; i < names.length; i++) {
+      try {
+        return { text: new TextDecoder(names[i]).decode(body), encoding: names[i] === 'gb18030' ? 'gb18030(GBK 兼容)' : 'gbk' };
+      } catch (e2) { /* 这个环境不支持该编码，继续 */ }
+    }
+    // 没有国标解码能力（小 ICU 的 Node、老旧环境）：说人话，不要把乱码当成数据
+    throw new Error('这个文件不是 UTF-8，看起来是 GBK/GB18030；当前环境没有国标解码能力。请在主流浏览器里打开本页，或先把文件另存为 CSV UTF-8。');
+  }
+
+  /* ---------- 分隔符嗅探：只看引号外的候选字符，取“每行都稳定出现且次数最多”的那个 ---------- */
+  function sniffDelimiter(text) {
+    var sample = text.slice(0, 60000);
+    var cands = [',', '\t', ';', '|'];
+    var best = null;
+    for (var c = 0; c < cands.length; c++) {
+      var d = cands[c], inQ = false, counts = [], line = 0;
+      for (var i = 0; i < sample.length; i++) {
+        var ch = sample.charAt(i);
+        if (ch === '"') inQ = !inQ;
+        else if (!inQ && ch === '\n') { counts.push(line); line = 0; }
+        else if (!inQ && ch === d) line++;
+        if (counts.length >= 12) break;
+      }
+      counts = counts.filter(function (x) { return x > 0; });
+      if (counts.length < 2) continue;
+      var min = Math.min.apply(null, counts);
+      if (!best || min > best.min) best = { d: d, min: min };
+    }
+    return best ? best.d : ',';
+  }
+
+  /* ---------- 解析：状态机，支持引号、转义引号、引号内换行 ---------- */
+  function parse(text, delim) {
+    var rows = [], row = [], field = '', inQ = false, crlf = 0, i = 0, ch;
+    var n = text.length;
+    while (i < n) {
+      ch = text.charAt(i);
+      if (inQ) {
+        if (ch === '"') {
+          if (text.charAt(i + 1) === '"') { field += '"'; i += 2; continue; }
+          inQ = false; i++; continue;
+        }
+        field += ch; i++; continue;
+      }
+      if (ch === '"') { inQ = true; i++; continue; }
+      if (ch === delim) { row.push(field); field = ''; i++; continue; }
+      if (ch === '\r') { crlf = 1; i++; continue; }
+      if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+      field += ch; i++;
+    }
+    if (field !== '' || row.length) { row.push(field); rows.push(row); }
+    // 丢掉纯空行
+    rows = rows.filter(function (r) { return !(r.length === 1 && r[0].trim() === ''); });
+    return { rows: rows, crlf: crlf > 0 };
+  }
+
+  /* ---------- 值解析与列类型判定 ---------- */
+  var DECIMAL = /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/;
+  var THOUSANDS = /^\d{1,3}(,\d{3})+(\.\d+)?$/; // 千分位要三位一组，否则“1,2”会被当成 12
+  function toNumber(v) {
+    if (v === null || v === undefined) return null;
+    var s = String(v).trim();
+    if (!s) return null;
+    if (s.charAt(s.length - 1) === '%') s = s.slice(0, -1);
+    s = s.replace(/[￥¥$€\s]/g, '');
+    if (!s) return null;
+    if (THOUSANDS.test(s)) s = s.replace(/,/g, '');
+    else if (s.indexOf(',') >= 0) return null;
+    if (!DECIMAL.test(s)) return null;
+    var num = Number(s);
+    return isFinite(num) ? num : null;
+  }
+  var DATE = /^\d{4}[-/]\d{1,2}([-/]\d{1,2})?([ T]\d{1,2}:\d{2}(:\d{2})?)?/;
+  function isDateLike(v) { return DATE.test(String(v).trim()); }
+
+  function columnStats(header, rows) {
+    var out = [];
+    for (var c = 0; c < header.length; c++) {
+      var filled = 0, emptyCells = 0, uniq = new Map(), nums = [], dates = 0;
+      for (var r = 0; r < rows.length; r++) {
+        var raw = rows[r][c];
+        var v = raw === undefined || raw === null ? '' : String(raw).trim();
+        if (v === '') { emptyCells++; continue; }
+        filled++;
+        uniq.set(v, (uniq.get(v) || 0) + 1);
+        var num = toNumber(v);
+        if (num !== null) nums.push(num); else if (isDateLike(v)) dates++;
+      }
+      var top = [...uniq.entries()].sort(function (a, b) { return b[1] - a[1]; }).slice(0, TOP_VALUES);
+      var kind = '文本';
+      if (filled > 0 && nums.length === filled) kind = '数值';
+      else if (filled > 0 && dates >= filled * 0.8) kind = '日期';
+      // 一半以上是数字就当“数值(含脏值)”：列合计依然有用，脏值另算
+      else if (filled > 0 && nums.length * 2 >= filled) kind = '数值(含脏值)';
+      var agg = null;
+      if (nums.length) {
+        var sum = 0, min = nums[0], max = nums[0];
+        for (var k = 0; k < nums.length; k++) { sum += nums[k]; if (nums[k] < min) min = nums[k]; if (nums[k] > max) max = nums[k]; }
+        agg = { sum: sum, min: min, max: max, avg: sum / nums.length, count: nums.length };
+      }
+      out.push({ index: c, name: header[c], kind: kind, filled: filled, empty: emptyCells, unique: uniq.size, top: top, agg: agg });
+    }
+    return out;
+  }
+
+  function fmt(n) {
+    if (n === null || n === undefined) return '';
+    var abs = Math.abs(n);
+    var digits = abs >= 1000 ? 2 : abs >= 1 ? 3 : 4;
+    var s = n.toFixed(digits).replace(/\.?0+$/, '');
+    return s.indexOf('.') >= 0 ? s : s;
+  }
+
+  /* ---------- 渲染 ---------- */
+  function td(text, cls) {
+    var c = document.createElement('td');
+    if (cls) c.className = cls;
+    c.textContent = text === null || text === undefined ? '' : String(text);
+    return c;
+  }
+
+  function renderStats(word) {
+    var tbody = el('stats').tBodies[0];
+    tbody.textContent = '';
+    var k = (word || '').trim().toLowerCase();
+    state.stats.filter(function (col) { return !k || col.name.toLowerCase().indexOf(k) >= 0; })
+      .forEach(function (col) {
+        var tr = document.createElement('tr');
+        tr.appendChild(td(col.index + 1, 'n'));
+        tr.appendChild(td(col.name));
+        var badge = document.createElement('span');
+        badge.className = 'badge ' + (col.kind.indexOf('数值') === 0 ? 'num' : col.kind === '日期' ? 'date' : 'text');
+        badge.textContent = col.kind;
+        var tdKind = td(''); tdKind.appendChild(badge); tr.appendChild(tdKind);
+        tr.appendChild(td(col.filled, 'n'));
+        tr.appendChild(td(col.empty, 'n'));
+        tr.appendChild(td(col.unique, 'n'));
+        tr.appendChild(td(col.agg ? fmt(col.agg.sum) : '', 'n'));
+        tr.appendChild(td(col.agg ? fmt(col.agg.min) : '', 'n'));
+        tr.appendChild(td(col.agg ? fmt(col.agg.max) : '', 'n'));
+        tr.appendChild(td(col.agg ? fmt(col.agg.avg) : '', 'n'));
+        tr.appendChild(td(col.top.map(function (t) { return t[0] + '×' + t[1]; }).join('  '), 'top-vals'));
+        tbody.appendChild(tr);
+      });
+  }
+
+  function renderPreview() {
+    var thead = el('preview').tHead, tbody = el('preview').tBodies[0];
+    thead.textContent = '';
+    tbody.textContent = '';
+    var htr = document.createElement('tr');
+    state.header.forEach(function (h) { htr.appendChild(td(h)); });
+    thead.appendChild(htr);
+    var lim = Math.min(PREVIEW_ROWS, state.rows.length);
+    el('pv-n').textContent = lim;
+    for (var r = 0; r < lim; r++) {
+      var tr = document.createElement('tr');
+      for (var c = 0; c < state.header.length; c++) tr.appendChild(td(state.rows[r][c] === undefined ? '' : state.rows[r][c]));
+      tbody.appendChild(tr);
+    }
+  }
+
+  function renderMeta() {
+    meta.textContent = '';
+    var numericCols = state.stats.filter(function (c) { return c.kind.indexOf('数值') === 0; }).length;
+    var textCols = state.stats.filter(function (c) { return c.kind === '文本'; }).length;
+    var dateCols = state.stats.filter(function (c) { return c.kind === '日期'; }).length;
+    [
+      chip('文件', state.name),
+      chip('大小', (state.size / 1024).toFixed(1) + ' KB'),
+      chip('编码', state.encoding),
+      chip('分隔符', state.delimiter === '\t' ? 'Tab' : '"' + state.delimiter + '"'),
+      chip('数据行', state.rows.length),
+      chip('列数', state.header.length),
+      chip('数值列', numericCols),
+      chip('日期列', dateCols),
+      chip('文本列', textCols)
+    ].forEach(function (c) { meta.appendChild(c); });
+  }
+
+  function analyze(text, name, size) {
+    var t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    var delim = sniffDelimiter(text);
+    var parsed = parse(text, delim);
+    if (!parsed.rows.length) throw new Error('没解析出任何行');
+    var header = parsed.rows[0].map(function (h, i) { return String(h).trim() || ('第' + (i + 1) + '列'); });
+    var rows = parsed.rows.slice(1);
+    // 有的导出会重复表头行，跳过与表头完全一致的行
+    var sameHeader = function (r) { return r.length === header.length && r.every(function (v, i) { return String(v).trim() === header[i]; }); };
+    rows = rows.filter(function (r) { return !sameHeader(r); });
+    state.text = text; state.name = name; state.size = size;
+    state.delimiter = delim; state.encoding = state.encoding || 'utf-8';
+    state.header = header; state.rows = rows;
+    state.stats = columnStats(header, rows);
+    var t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    renderMeta(); renderStats(''); renderPreview();
+    el('stats-box').hidden = false;
+    ['dl-clean', 'dl-stats', 'copy-names'].forEach(function (id) { el(id).disabled = false; });
+    var ragged = rows.filter(function (r) { return r.length !== header.length; }).length;
+    var msg = '解析完成：' + rows.length + ' 行 × ' + header.length + ' 列，用时 ' + (t1 - t0).toFixed(0) + ' ms。';
+    if (ragged) msg += ' ⚠ 有 ' + ragged + ' 行列数与表头不一致（可能是引号/分隔符异常）。';
+    if (crlfNote(parsed)) msg += ' 换行符是 CRLF（Windows 风格）。';
+    setStatus(msg, ragged ? 'err' : 'ok');
+  }
+  function crlfNote(parsed) { return parsed.crlf; }
+
+  /* ---------- 事件 ---------- */
+  async function handleFiles(files) {
+    var f = files && files[0];
+    if (!f) return;
+    setStatus('正在读取 ' + f.name + ' …');
+    try {
+      var dec = decode(await f.arrayBuffer());
+      state.encoding = dec.encoding;
+      analyze(dec.text, f.name, f.size);
+    } catch (e) {
+      setStatus('读不了这个文件：' + e.message, 'err');
+    }
+  }
+
+  drop.addEventListener('click', function () { fileInput.click(); });
+  drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+  fileInput.addEventListener('change', function () { handleFiles(fileInput.files); fileInput.value = ''; });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); drop.classList.add('hot'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); drop.classList.remove('hot'); });
+  });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer) handleFiles(e.dataTransfer.files); });
+
+  el('colq').addEventListener('input', function () { renderStats(el('colq').value); });
+
+  function csvCell(v) {
+    var s = v === null || v === undefined ? '' : String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function download(name, text, mime) {
+    var blob = new Blob([text], { type: mime || 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 500);
+  }
+
+  el('dl-clean').addEventListener('click', function () {
+    if (!state.header) return;
+    var lines = [state.header.map(csvCell).join(',')];
+    state.rows.forEach(function (r) {
+      var out = [];
+      for (var c = 0; c < state.header.length; c++) out.push(csvCell(r[c] === undefined ? '' : String(r[c]).trim()));
+      lines.push(out.join(','));
+    });
+    download((state.name.replace(/\.[^.]+$/, '') || 'data') + '-清洗.csv', '\uFEFF' + lines.join('\r\n'));
+    setStatus('已导出清洗后的 CSV（UTF-8 带 BOM，Excel 直接双击可打开；列数已对齐、两端空格已去掉）。', 'ok');
+  });
+
+  el('dl-stats').addEventListener('click', function () {
+    if (!state.stats) return;
+    var head = ['列号', '列名', '判定', '有值', '空', '唯一', '合计', '最小', '最大', '平均', '高频值'];
+    var lines = [head.map(csvCell).join(',')];
+    state.stats.forEach(function (c) {
+      lines.push([
+        c.index + 1, c.name, c.kind, c.filled, c.empty, c.unique,
+        c.agg ? fmt(c.agg.sum) : '', c.agg ? fmt(c.agg.min) : '', c.agg ? fmt(c.agg.max) : '', c.agg ? fmt(c.agg.avg) : '',
+        c.top.map(function (t) { return t[0] + '×' + t[1]; }).join(' ')
+      ].map(csvCell).join(','));
+    });
+    download('列统计.csv', '\uFEFF' + lines.join('\r\n'));
+    setStatus('已导出列统计。', 'ok');
+  });
+
+  el('copy-names').addEventListener('click', function () {
+    if (!state.header) return;
+    var text = state.header.join('\t');
+    var done = function () { setStatus('列名已复制（Tab 分隔，可直接粘进 Excel 一行）。', 'ok'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    else { fallbackCopy(text); done(); }
+  });
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) { /* 忽略 */ }
+    document.body.removeChild(ta);
+  }
+
+  el('demo').addEventListener('click', function (e) {
+    e.preventDefault();
+    var demo = [
+      ['运单号', '收款员', '重量', '始发省区', '派费', '签收时间', '备注'],
+      ['YT0001', '崔学奎', '1.200', '陕西', '￥7.00', '2026-07-02 16:56:07', '正常'],
+      ['YT0002', '满泽民', '45.500', '河南', '7.715', '2026-07-02 18:03:11', '超40kg'],
+      ['YT0003', '崔学奎', '12.800', '陕西', '7.00', '2026-07-03 09:12:00', ''],
+      ['YT0004', '满泽民', '3.050', '江苏', '6.5', '2026-07-03 10:40:00', '正常'],
+      ['YT0005', '崔学奎', '3.050', '陕西', '￥7.00', '2026-07-04 11:20:00', '"备注里有,逗号和""引号""」"']
+    ];
+    var text = demo.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+    state.encoding = 'utf-8';
+    analyze(text, '示例数据.csv', new Blob([text]).size);
+  });
+
+  window.csvInspect = {
+    state: state,
+    parse: parse,
+    sniffDelimiter: sniffDelimiter,
+    decode: decode,
+    toNumber: toNumber,
+    columnStats: columnStats,
+    analyze: analyze,
+    handleFiles: handleFiles
+  };
+})();
+</script>
+</body>
+</html>

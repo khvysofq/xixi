@@ -1,140 +1,213 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>xixi的许愿池</title>
-  <link rel="icon" href="/icon.png" type="image/png">
-  <style>
-    :root {
-      color-scheme: light;
-      --ink: #25211d;
-      --paper: #f6f1e8;
-      --accent: #d84f2b;
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>希希的工具箱</title>
+<meta name="description" content="希希的工具箱：一组在浏览器本地跑的小工具，数据不上传。">
+<link rel="icon" href="/icon.png" type="image/png">
+<style>
+  :root {
+    --ink: #25211d;
+    --paper: #f6f1e8;
+    --card: #fffdf9;
+    --accent: #d84f2b;
+    --gold: #f5c542;
+    --green: #2f8f5b;
+    --muted: #7a6f61;
+    --line: #ddd3c4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 15% 12%, rgba(245, 197, 66, 0.32), transparent 32%),
+      radial-gradient(circle at 85% 8%, rgba(216, 79, 43, 0.16), transparent 30%),
+      var(--paper);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: clamp(22px, 4vw, 44px) 0 60px; }
 
-    * {
-      box-sizing: border-box;
-    }
+  header.top { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .logo {
+    display: inline-flex; padding: 8px; border: 3px solid var(--ink); border-radius: 22px;
+    background: var(--card); box-shadow: 5px 6px 0 rgba(37,33,29,.12);
+  }
+  .logo img { display: block; width: 72px; height: 72px; object-fit: cover; border-radius: 14px; }
+  h1 { margin: 0; font-size: clamp(2rem, 5.4vw, 3.4rem); line-height: 1.1; }
+  .sub { margin: 4px 0 0; color: var(--muted); font-size: 1rem; }
+  .rule { height: 8px; width: 130px; border-radius: 999px; margin-top: 10px;
+    background: linear-gradient(90deg, var(--accent), var(--gold), var(--green)); }
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background:
-        radial-gradient(circle at 20% 20%, rgba(245, 197, 66, 0.35), transparent 30%),
-        radial-gradient(circle at 80% 15%, rgba(216, 79, 43, 0.18), transparent 28%),
-        var(--paper);
-      color: var(--ink);
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
-    }
+  .toolbar { display: flex; gap: 12px; align-items: center; margin: 26px 0 6px; flex-wrap: wrap; }
+  .search { flex: 1 1 240px; display: flex; align-items: center; gap: 8px; }
+  .search input {
+    flex: 1; padding: 11px 14px; font: inherit; color: inherit;
+    border: 2.5px solid var(--ink); border-radius: 14px; background: var(--card);
+  }
+  .search input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .count { color: var(--muted); font-size: .92rem; white-space: nowrap; }
 
-    main {
-      width: min(760px, calc(100% - 32px));
-      padding: clamp(24px, 5vw, 56px);
-      border: 3px solid var(--ink);
-      border-radius: 34px;
-      background: rgba(255, 252, 245, 0.86);
-      box-shadow: 12px 14px 0 rgba(37, 33, 29, 0.16);
-      text-align: center;
-    }
-
-    .icon-wrap {
-      display: inline-flex;
-      padding: 14px;
-      border: 3px solid var(--ink);
-      border-radius: 28px;
-      background: #fffaf0;
-      box-shadow: 6px 7px 0 rgba(37, 33, 29, 0.12);
-    }
-
-    img {
-      display: block;
-      width: min(360px, 72vw);
-      height: auto;
-      border-radius: 18px;
-    }
-
-    h1 {
-      margin: 28px 0 0;
-      font-size: clamp(2.5rem, 8vw, 5.5rem);
-      line-height: 1.05;
-      letter-spacing: 0;
-    }
-
-    .rule {
-      width: 120px;
-      height: 8px;
-      margin: 22px auto 0;
-      border-radius: 999px;
-      background: linear-gradient(90deg, var(--accent), #f5c542, #2f8f5b);
-    }
-
-    footer {
-      margin-top: 18px;
-      color: rgba(37, 33, 29, 0.62);
-      font-size: 0.95rem;
-    }
-
-    .tools {
-      margin-top: 30px;
-      display: grid;
-      gap: 14px;
-    }
-
-    .tool-card {
-      display: block;
-      padding: 18px 22px;
-      border: 3px solid var(--ink);
-      border-radius: 22px;
-      background: #fffaf0;
-      box-shadow: 6px 7px 0 rgba(37, 33, 29, 0.12);
-      color: var(--ink);
-      text-decoration: none;
-      text-align: left;
-    }
-
-    .tool-card:hover {
-      background: #fdeacd;
-      transform: translate(-1px, -1px);
-      box-shadow: 8px 9px 0 rgba(37, 33, 29, 0.16);
-    }
-
-    .tool-card strong {
-      display: block;
-      font-size: 1.15rem;
-    }
-
-    .tool-card span {
-      display: block;
-      margin-top: 6px;
-      color: rgba(37, 33, 29, 0.66);
-      font-size: 0.92rem;
-      line-height: 1.45;
-    }
-
-    .tool-card em {
-      font-style: normal;
-      color: var(--accent);
-      font-weight: 700;
-    }
-  </style>
+  .grid { display: grid; gap: 16px; margin-top: 18px; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); }
+  .card {
+    display: flex; flex-direction: column; gap: 10px; min-height: 190px;
+    padding: 18px; border: 3px solid var(--ink); border-radius: 22px;
+    background: var(--card); box-shadow: 6px 7px 0 rgba(37,33,29,.12);
+    color: inherit; text-decoration: none; position: relative;
+  }
+  a.card:hover { transform: translate(-1px,-1px); box-shadow: 8px 9px 0 rgba(37,33,29,.18); background: #fdf6e7; }
+  a.card:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+  .card[data-state="soon"] { background: rgba(255,253,249,.62); box-shadow: none; border-style: dashed; color: rgba(37,33,29,.66); }
+  .ic { width: 46px; height: 46px; display: grid; place-items: center; border: 2.5px solid var(--ink); border-radius: 14px; background: #fff8ea; }
+  .ic svg { width: 26px; height: 26px; }
+  .card[data-state="soon"] .ic { border-color: rgba(37,33,29,.4); background: #f2ece2; }
+  .name { font-weight: 800; font-size: 1.12rem; }
+  .desc { margin: 0; font-size: .93rem; color: rgba(37,33,29,.72); }
+  .tags { margin-top: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .tag { font-size: .76rem; padding: 3px 9px; border-radius: 999px; background: rgba(47,143,91,.14); color: #215f3d; border: 1.5px solid rgba(33,95,61,.28); }
+  .tag.local { background: rgba(216,79,43,.12); color: #9c3517; border-color: rgba(156,53,23,.28); }
+  .soon { font-size: .78rem; font-weight: 700; color: var(--muted); }
+  .empty { display: none; margin-top: 26px; padding: 18px; border: 2.5px dashed var(--line); border-radius: 18px; color: var(--muted); text-align: center; }
+  .note { margin-top: 30px; padding: 16px 18px; border-radius: 18px; background: rgba(255,253,249,.8);
+    border: 2px solid var(--line); color: var(--muted); font-size: .92rem; }
+  .note b { color: var(--ink); }
+  footer.site { margin-top: 26px; color: var(--muted); font-size: .88rem; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  footer.site a { color: var(--accent); font-weight: 700; }
+  [hidden] { display: none !important; }
+</style>
 </head>
 <body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="i-table"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13A2.5 2.5 0 0 1 18.5 21h-13A2.5 2.5 0 0 1 3 18.5z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 9h18M9 9v12M3 15h18M15 9v12"/></g>
+    <g id="i-csv"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 3h8l4 4v14H6z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M14 3v4h4M9 12h6M9 16h6"/></g>
+    <g id="i-scale"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 4v16M6 8h12M6 8l-3 7h6zM18 8l-3 7h6z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 20h8"/></g>
+    <g id="i-tag"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12.6 3H20a1 1 0 0 1 1 1v7.4a2 2 0 0 1-.6 1.4l-8 8a2 2 0 0 1-2.8 0l-6-6a2 2 0 0 1 0-2.8l8-8A2 2 0 0 1 12.6 3z"/><circle cx="16.5" cy="7.5" r="1.6" fill="currentColor"/></g>
+    <g id="i-box"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 8.5 12 13l8-4.5M12 13v7"/></g>
+    <g id="i-wish"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 16V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5V13a2.5 2.5 0 0 1-2.5 2.5H9l-5 4.5z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M9 9h6"/></g>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header class="top">
+    <span class="logo"><img src="/icon.png" alt="希希图标"></span>
+    <div>
+      <h1>希希的工具箱</h1>
+      <p class="sub">一组在浏览器里跑的小工具 —— 文件不用上传，算完就走。</p>
+      <div class="rule" aria-hidden="true"></div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <label class="search">
+      <input id="q" type="search" placeholder="搜工具：派费 / 表格 / 重量 / 单价…" aria-label="搜索工具" autocomplete="off">
+    </label>
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+
   <main>
-    <div class="icon-wrap">
-      <img src="/icon.png" alt="xixi 图标">
-    </div>
-    <h1>xixi的许愿池</h1>
-    <div class="rule" aria-hidden="true"></div>
-    <div class="tools">
-      <a class="tool-card" href="/tools/classify-stats/">
-        <strong>派费分类统计工具</strong>
-        <span>拖进模版和系统导出，自动按列名对齐、分类统计、交叉核对、出图，并回填一份保留原公式的结果文件。全程在浏览器本地跑，<em>数据不上传</em>。</span>
-      </a>
-    </div>
-    <footer>port 10801</footer>
+    <div class="grid" id="grid" role="list"></div>
+    <p class="empty" id="empty">没找到匹配的工具，换个词试试。</p>
+    <div class="note" id="note" hidden></div>
   </main>
+
+  <footer class="site">
+    <span>希希的工具箱 · 静态站点，无后端处理</span>
+    <span>想加什么工具？<a href="mailto:?subject=工具箱需求">告诉我</a></span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  // 兜底清单：/tools.json 读不到时（比如离线打开这个文件）用它
+  var FALLBACK = [
+    { slug: 'classify-stats', name: '派费分类统计', desc: '拖进结算模版和系统导出，按列名自动对齐、分类统计、交叉核对、出图，并回填一份保留原公式的结果文件。', href: '/tools/classify-stats/', icon: 'i-table', tags: ['本地计算', 'Excel'] },
+    { slug: 'csv-inspect', name: 'CSV 体检', desc: '拖入 CSV/TSV，自动认分隔符和编码，给出每列类型、数值列的合计/最值与文本列的高频值。', href: '/tools/csv-inspect/', icon: 'i-csv', tags: ['本地计算', '几万行'] },
+    { slug: 'fee-calc', name: '派费试算', desc: '输入重量、始发省区，按 40kg 分档试算单票派费。', state: 'soon', icon: 'i-scale', tags: ['运费'] },
+    { slug: 'price-diff', name: '单价对比', desc: '贴两组报价，按网点/重量段列出差异，找出哪边更划算。', state: 'soon', icon: 'i-tag', tags: ['运费'] }
+  ];
+  var DEFAULT_ICON = 'i-box';
+
+  var grid = document.getElementById('grid');
+  var count = document.getElementById('count');
+  var empty = document.getElementById('empty');
+  var note = document.getElementById('note');
+  var q = document.getElementById('q');
+  var tools = [];
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function card(t) {
+    var soon = t.state === 'soon' || !t.href;
+    var node = el(soon ? 'div' : 'a', 'card');
+    if (soon) { node.setAttribute('role', 'listitem'); node.setAttribute('data-state', 'soon'); node.setAttribute('aria-disabled', 'true'); }
+    else { node.href = t.href; node.setAttribute('role', 'listitem'); }
+
+    var ic = el('span', 'ic');
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    var use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#' + (t.icon || DEFAULT_ICON));
+    svg.appendChild(use);
+    svg.setAttribute('aria-hidden', 'true');
+    ic.appendChild(svg);
+
+    node.appendChild(ic);
+    node.appendChild(el('span', 'name', t.name || t.slug || '未命名工具'));
+    node.appendChild(el('p', 'desc', t.desc || ''));
+
+    var tags = el('div', 'tags');
+    (t.tags || []).forEach(function (x) { tags.appendChild(el('span', 'tag' + (x.indexOf('本地') === 0 ? ' local' : ''), x)); });
+    if (soon) tags.appendChild(el('span', 'soon', '待上线'));
+    node.appendChild(tags);
+    return node;
+  }
+
+  function render(word) {
+    var k = (word || '').trim().toLowerCase();
+    grid.textContent = '';
+    var shown = tools.filter(function (t) {
+      if (!k) return true;
+      return [t.name, t.desc, (t.tags || []).join(' '), t.slug].join(' ').toLowerCase().indexOf(k) >= 0;
+    });
+    shown.forEach(function (t) { grid.appendChild(card(t)); });
+    empty.hidden = shown.length > 0;
+    count.textContent = '共 ' + tools.length + ' 个 · 显示 ' + shown.length + ' 个';
+  }
+
+  function load(list, warning) {
+    tools = list;
+    render(q.value);
+    if (warning) { note.hidden = false; note.textContent = warning; }
+  }
+
+  q.addEventListener('input', function () { render(q.value); });
+
+  // 没有 fetch（比如把这个文件下载后双击打开）或拉取失败时，用内置备份清单
+  if (typeof fetch !== 'function') {
+    load(FALLBACK, '这个页面是离线打开的，用的是内置工具清单。');
+    return;
+  }
+
+  fetch('/tools.json', { cache: 'no-store' })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function (data) {
+      var list = Array.isArray(data) ? data : (data && data.tools);
+      if (!Array.isArray(list) || !list.length) throw new Error('清单为空');
+      load(list);
+    })
+    .catch(function (e) {
+      load(FALLBACK, '工具清单走的是内置备份（读 /tools.json 失败：' + e.message + '），内容可能不是最新。');
+    });
+})();
+</script>
 </body>
 </html>

@@ -1,10 +1,11 @@
 {
   "name": "xixi",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "xixi的许愿池 simple HTTP server",
+  "description": "希希的工具箱 —— 静态小工具站点（首页为工具导航）",
   "scripts": {
     "start": "node server.js",
+    "test": "node --test test/site.test.mjs",
     "build:tool": "node ../tools/classify-stats/build.mjs",
     "deploy:tool": "node scripts/deploy-tool.cjs"
   },
