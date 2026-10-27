@@ -29,16 +29,25 @@ function contentType(filePath) {
 
 function resolveStaticPath(pathname) {
   const decoded = decodeURIComponent(pathname);
-  const relative = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
+  // 目录请求（带或不带尾斜杠）由 sendFile 回退到该目录下的 index.html
+  const cleaned = decoded.replace(/\/{2,}/g, '/').replace(/^\/+/, '');
+  const relative = cleaned === '' || cleaned === '/' ? 'index.html' : cleaned;
   const resolved = path.normalize(path.join(publicDir, relative));
   const isInside = resolved === publicDir || resolved.startsWith(publicDir + path.sep);
   return isInside ? resolved : null;
 }
 
 async function sendFile(req, res, filePath) {
-  const data = await fs.readFile(filePath);
+  let target = filePath;
+  try {
+    const info = await fs.stat(target);
+    if (info.isDirectory()) target = path.join(target, 'index.html');
+  } catch {
+    throw Object.assign(new Error('Not Found'), { code: 'ENOENT' });
+  }
+  const data = await fs.readFile(target);
   res.writeHead(200, {
-    'Content-Type': contentType(filePath),
+    'Content-Type': contentType(target),
     'Content-Length': data.length,
     'Cache-Control': 'no-store'
   });

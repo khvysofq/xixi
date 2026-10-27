@@ -76,6 +76,49 @@
       color: rgba(37, 33, 29, 0.62);
       font-size: 0.95rem;
     }
+
+    .tools {
+      margin-top: 30px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .tool-card {
+      display: block;
+      padding: 18px 22px;
+      border: 3px solid var(--ink);
+      border-radius: 22px;
+      background: #fffaf0;
+      box-shadow: 6px 7px 0 rgba(37, 33, 29, 0.12);
+      color: var(--ink);
+      text-decoration: none;
+      text-align: left;
+    }
+
+    .tool-card:hover {
+      background: #fdeacd;
+      transform: translate(-1px, -1px);
+      box-shadow: 8px 9px 0 rgba(37, 33, 29, 0.16);
+    }
+
+    .tool-card strong {
+      display: block;
+      font-size: 1.15rem;
+    }
+
+    .tool-card span {
+      display: block;
+      margin-top: 6px;
+      color: rgba(37, 33, 29, 0.66);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .tool-card em {
+      font-style: normal;
+      color: var(--accent);
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -85,6 +128,12 @@
     </div>
     <h1>xixi的许愿池</h1>
     <div class="rule" aria-hidden="true"></div>
+    <div class="tools">
+      <a class="tool-card" href="/tools/classify-stats/">
+        <strong>派费分类统计工具</strong>
+        <span>拖进模版和系统导出，自动按列名对齐、分类统计、交叉核对、出图，并回填一份保留原公式的结果文件。全程在浏览器本地跑，<em>数据不上传</em>。</span>
+      </a>
+    </div>
     <footer>port 10801</footer>
   </main>
 </body>
