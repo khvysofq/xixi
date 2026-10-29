@@ -1407,10 +1407,27 @@ function suggestRules(columns) {
   return `# 示例规则（可随意改）：一行一条，# 开头是注释\n${lines.join('\n')}`;
 }
 
-function firstTextColumn(cols) { return cols.find((c) => /收款员|操作人|负责人|姓名|部门|区|省|网点|状态|类别/.test(c)) || cols.find((c) => !/重量|费|金额|价|数量|时间|日期|号/.test(c)); }
+function firstTextColumn(cols) {
+  // 分组维度按结算场景优先级：结算人 > 业务员/派件员 > 其他人名 > 省区/部门/网点
+  const PRI = [/收款员|结算员|操作人|负责人/, /派件员|业务员|揽收员/, /姓名/, /省|区|部门|网点|类别|类型|状态/];
+  for (const re of PRI) {
+    const hit = cols.find((c) => re.test(c) && !/号码|证件|电话|编号|单号/.test(c));
+    if (hit) return hit;
+  }
+  return cols.find((c) => !/重量|费|金额|价|数量|时间|日期|号$/.test(c)) || null;
+}
 function secondTextColumn(cols, skip) { return cols.find((c) => c !== skip && /省|区|部门|状态|类别|网点/.test(c)); }
-function firstNumberColumn(cols) { return cols.find((c) => /重量|计费重|金额|派费|费用|价|数量/.test(c)); }
-function firstDateColumn(cols) { return cols.find((c) => /时间|日期|分派|签收|创建/.test(c)); }
+// 指标列：计费重量优于实际重量，金额类优于件数类
+function firstNumberColumn(cols) {
+  const PRI = [/派费|运费/, /计费重/, /金额|费用|价/, /重量/, /数量|件数/];
+  for (const re of PRI) {
+    const hit = cols.find((c) => re.test(c) && !/号码|证件|电话/.test(c));
+    if (hit) return hit;
+  }
+  return cols.find((c) => /重量|金额|价|数量/.test(c)) || null;
+}
+// 时间列得真的叫「…时间/…日期」，不能只要含“签收/分派”就当时间（否则“签收人证件号码”会被误选）
+function firstDateColumn(cols) { return cols.find((c) => /(?:时间|日期)$|(?:时间|日期)(?=[（(])/.test(c) || /分派时间|签收时间|录单时间|创建时间|到件时间/.test(c)); }
 
 /* settle */
 // 派费结算引擎：按「列名」而非「列字母」映射，规则与模板公式等价，可在 Node 与浏览器复用。
