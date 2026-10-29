@@ -56,6 +56,32 @@
     background: #fff; max-width: 100%; }
   .level { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px;
     background: #eee5d5; color: var(--muted); margin-left: 6px; }
+  /* 自定义规则面板 */
+  .custom { border: 2px solid var(--accent); }
+  textarea.rules { width: 100%; min-height: 150px; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffdf7; color: var(--ink);
+    resize: vertical; }
+  textarea.rules:focus-visible { outline: 2px solid var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line);
+    background: #fff; cursor: pointer; color: var(--ink); }
+  .chip:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chip.empty { cursor: default; color: var(--muted); background: transparent; border-style: dashed; }
+  .chip.empty:hover { background: transparent; color: var(--muted); }
+  details.help { margin: 4px 0 12px; font-size: 13px; color: var(--muted); }
+  details.help summary { cursor: pointer; color: var(--ink); }
+  details.help code { background: #f0e9dc; padding: 1px 5px; border-radius: 5px; }
+  details.help table { margin: 8px 0; }
+  details.help td { padding: 3px 8px; border-bottom: 1px dashed var(--line); vertical-align: top; }
+  .rcard { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 0 0 16px; }
+  .rcard h3 { margin: 0 0 4px; font-size: 15px; }
+  .rcard .caliber { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+  .scalar { font-size: 34px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .custom .charts { margin: 4px 0 18px; }
+  .custom .table-wrap { overflow-x: auto; }
+  .rerr { background: #fbe4e0; color: var(--bad); padding: 8px 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
+  .rerr code { background: rgba(255,255,255,.6); padding: 1px 5px; border-radius: 4px; }
+  .rnote { background: #eef3f7; color: #2a5170; padding: 6px 10px; border-radius: 8px; margin-bottom: 6px; font-size: 13px; }
   footer { max-width: 1180px; margin: 0 auto; padding: 0 24px 40px; color: var(--muted); font-size: 12px; }
   @media (max-width: 760px) { .drop-grid { grid-template-columns: 1fr; }
     .map-row { grid-template-columns: 1fr; } }
@@ -88,6 +114,44 @@
     <button id="demo">载入示例（无需文件）</button>
     <button id="export" disabled>下载回填结果</button>
     <span class="hint" id="status"></span>
+  </div>
+
+  <div class="panel custom" id="custom-panel">
+    <h2>③ 自定义统计规则 <span class="level">非标准需求 · 只需拖②原始数据</span></h2>
+    <p class="hint">每行一条规则，<code>#</code> 开头是注释；列名按<b>名字</b>匹配，不依赖列顺序。可与上面①②的标准流程各自独立运行。</p>
+    <details class="help">
+      <summary>支持的写法（点开展开）</summary>
+      <table>
+        <tr><td><code>按 收款员 统计</code></td><td>分组计数</td></tr>
+        <tr><td><code>按 收款员 求和 派费</code></td><td>分组求和（也可 平均 / 最大 / 最小）</td></tr>
+        <tr><td><code>按 收款员 去重 运单号</code></td><td>组内去重计数</td></tr>
+        <tr><td><code>运单号 去重数</code> / <code>总计</code></td><td>标量</td></tr>
+        <tr><td><code>前5 收款员 按 派费</code></td><td>Top-N</td></tr>
+        <tr><td><code>筛选 计费重量 &gt; 40</code></td><td>过滤（可多行叠加；也支持 含/不含/在）</td></tr>
+        <tr><td><code>归类 始发省区 陕西=省内, *=省外</code></td><td>派生分类列「始发省区_归类」</td></tr>
+        <tr><td><code>分档 计费重量 轻:0-40, 重:40-</code></td><td>派生区间列「计费重量_分档」</td></tr>
+        <tr><td><code>收款员 × 始发省区</code><br><code>交叉表 收款员 × 始发省区 求和 派费</code></td><td>交叉表（行 × 列，可加求和）</td></tr>
+        <tr><td><code>按 分派时间 按天 趋势 求和 派费</code></td><td>时间趋势（按年/季/月/周/日）</td></tr>
+        <tr><td><code>{{count:收款员}}</code> <code>{{sum(派费)}}</code> <code>{{top(3)/派费/收款员}}</code></td><td>模板表达式（冒号/括号都行，前面写中文就是标题，如 <code>派费合计 {{sum(派费)}}</code>）</td></tr>
+      </table>
+      <p>提示：每条规则末尾可加 <code>记为 名字</code> 自定义结果标题。</p>
+    </details>
+    <div class="hint">当前可用列（点一下插入到光标处）：</div>
+    <div class="chips" id="col-chips"><span class="chip empty">拖入②原始数据后自动列出</span></div>
+    <textarea id="rules" class="rules" spellcheck="false" placeholder="在这里输入统计规则，比如：&#10;按 收款员 统计&#10;按 收款员 求和 派费"></textarea>
+    <div class="bar">
+      <input type="file" id="pick-rules" accept=".txt,.csv" hidden>
+      <button class="primary" id="run-custom" disabled>运行自定义统计</button>
+      <button id="rules-demo">填入示例规则</button>
+      <button id="rules-clear">清空</button>
+      <button id="rules-load">读取规则文件</button>
+      <button id="export-custom" disabled>下载统计结果 xlsx</button>
+      <span class="hint" id="custom-status"></span>
+    </div>
+    <div id="custom-errors"></div>
+    <div id="custom-notes"></div>
+    <div class="charts" id="custom-charts"></div>
+    <div id="custom-results"></div>
   </div>
 
   <div class="panel" id="spec-panel" hidden>
@@ -238,6 +302,1117 @@ var Fr={},Gr={};var Wr,Hr=function(){function t(t,e,n){var i=this;this._sleepAft
 <script>
 (function(){
 "use strict";
+/* engine */
+// 分类统计引擎 · 纯逻辑，无 DOM / 无三方依赖，可在浏览器与 Node 测试中复用。
+// 设计稿：designs/classify-stats-tool.md
+
+const UNCLASSIFIED = '未分类';
+
+/* ---------- 基础工具 ---------- */
+
+function normalizeHeader(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/[\u200b\u200c\ufeff]/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[（(].*?[)）]/g, '')
+    .replace(/[·、，。“”"'：:；;/\\-]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+// 常见台账列名别名 → 归一化后的规范名。可按行业扩展。
+const ALIASES = {
+  部门: ['部门', '所属部门', '单位', '科室', '机构', '组织', 'dept', 'department'],
+  类别: ['类别', '分类', '类型', '品类', '类目', 'category', 'type', 'kind'],
+  日期: ['日期', '时间', '填报日期', '发生日期', 'date', 'datetime', 'time'],
+  金额: ['金额', '数额', '费用', '价额', 'amount', 'money', 'value'],
+  数量: ['数量', '件数', '数目', 'qty', 'quantity', 'count'],
+  状态: ['状态', '情况', 'status', 'state'],
+  负责人: ['负责人', '经办人', '责任人', '姓名', 'owner'],
+};
+
+const aliasIndex = (() => {
+  const map = new Map();
+  for (const [canonical, list] of Object.entries(ALIASES)) {
+    for (const alias of list) map.set(normalizeHeader(alias), normalizeHeader(canonical));
+  }
+  return map;
+})();
+
+function bigrams(str) {
+  const set = new Set();
+  for (let i = 0; i < str.length - 1; i += 1) set.add(str.slice(i, i + 2));
+  if (str.length === 1) set.add(str);
+  return set;
+}
+
+function similarity(a, b) {
+  const x = normalizeHeader(a);
+  const y = normalizeHeader(b);
+  if (!x || !y) return 0;
+  if (x === y) return 1;
+  if (x.includes(y) || y.includes(x)) return 0.9 - 0.05 * Math.abs(x.length - y.length);
+  const bx = bigrams(x);
+  const by = bigrams(y);
+  let hit = 0;
+  for (const g of bx) if (by.has(g)) hit += 1;
+  const union = bx.size + by.size - hit;
+  return union ? hit / union : 0;
+}
+
+/**
+ * 把模版要求的字段映射到数据实际列名。
+ * @returns {{mapping: Object<string,{column:string|null,score:number,via:string}>, unmatched: string[]}}
+ */
+function autoMap(requiredFields, dataColumns) {
+  const mapping = {};
+  const unmatched = [];
+  const used = new Set();
+  for (const field of requiredFields) {
+    const nf = normalizeHeader(field);
+    let best = null;
+    // 1) 精确/别名
+    for (const col of dataColumns) {
+      if (used.has(col)) continue;
+      const nc = normalizeHeader(col);
+      if (nc === nf || aliasIndex.get(nc) === nf || aliasIndex.get(nf) === nc) {
+        best = { column: col, score: nc === nf ? 1 : 0.95, via: nc === nf ? 'exact' : 'alias' };
+        break;
+      }
+    }
+    // 2) 相似度
+    if (!best) {
+      let top = 0;
+      let topCol = null;
+      for (const col of dataColumns) {
+        if (used.has(col)) continue;
+        const score = similarity(field, col);
+        if (score > top) {
+          top = score;
+          topCol = col;
+        }
+      }
+      if (topCol && top >= 0.55) best = { column: topCol, score: Number(top.toFixed(2)), via: 'fuzzy' };
+    }
+    if (best) {
+      mapping[field] = best;
+      used.add(best.column);
+    } else {
+      mapping[field] = { column: null, score: 0, via: 'none' };
+      unmatched.push(field);
+    }
+  }
+  return { mapping, unmatched };
+}
+
+/* ---------- 模版规格解析 ---------- */
+
+const EXPR_RE = /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*(?::([^}]*?))?\s*\}\}/g;
+
+function parseExpression(text) {
+  const raw = String(text ?? '');
+  EXPR_RE.lastIndex = 0;
+  const m = EXPR_RE.exec(raw);
+  if (!m) return null;
+  let kind = m[1].toLowerCase();
+  const arg = (m[2] || '').trim();
+  const inlineNumber = /^([a-z]+)(\d+)$/.exec(kind);
+  const inlineLimit = inlineNumber && ['top', 'tail'].includes(inlineNumber[1]) ? Number(inlineNumber[2]) : null;
+  if (inlineLimit !== null) kind = inlineNumber[1];
+  const spec = { kind, raw: m[0], arg };
+  if (kind === 'top' || kind === 'tail') spec.limit = inlineLimit;
+  if (kind === 'matrix') {
+    const [rowDim, colDim] = arg.split(/\s*[×x*]\s*/i).map((s) => s.trim());
+    spec.rowDim = rowDim || null;
+    spec.colDim = colDim || null;
+  } else if (kind === 'total' || kind === 'distinct') {
+    spec.measure = kind === 'distinct' ? arg : null;
+    spec.dimension = null;
+  } else {
+    const parts = arg.split('/').map((s) => s.trim()).filter(Boolean);
+    if (kind === 'sum' || kind === 'avg') {
+      spec.measure = parts[0] || null;
+      spec.dimension = parts[1] || null;
+    } else if (kind === 'top') {
+      const headNumber = parts[0]?.match(/^\d+$/);
+      if (!spec.limit) spec.limit = headNumber ? Number(parts[0]) : 5;
+      const rest = headNumber ? parts.slice(1) : parts;
+      spec.measure = rest[0] || null;
+      spec.dimension = rest[1] || null;
+    } else if (kind === 'trend') {
+      const GRAINS = { 年: 'year', quarter: 'quarter', 季: 'quarter', 季度: 'quarter', month: 'month', 月: 'month', 月份: 'month', week: 'week', 周: 'week', day: 'day', 日: 'day', 天: 'day' };
+      let grain = null;
+      const cleaned = [];
+      for (const part of parts) {
+        const at = /@(.+)$/.exec(part);
+        if (at) {
+          grain = GRAINS[at[1].toLowerCase()] || at[1].toLowerCase();
+          cleaned.push(part.replace(/@.+$/, ''));
+        } else if (!grain && GRAINS[part.toLowerCase()]) {
+          grain = GRAINS[part.toLowerCase()];
+        } else {
+          cleaned.push(part);
+        }
+      }
+      spec.timeColumn = cleaned[0] || null;
+      spec.measure = cleaned[1] || null;
+      spec.dimension = spec.timeColumn;
+      spec.grain = grain || 'month';
+    } else {
+      spec.dimension = parts[0] || null;
+      spec.measure = parts[1] || null;
+    }
+  }
+  return spec;
+}
+
+/**
+ * 扫描模版单元格，产出锚点（L1）。
+ * @param {Array<{sheet:string, rows:Array<Array<any>>}>} sheets
+ */
+function findAnchors(sheets) {
+  const anchors = [];
+  for (const { sheet, rows } of sheets) {
+    rows.forEach((row, r) => {
+      row.forEach((cell, c) => {
+        if (cell === null || cell === undefined) return;
+        if (typeof cell === 'object' && !(cell instanceof Date)) return;
+        const spec = parseExpression(cell);
+        if (spec) anchors.push({ ...spec, sheet, r, c });
+      });
+    });
+  }
+  return anchors;
+}
+
+/** 从 `_rule` sheet 读取 L2 声明式规则。 */
+function readRuleSheet(rows) {
+  if (!rows || rows.length < 2) return null;
+  const header = rows[0].map((h) => normalizeHeader(h));
+  const out = {};
+  for (let i = 1; i < rows.length; i += 1) {
+    const row = rows[i];
+    const key = String(row[header.indexOf('field') >= 0 ? header.indexOf('field') : 0] ?? '').trim();
+    const rawValue = row[header.indexOf('value') >= 0 ? header.indexOf('value') : 1];
+    if (!key) continue;
+    out[key] = parseRuleValue(key, rawValue);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function parseRuleValue(key, raw) {
+  const str = String(raw ?? '').trim();
+  if (key === 'maps') {
+    try {
+      const obj = JSON.parse(str);
+      return Object.entries(obj).map(([pattern, target]) => ({ pattern, target }));
+    } catch {
+      return str.split(/[;；]/).filter(Boolean).map((pair) => {
+        const [pattern, target] = pair.split(/[:：]/);
+        return { pattern, target };
+      });
+    }
+  }
+  if (key === 'bins') {
+    return str.split(/[,，]/).map((seg) => {
+      const [label, bounds] = seg.split(/[:：]/);
+      if (!bounds) return null;
+      const [lo, hi] = bounds.split(/[-~]/).map((n) => Number(String(n).replace(/[^0-9.\-]/g, '')));
+      return { label: String(label).trim(), lo: Number.isFinite(lo) ? lo : -Infinity, hi: Number.isFinite(hi) ? hi : Infinity };
+    }).filter(Boolean);
+  }
+  if (key === 'filters') {
+    return str.split(/[,，]/).map((f) => f.trim()).filter(Boolean);
+  }
+  if (key === 'dimensions' || key === 'measures') {
+    return str.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+  }
+  return str;
+}
+
+/* ---------- 类型与取值处理 ---------- */
+
+const DATE_RE = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?/;
+
+function parseDate(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === 'number' && value > 20000 && value < 80000) {
+    // Excel 序列日期
+    return new Date(Math.round((value - 25569) * 86400 * 1000));
+  }
+  const str = String(value ?? '').trim();
+  const m = DATE_RE.exec(str);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const parsed = Date.parse(str);
+  return Number.isNaN(parsed) ? null : new Date(parsed);
+}
+
+function parseNumber(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const str = String(value ?? '').replace(/[,\s￥¥$]/g, '').replace(/[（(](.*)[)）]$/, '-$1');
+  if (!str) return null;
+  const n = Number(str);
+  return Number.isFinite(n) ? n : null;
+}
+
+function timeBucket(date, grain) {
+  if (!date) return UNCLASSIFIED;
+  const y = date.getFullYear();
+  const mo = date.getMonth() + 1;
+  const pad = (n) => String(n).padStart(2, '0');
+  switch (grain) {
+    case 'year':
+      return `${y}`;
+    case 'quarter':
+      return `${y}Q${Math.ceil(mo / 3)}`;
+    case 'week': {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      const day = (d.getDay() + 6) % 7;
+      d.setDate(d.getDate() - day + 3);
+      const firstThursday = new Date(d.getFullYear(), 0, 4);
+      const week = 1 + Math.round(((d - firstThursday) / 86400000 - 3 + ((firstThursday.getDay() + 6) % 7)) / 7);
+      return `${d.getFullYear()}-W${pad(week)}`;
+    }
+    case 'day':
+      return `${y}-${pad(mo)}-${pad(date.getDate())}`;
+    case 'month':
+    default:
+      return `${y}-${pad(mo)}`;
+  }
+}
+
+function applyMap(value, rules) {
+  const str = String(value ?? '').trim();
+  if (!str) return UNCLASSIFIED;
+  for (const { pattern, target } of rules || []) {
+    if (!pattern) continue;
+    const parts = String(pattern).split('|');
+    if (parts.some((p) => p && str.includes(p))) return String(target);
+  }
+  return str;
+}
+
+function binNumber(value, bins) {
+  const n = parseNumber(value);
+  if (n === null) return UNCLASSIFIED;
+  for (const b of bins) if (n >= b.lo && n < b.hi) return b.label;
+  return UNCLASSIFIED;
+}
+
+/* ---------- 过滤 ---------- */
+
+function applyFilters(rows, filters, columns) {
+  if (!filters || !filters.length) return { rows, dropped: [] };
+  const conds = filters.map((f) => {
+    const m = /^\s*(.+?)\s*(!=|>=|<=|>|<|=|不包含|不含|包含|含|不在|在)\s*(.+?)\s*$/.exec(f);
+    if (!m) return null;
+    return { column: m[1].trim(), op: m[2], value: m[3].replace(/^["']|["']$/g, '') };
+  }).filter(Boolean);
+  const kept = [];
+  const dropped = [];
+  for (const row of rows) {
+    const ok = conds.every(({ column, op, value }) => {
+      const cellKey = Object.keys(row).find((k) => normalizeHeader(k) === normalizeHeader(column));
+      const raw = cellKey ? row[cellKey] : '';
+      const rawStr = String(raw ?? '').trim();
+      const valStr = String(value ?? '').trim();
+      // 文本类运算：包含 / 不包含 / 在列表 / 不在列表
+      if (op === '含' || op === '包含') return rawStr.includes(valStr);
+      if (op === '不含' || op === '不包含') return !rawStr.includes(valStr);
+      if (op === '在' || op === '不在') {
+        const list = valStr.split(/[|,，、]/).map((s) => s.trim()).filter(Boolean);
+        const hit = list.some((item) => item === rawStr || normalizeHeader(item) === normalizeHeader(rawStr));
+        return op === '在' ? hit : !hit;
+      }
+      // 数值/字符串比较
+      const asNum = parseNumber(raw);
+      const cmpNum = parseNumber(value);
+      // 右值是数字时，非数字单元格不能参与大小比较（否则 'abc' > '400' 会按字符串误判为真）
+      if (cmpNum !== null && asNum === null) return false;
+      const left = cmpNum !== null ? asNum : rawStr;
+      const right = cmpNum !== null ? cmpNum : valStr;
+      switch (op) {
+        case '!=': return left !== right;
+        case '=': return left === right;
+        case '>': return left > right;
+        case '<': return left < right;
+        case '>=': return left >= right;
+        case '<=': return left <= right;
+        default: return true;
+      }
+    });
+    if (ok) kept.push(row);
+    else dropped.push(row);
+  }
+  return { rows: kept, dropped };
+}
+
+/* ---------- 聚合 ---------- */
+
+function resolveColumn(rows, name) {
+  if (!name) return null;
+  const sample = rows.find((r) => Object.keys(r).length) || {};
+  const keys = Object.keys(sample);
+  const target = normalizeHeader(name);
+  return keys.find((k) => normalizeHeader(k) === target)
+    || keys.find((k) => aliasIndex.get(normalizeHeader(k)) === target)
+    || keys.find((k) => aliasIndex.get(target) === normalizeHeader(k))
+    || keys.find((k) => similarity(name, k) >= 0.55)
+    || null;
+}
+
+function aggregate({ rows, dimension, measure = null, agg = 'count', top = null, sort = 'value' }) {
+  const dimCol = resolveColumn(rows, dimension);
+  if (!dimCol) return { ok: false, error: `找不到维度列「${dimension}」`, groups: [], reconciled: null };
+  const measCol = measure ? resolveColumn(rows, measure) : null;
+  if (measure && !measCol) return { ok: false, error: `找不到指标列「${measure}」`, groups: [], reconciled: null };
+
+  const buckets = new Map();
+  const distinctSets = new Map();
+  let skipped = 0;
+  for (const row of rows) {
+    const key = String(row[dimCol] ?? '').trim() || UNCLASSIFIED;
+    if (!buckets.has(key)) {
+      buckets.set(key, { label: key, count: 0, sum: 0, values: [] });
+      distinctSets.set(key, new Set());
+    }
+    const b = buckets.get(key);
+    b.count += 1;
+    if (measCol) {
+      const n = parseNumber(row[measCol]);
+      if (n === null) {
+        const text = String(row[measCol] ?? '').trim();
+        if (text) b.values.push(text);
+      } else {
+        b.sum += n;
+        b.values.push(n);
+      }
+    }
+    if (agg === 'distinct') {
+      const v = String(row[(agg === 'distinct' ? measure : dimCol) || measCol || dimCol] ?? '').trim();
+      if (v) distinctSets.get(key).add(v);
+    }
+  }
+
+  let groups = [...buckets.entries()].map(([label, b]) => {
+    let value;
+    switch (agg) {
+      case 'sum': value = b.sum; break;
+      case 'avg': value = b.count ? b.sum / b.count : 0; break;
+      case 'max': value = b.values.filter((v) => typeof v === 'number').reduce((a, c) => Math.max(a, c), -Infinity); break;
+      case 'min': value = b.values.filter((v) => typeof v === 'number').reduce((a, c) => Math.min(a, c), Infinity); break;
+      case 'distinct': value = distinctSets.get(label).size; break;
+      default: value = b.count;
+    }
+    if (!Number.isFinite(value)) value = 0;
+    return { label, count: b.count, value: Number(value.toFixed(value >= 100 ? 0 : 2)) };
+  });
+
+  const total = rows.length;
+  const denom = agg === 'count' ? total : groups.reduce((a, g) => a + g.value, 0) || 1;
+  groups = groups.map((g) => ({ ...g, pct: Number(((g.value / denom) * 100).toFixed(2)) }));
+  groups.sort((a, b) => (sort === 'label' ? String(a.label).localeCompare(String(b.label), 'zh') : b.value - a.value));
+
+  const reconciled = agg === 'count'
+    ? { ok: groups.reduce((a, g) => a + g.count, 0) === total, expected: total, actual: groups.reduce((a, g) => a + g.count, 0) }
+    : { ok: true, expected: total, actual: total };
+
+  if (top) groups = groups.slice(0, top);
+  return {
+    ok: true,
+    groups,
+    reconciled,
+    total,
+    meta: { dimension: dimCol, measure: measCol || null, agg, top: top || null, sort },
+    caliber: `按「${dimCol}」${agg === 'count' ? '计数' : `${agg}(${measCol})`}，样本 ${total} 行，过滤后口径`,
+  };
+}
+
+function crossTab({ rows, rowDim, colDim, agg = 'count', measure = null }) {
+  const rCol = resolveColumn(rows, rowDim);
+  const cCol = resolveColumn(rows, colDim);
+  if (!rCol || !cCol) return { ok: false, error: `交叉维度缺失：${rowDim}/${colDim}` };
+  const rowSet = new Map();
+  const colLabels = new Set();
+  let cells = 0;
+  for (const row of rows) {
+    const r = String(row[rCol] ?? '').trim() || UNCLASSIFIED;
+    const c = String(row[cCol] ?? '').trim() || UNCLASSIFIED;
+    colLabels.add(c);
+    if (!rowSet.has(r)) rowSet.set(r, new Map());
+    const cell = rowSet.get(r);
+    const n = measure ? parseNumber(row[resolveColumn(rows, measure)]) ?? 0 : 1;
+    cell.set(c, (cell.get(c) || 0) + n);
+    cells += 1;
+  }
+  const cols = [...colLabels].sort((a, b) => String(a).localeCompare(String(b), 'zh'));
+  const matrix = [...rowSet.entries()].map(([r, m]) => ({
+    label: r,
+    values: cols.map((c) => Number((m.get(c) || 0).toFixed(2))),
+    total: cols.reduce((a, c) => a + (m.get(c) || 0), 0),
+  }));
+  return {
+    ok: true,
+    cols,
+    matrix,
+    cells,
+    reconciled: { ok: cells === rows.length, expected: rows.length, actual: cells },
+    meta: { rowDim: rCol, colDim: cCol, agg, measure: measure || null },
+    caliber: `「${rCol}」×「${cCol}」交叉${agg === 'count' ? '计数' : `求和(${measure})`}，共 ${cells} 格`,
+  };
+}
+
+function series({ rows, timeColumn, measure = null, agg = 'count', grain = 'month' }) {
+  const tCol = resolveColumn(rows, timeColumn);
+  if (!tCol) return { ok: false, error: `找不到时间列「${timeColumn}」` };
+  const buckets = new Map();
+  let unparsed = 0;
+  for (const row of rows) {
+    const d = parseDate(row[tCol]);
+    if (!d) { unparsed += 1; continue; }
+    const key = timeBucket(d, grain);
+    const mCol = measure ? resolveColumn(rows, measure) : null;
+    const n = mCol ? parseNumber(row[mCol]) ?? 0 : 1;
+    const acc = buckets.get(key) || { count: 0, sum: 0 };
+    acc.count += 1;
+    acc.sum += n;
+    buckets.set(key, acc);
+  }
+  const labels = [...buckets.keys()].sort();
+  const values = labels.map((k) => {
+    const acc = buckets.get(k);
+    const v = agg === 'avg' ? acc.sum / (acc.count || 1) : agg === 'count' ? acc.count : acc.sum;
+    return Number(v.toFixed(2));
+  });
+  return {
+    ok: true,
+    labels,
+    values,
+    unparsed,
+    reconciled: { ok: labels.length > 0, expected: rows.length, actual: rows.length - unparsed },
+    meta: { timeColumn: tCol, grain, measure: measure || null, agg },
+    caliber: `按${{ year: '年', quarter: '季', month: '月', week: '周', day: '日' }[grain] || '月'}汇总，${unparsed ? `${unparsed} 行日期无法解析` : '日期全部解析成功'}`,
+  };
+}
+
+function enrich(rows, { columns, maps = null, bins = null, timeColumn = null, grain = 'month' }) {
+  const out = rows.map((r) => ({ ...r }));
+  if (maps) {
+    for (const [name, rules] of Object.entries(maps)) {
+      const col = resolveColumn(rows, name);
+      if (!col) continue;
+      const target = `${name}_分类`;
+      out.forEach((r) => { r[target] = applyMap(r[col], rules); });
+      columns.push(target);
+    }
+  }
+  if (bins) {
+    for (const [name, spec] of Object.entries(bins)) {
+      const col = resolveColumn(rows, name);
+      if (!col) continue;
+      const target = `${name}_分档`;
+      out.forEach((r) => { r[target] = binNumber(r[col], spec); });
+      columns.push(target);
+    }
+  }
+  if (timeColumn) {
+    const col = resolveColumn(rows, timeColumn);
+    if (col) {
+      const target = `${timeColumn}_${grain}`;
+      out.forEach((r) => { r[target] = timeBucket(parseDate(r[col]), grain); });
+      columns.push(target);
+    }
+  }
+  return { rows: out, columns };
+}
+
+/* ---------- 校验与对账 ---------- */
+
+function validate(rows, mapping, anchors) {
+  const issues = [];
+  if (!rows.length) issues.push({ level: 'block', code: 'EMPTY', message: '原始数据没有可用数据行' });
+  for (const [field, m] of Object.entries(mapping)) {
+    if (!m.column) issues.push({ level: 'block', code: 'UNMAPPED', message: `模版字段「${field}」在数据中找不到对应列，请手动指定`, field });
+  }
+  const dirty = [];
+  for (const anchor of anchors) {
+    if (anchor.measure) {
+      const col = resolveColumn(rows, anchor.measure);
+      if (!col) continue;
+      let bad = 0;
+      for (const r of rows) if (parseNumber(r[col]) === null && String(r[col] ?? '').trim() !== '') bad += 1;
+      if (bad) dirty.push({ column: col, bad, message: `「${col}」有 ${bad} 行无法按数值解析` });
+    }
+  }
+  dirty.forEach((d) => issues.push({ level: 'warn', code: 'DIRTY_NUMBER', message: d.message, column: d.column }));
+  return { issues, blocking: issues.filter((i) => i.level === 'block') };
+}
+
+/* ---------- 模版表达式 → 计算任务 ---------- */
+
+function planAnchors(anchors, rows) {
+  const tasks = [];
+  for (const anchor of anchors) {
+    const base = { anchorId: `${anchor.sheet}:${anchor.r}:${anchor.c}`, sheet: anchor.sheet, r: anchor.r, c: anchor.c, raw: anchor.raw };
+    switch (anchor.kind) {
+      case 'total':
+        tasks.push({ ...base, type: 'scalar', run: () => ({ value: rows.length, caliber: `总行数 ${rows.length}` }) });
+        break;
+      case 'distinct':
+        tasks.push({ ...base, type: 'scalar', run: () => {
+          const col = resolveColumn(rows, anchor.measure);
+          const set = new Set(rows.map((r) => String(r[col] ?? '').trim()).filter(Boolean));
+          return { value: set.size, caliber: `「${col || anchor.measure}」去重计数` };
+        } });
+        break;
+      case 'count':
+      case 'pct':
+        tasks.push({ ...base, type: 'table', run: () => aggregate({ rows, dimension: anchor.dimension, agg: 'count' }) });
+        break;
+      case 'sum':
+      case 'avg':
+        tasks.push({ ...base, type: 'table', run: () => aggregate({ rows, dimension: anchor.dimension, measure: anchor.measure, agg: anchor.kind }) });
+        break;
+      case 'top':
+        tasks.push({ ...base, type: 'table', run: () => aggregate({ rows, dimension: anchor.dimension, measure: anchor.measure, agg: anchor.measure ? 'sum' : 'count', top: anchor.limit }) });
+        break;
+      case 'trend':
+        tasks.push({ ...base, type: 'series', run: () => series({ rows, timeColumn: anchor.timeColumn || anchor.dimension, measure: anchor.measure, grain: anchor.grain, agg: anchor.measure ? 'sum' : 'count' }) });
+        break;
+      case 'matrix':
+        tasks.push({ ...base, type: 'matrix', run: () => crossTab({ rows, rowDim: anchor.rowDim, colDim: anchor.colDim }) });
+        break;
+      default:
+        tasks.push({ ...base, type: 'error', run: () => ({ ok: false, error: `未知表达式 ${anchor.raw}` }) });
+    }
+  }
+  return tasks;
+}
+
+function runPlan(tasks) {
+  return tasks.map((t) => {
+    const result = t.run();
+    return { task: t, result };
+  });
+}
+
+/* ---------- L0：仅表头的模版 ---------- */
+
+function inferFromOutputHeader(headerCells) {
+  const fields = headerCells.map((h) => String(h ?? '').trim()).filter(Boolean);
+  const dimensions = [];
+  const metrics = [];
+  for (const field of fields) {
+    const nf = normalizeHeader(field);
+    if (/数量|个数|件数|计数|条数|^count/.test(nf)) metrics.push({ field, agg: 'count', label: field });
+    else if (/占比|百分比|比例|%/.test(nf)) metrics.push({ field, agg: 'pct', label: field });
+    else if (/合计|总额|总金额|求和|sum/.test(nf)) metrics.push({ field, agg: 'sum', label: field });
+    else if (/均值|平均|avg/.test(nf)) metrics.push({ field, agg: 'avg', label: field });
+    else if (/排名|top/.test(nf)) metrics.push({ field, agg: 'top', label: field });
+    else dimensions.push(field);
+  }
+  return { level: 'L0', fields, dimensions, metrics };
+}
+
+function buildL0Tasks({ rows, inferred, dimensionColumn, measureColumn }) {
+  const out = [];
+  for (const metric of inferred.metrics) {
+    if (metric.agg === 'pct') {
+      out.push({ anchorId: `L0:${metric.field}`, sheet: null, r: null, c: null, raw: metric.field, type: 'table',
+        run: () => aggregate({ rows, dimension: dimensionColumn, agg: 'count' }) });
+    } else if (metric.agg === 'sum' || metric.agg === 'avg') {
+      out.push({ anchorId: `L0:${metric.field}`, sheet: null, r: null, c: null, raw: metric.field, type: 'table',
+        run: () => aggregate({ rows, dimension: dimensionColumn, measure: measureColumn, agg: metric.agg }) });
+    } else if (metric.agg === 'top') {
+      out.push({ anchorId: `L0:${metric.field}`, sheet: null, r: null, c: null, raw: metric.field, type: 'table',
+        run: () => aggregate({ rows, dimension: dimensionColumn, measure: measureColumn, agg: measureColumn ? 'sum' : 'count', top: 5 }) });
+    } else {
+      out.push({ anchorId: `L0:${metric.field}`, sheet: null, r: null, c: null, raw: metric.field, type: 'table',
+        run: () => aggregate({ rows, dimension: dimensionColumn, agg: 'count' }) });
+    }
+  }
+  return out;
+}
+
+/* rules */
+// 自定义统计规则：把一段「人话规则」解析成计算任务，跑在原始数据上。
+// 纯逻辑，无 DOM、无三方依赖；复用 engine.mjs 的聚合原语。可被浏览器与 Node 共用。
+//
+// 规则是分行的，一行一条，井号 # 开头是注释。支持：
+//   筛选 <列> <算符> <值>      —— 逐条叠加过滤（AND）。算符：> >= < <= = != 含 不含 在
+//   归类 <列> 关键词=目标, *=其他 —— 派生「<列>_归类」分类列（按包含匹配，*=兜底）
+//   分档 <列> 标签:下限-上限, …  —— 派生「<列>_分档」区间列
+//   按 <维度> 统计|计数          —— 分组计数
+//   按 <维度> 求和|合计 <指标>    —— 分组求和
+//   按 <维度> 平均|均值 <指标>    —— 分组均值
+//   按 <维度> 去重 <指标>         —— 分组内去重计数
+//   <列> 去重数                   —— 整列去重计数（标量）
+//   总计|行数                     —— 总行数（标量）
+//   前<N> <维度> 按 <指标>        —— Top-N
+//   <行维度> × <列维度>           —— 交叉表（计数；可加 求和 <指标>）
+//   按 <时间列> 趋势 [按日/周/月/季/年] [求和 <指标>]
+//   {{count:部门}} 等模板表达式也直接支持（原样交给引擎解析）
+
+const GRAIN_WORDS = [
+  { re: /按\s*年|每年|year/i, grain: 'year' },
+  { re: /按\s*季|每季|季度|季\b|quarter/i, grain: 'quarter' },
+  { re: /按\s*月|每月|month/i, grain: 'month' },
+  { re: /按\s*周|每\s*周|星期|week/i, grain: 'week' },
+  { re: /按\s*[日天]|每\s*[日天]|每天|每日|day/i, grain: 'day' },
+];
+
+/** 把表头 + 二维数组转成「按列名索引」的对象数组（引擎的输入形态）。 */
+function rowsToObjects(header, rows) {
+  const cols = (header || []).map((h, i) => {
+    const base = String(h ?? '').trim() || `第${i + 1}列`;
+    return base;
+  });
+  // 同名列加序号后缀，避免后者覆盖前者
+  const seen = new Map();
+  const unique = cols.map((c) => {
+    const k = normalizeHeader(c);
+    const n = (seen.get(k) || 0) + 1;
+    seen.set(k, n);
+    return n === 1 ? c : `${c}(${n})`;
+  });
+  const out = [];
+  for (const row of rows || []) {
+    if (!row || row.every((v) => v === null || v === undefined || String(v).trim() === '')) continue;
+    const obj = {};
+    unique.forEach((name, i) => { obj[name] = row[i] === undefined ? null : row[i]; });
+    out.push(obj);
+  }
+  return { columns: unique, rows: out };
+}
+
+/** 合并多份数据源为统一列集合（列名取并集，缺失补空）。 */
+function mergeSources(sources) {
+  const columns = [];
+  const colSet = new Set();
+  for (const s of sources || []) {
+    for (const c of s.header || []) {
+      const k = normalizeHeader(c);
+      if (!colSet.has(k)) { colSet.add(k); columns.push(String(c ?? '').trim() || `第${columns.length + 1}列`); }
+    }
+  }
+  const rows = [];
+  for (const s of sources || []) {
+    const idx = columns.map((name) => (s.header || []).findIndex((h) => normalizeHeader(h) === normalizeHeader(name)));
+    for (const row of s.rows || []) {
+      if (!row || row.every((v) => v === null || v === undefined || String(v).trim() === '')) continue;
+      const obj = {};
+      columns.forEach((name, ci) => { const si = idx[ci]; obj[name] = si >= 0 && row[si] !== undefined ? row[si] : null; });
+      rows.push(obj);
+    }
+  }
+  return { columns, rows };
+}
+
+/* ---------- 解析 ---------- */
+
+// 拆分「归类 / 分档」里的逗号项，但忽略括号、引号内的逗号
+function splitTop(str, sep = ',') {
+  const out = [];
+  let depth = 0, buf = '', quote = '';
+  for (const ch of str) {
+    if (quote) { buf += ch; if (ch === quote) quote = ''; continue; }
+    if (ch === '"' || ch === "'") { quote = ch; buf += ch; continue; }
+    if ('([{（【'.includes(ch)) depth++;
+    if (')]）}】'.includes(ch)) depth--;
+    if (ch === sep && depth === 0) { out.push(buf); buf = ''; continue; }
+    buf += ch;
+  }
+  if (buf.trim()) out.push(buf);
+  return out.map((s) => s.trim()).filter(Boolean);
+}
+
+function parseBinSegment(seg) {
+  // 形如 轻:0-40 / 轻:0~40 / 重:40以上 / 中:40-100
+  const m = /^\s*([^:：]+?)\s*[:：]\s*(.+?)\s*$/.exec(seg);
+  if (!m) return null;
+  const label = m[1].trim();
+  const range = m[2].replace(/以上|往上|起/g, '').trim();
+  let lo, hi;
+  if (/^[-~]/.test(range)) { lo = -Infinity; hi = numOr(range.replace(/^[-~]/, ''), Infinity); }
+  else if (/[-~]$/.test(range)) { lo = numOr(range.replace(/[-~]$/, ''), 0); hi = Infinity; }
+  else if (/[-~]/.test(range)) { const [a, b] = range.split(/[-~]/); lo = numOr(a, 0); hi = numOr(b, Infinity); }
+  else { lo = numOr(range, 0); hi = Infinity; }
+  if (lo === -Infinity && hi === Infinity) return null;
+  return { label, lo, hi };
+}
+function numOr(s, dflt) {
+  const n = parseNumber(String(s).replace(/(元|kg|千克|公斤|单|份|条)/g, ''));
+  return n === null ? dflt : n;
+}
+
+/**
+ * 解析整段规则文本。
+ * @returns {{filters:string[], maps:Array, bins:Array, tasks:Array, comments:string[], errors:Array<{line:number,text:string,reason:string}>}}
+ */
+function parseRules(text) {
+  const out = { filters: [], maps: [], bins: [], tasks: [], comments: [], errors: [] };
+  const lines = String(text ?? '').split(/\r?\n/);
+  let tid = 0;
+  lines.forEach((rawLine, i) => {
+    const lineNo = i + 1;
+    const line = rawLine.trim();
+    if (!line) return;
+    if (/^#|^\/\//.test(line)) { out.comments.push(line.replace(/^#|^\/\//, '').trim()); return; }
+
+    // 全局指令：筛选 / 归类 / 分档
+    let m;
+    if ((m = /^(?:筛选|过滤|条件|where)\s+(.+)$/i.exec(line))) {
+      out.filters.push(m[1].trim());
+      return;
+    }
+    if ((m = /^(?:归类|映射|分类规则|map)\s+(.+)$/i.exec(line))) {
+      const parsed = parseMapClause(m[1]);
+      if (!parsed) out.errors.push({ line: lineNo, text: line, reason: '归类格式应为：归类 列名 关键词=目标, *=其他' });
+      else out.maps.push(parsed);
+      return;
+    }
+    if ((m = /^(?:分档|分段|区间|bin)\s+(.+)$/i.exec(line))) {
+      const parsed = parseBinClause(m[1]);
+      if (!parsed) out.errors.push({ line: lineNo, text: line, reason: '分档格式应为：分档 列名 标签:下限-上限, …' });
+      else out.bins.push(parsed);
+      return;
+    }
+
+    const task = parseStatLine(line);
+    if (task && task.error) { out.errors.push({ line: lineNo, text: line, reason: task.error }); return; }
+    if (task) out.tasks.push({ id: `t${tid++}`, raw: line, ...task });
+    else out.errors.push({ line: lineNo, text: line, reason: '看不懂这行；用「按X统计Y」/「筛选 …」/ 或模板表达式 {{count:X}}' });
+  });
+  return out;
+}
+
+function parseMapClause(rest) {
+  // 列名 关键词=目标, 关键词2=目标2, *=其他
+  const parts = splitTop(rest, ' ');
+  if (parts.length < 2) return null;
+  const column = parts[0];
+  const rulesSrc = parts.slice(1).join(' ');
+  const rules = splitTop(rulesSrc).map((pair) => {
+    const kv = /^([^=＝]+)[=＝]([^=＝]*)$/.exec(pair.trim());
+    if (!kv) return null;
+    return { pattern: kv[1].trim(), target: (kv[2] || '').trim() || UNCLASSIFIED, catchAll: kv[1].trim() === '*' };
+  }).filter(Boolean);
+  if (!rules.length) return null;
+  return { column, rules };
+}
+
+function parseBinClause(rest) {
+  const parts = splitTop(rest, ' ');
+  if (parts.length < 2) return null;
+  const column = parts[0];
+  const bins = splitTop(parts.slice(1).join(' ')).map(parseBinSegment).filter(Boolean);
+  if (!bins.length) return null;
+  return { column, bins };
+}
+
+function stripName(line) {
+  // 末尾「记为 X / 命名为 X / as X」→ 结果标题
+  let name = null;
+  const m = /(?:记为|命名为|取名|叫做|\bas\b)\s*[:：]?\s*(.+)$/i.exec(line);
+  if (m) { name = m[1].trim(); line = line.slice(0, m.index).trim(); }
+  return { line, name };
+}
+
+function detectGrain(text) {
+  for (const g of GRAIN_WORDS) if (g.re.test(text)) return g.grain;
+  return null;
+}
+
+const AGG_WORDS = { 求和: 'sum', 合计: 'sum', 总和: 'sum', sum: 'sum', 平均: 'avg', 均值: 'avg', 均: 'avg', avg: 'avg', 最大: 'max', 最高: 'max', max: 'max', 最小: 'min', 最低: 'min', min: 'min', 去重: 'distinct', 统计: 'count', 计数: 'count', 数量: 'count', 个数: 'count', count: 'count' };
+
+function parseStatLine(raw) {
+  let { line, name } = stripName(raw);
+
+  // 模板表达式直接放行（{{sum:运费}} 与 {{sum(运费)}} 两种写法都收；前缀可当标题）
+  if (/\{\{.+?\}\}/.test(line)) {
+    const spec = parseExpression(line.replace(/\{\{\s*([A-Za-z][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(\/[^}]*)?\}\}/g, '{{$1:$2$3}}'));
+    if (!spec) return { error: '表达式无法解析；写成 {{count:列名}} 或 {{sum:运费/收款员}}' };
+    const label = line.slice(0, line.indexOf('{{')).replace(/[=：:，、\s]+$/, '').trim();
+    return { fromExpression: spec, name: name || label || null };
+  }
+
+  // 标量：总计 / 行数 / <列> 去重数
+  if (/^(总计|总数|行数|总量|记录数|total)$/i.test(line)) return { kind: 'total', name };
+  {
+    const m = /^(.+?)\s*(?:去重(?:数|计数)?|有多少(?:种|个|不同)|distinct)\s*$/i.exec(line);
+    if (m && !/^按/.test(line)) return { kind: 'distinct', measure: m[1].trim(), name };
+  }
+
+  // Top-N
+  {
+    const m = /^前\s*(\d+)\s*(.+?)(?:\s*(?:按|根据)\s*(.+))?$/i.exec(line);
+    if (m) return { kind: 'top', limit: Number(m[1]), dimension: m[2].trim(), measure: (m[3] || '').trim() || null, name };
+  }
+
+  // 交叉表：<行> × <列> [求和 <指标>]；允许加「交叉表/透视表/列联表」前缀
+  {
+    const m = /^(?:(?:交叉|透视|列联)\s*表?\s+)?(.+?)\s*[×x*]\s*(.+?)(?:\s*(?:求和|合计|sum)\s*(.+))?$/i.exec(line);
+    if (m && /[×x*]/.test(line)) {
+      return { kind: 'matrix', rowDim: m[1].trim(), colDim: m[2].trim(), measure: (m[3] || '').trim() || null, name };
+    }
+    const c = /^交叉\s+(.+?)\s+(.+?)(?:\s*(?:求和|合计)\s*(.+))?$/.exec(line);
+    if (c) return { kind: 'matrix', rowDim: c[1].trim(), colDim: c[2].trim(), measure: (c[3] || '').trim() || null, name };
+  }
+
+  // 趋势：含“趋势/走势”关键词，或「时间列 + 按grain」结构（formB）
+  {
+    const hasTrendWord = /趋势|走势|随时间|按时间/.test(line);
+    const formB = /^(?:按\s*)?(.+?)\s+(按年|按季|按季度|按月|按周|按日|按天)\s*(?:(?:求和|合计|平均|均值)\s*(.+))?$/.exec(line);
+    if (hasTrendWord || formB) {
+      let timeColumn = null, measure = null, grain = detectGrain(line) || 'month';
+      if (formB) {
+        timeColumn = formB[1].trim();
+        measure = (formB[3] || '').trim() || null;
+        grain = detectGrain(formB[2]) || grain;
+      } else {
+        const mm = /^(?:按\s*)?(.+?)\s*(?:趋势|走势)/.exec(line);
+        let raw = (mm ? mm[1] : line).replace(/按年|按季|按\s*季|季度|按月|按周|按日|按天|每天|每日/g, '').trim();
+        const tm = /时间列\s*[:：]\s*(.+?)(?:\s|$)/.exec(line);
+        timeColumn = (raw || (tm ? tm[1].trim() : '')).trim();
+        const sm = /(?:求和|合计|平均|均值)\s*(.+?)\s*$/.exec(line);
+        measure = sm ? sm[1].trim() : null;
+      }
+      if (!timeColumn) return { error: '趋势需要指定时间列，如：按 分派时间 按天 趋势' };
+      return { kind: 'trend', timeColumn, measure, grain, name };
+    }
+  }
+
+  // 分组：按 <维度> <聚合> [指标]
+  {
+    const m = /^按\s*(.+?)\s+(统计|计数|数量|个数|count|求和|合计|总和|sum|平均|均值|avg|最大|最高|max|最小|最低|min|去重|去重计数|distinct)(?:\s+(.+))?$/i.exec(line);
+    if (m) {
+      const agg = AGG_WORDS[m[2].toLowerCase()] || AGG_WORDS[m[2]] || 'count';
+      const dimension = m[1].trim();
+      const measure = (m[3] || '').trim() || null;
+      if (agg === 'distinct') return { kind: 'groupDistinct', dimension, measure, name };
+      if (agg === 'count') return { kind: 'count', dimension, name };
+      if (!measure) return { error: `${m[2]}需要再给一个指标列，如：按 收款员 求和 派费` };
+      return { kind: agg, dimension, measure, name };
+    }
+  }
+  // 「统计 <维度>」倒装
+  {
+    const m = /^(?:统计|计数)\s+(.+)$/.exec(line);
+    if (m) return { kind: 'count', dimension: m[1].trim(), name };
+  }
+
+  return null;
+}
+
+/* ---------- 执行 ---------- */
+
+function applyMaps(rows, column, rules) {
+  const col = resolveColumn(rows, column);
+  if (!col) return null;
+  const target = `${column}_归类`;
+  for (const r of rows) {
+    const str = String(r[col] ?? '').trim();
+    let value = str || UNCLASSIFIED;
+    let hit = false;
+    for (const rule of rules) {
+      if (rule.catchAll) { value = rule.target; hit = true; break; }
+      const parts = String(rule.pattern).split('|');
+      if (parts.some((p) => p && str.includes(p))) { value = rule.target; hit = true; break; }
+    }
+    if (!hit) value = str || UNCLASSIFIED;
+    r[target] = value;
+  }
+  return target;
+}
+
+function applyBins(rows, column, bins) {
+  const col = resolveColumn(rows, column);
+  if (!col) return null;
+  const target = `${column}_分档`;
+  for (const r of rows) {
+    const n = parseNumber(r[col]);
+    let value = UNCLASSIFIED;
+    if (n !== null) { const b = bins.find((bb) => n >= bb.lo && n < bb.hi); if (b) value = b.label; }
+    r[target] = value;
+  }
+  return target;
+}
+
+function titleFor(task, columns) {
+  if (task.name) return task.name;
+  switch (task.kind) {
+    case 'count': return `按「${task.dimension}」计数`;
+    case 'sum': return `按「${task.dimension}」合计「${task.measure}」`;
+    case 'avg': return `按「${task.dimension}」平均「${task.measure}」`;
+    case 'max': return `按「${task.dimension}」最大「${task.measure}」`;
+    case 'min': return `按「${task.dimension}」最小「${task.measure}」`;
+    case 'groupDistinct': return `按「${task.dimension}」去重计数「${task.measure || ''}」`;
+    case 'distinct': return `「${task.measure}」去重数`;
+    case 'total': return '总行数';
+    case 'top': return `前${task.limit}「${task.dimension}」${task.measure ? `按「${task.measure}」` : ''}`;
+    case 'matrix': return `「${task.rowDim}」×「${task.colDim}」${task.measure ? `合计「${task.measure}」` : ''}`;
+    case 'trend': return `「${task.timeColumn}」按${{ year: '年', quarter: '季', month: '月', week: '周', day: '日' }[task.grain]}趋势${task.measure ? `·「${task.measure}」` : ''}`;
+    default: return task.raw || '统计';
+  }
+}
+
+/**
+ * 按解析好的规则跑数。
+ * @param {{columns:string[], rows:object[]}} data
+ * @param {ReturnType<parseRules>} parsed
+ */
+function runRules(data, parsed) {
+  const { columns, rows } = data;
+  const notes = [];
+  const errors = [...(parsed.errors || [])];
+
+  // 1) 过滤
+  let working = rows.map((r) => ({ ...r }));
+  const beforeFilter = working.length;
+  if (parsed.filters.length) {
+    const { rows: kept, dropped } = applyFilters(working, parsed.filters, columns);
+    working = kept;
+    notes.push(`筛选：${parsed.filters.join(' 且 ')} → 命中 ${kept.length} / ${beforeFilter} 行（丢弃 ${dropped.length}）`);
+  }
+
+  // 2) 派生列（归类 / 分档）
+  const derived = [...columns];
+  for (const mp of parsed.maps) {
+    const t = applyMaps(working, mp.column, mp.rules);
+    if (t) { derived.push(t); notes.push(`归类：按「${mp.column}」派生「${t}」`); }
+    else errors.push({ line: null, text: `归类 ${mp.column}`, reason: `找不到列「${mp.column}」` });
+  }
+  for (const bn of parsed.bins) {
+    const t = applyBins(working, bn.column, bn.bins);
+    if (t) { derived.push(t); notes.push(`分档：按「${bn.column}」派生「${t}」（${bn.bins.map((b) => b.label).join('/')}）`); }
+    else errors.push({ line: null, text: `分档 ${bn.column}`, reason: `找不到列「${bn.column}」` });
+  }
+
+  // 3) 逐条计算
+  const results = [];
+  for (const task of parsed.tasks) {
+    if (task.fromExpression) { results.push(runExpression(task, working, columns)); continue; }
+    results.push(runTask(task, working, columns));
+  }
+  return { rows: working, columns: derived, notes, errors, results, filteredOut: beforeFilter - working.length };
+}
+
+function runTask(task, rows, columns) {
+  const title = titleFor(task, columns);
+  const base = { id: task.id, title, raw: task.raw };
+  if (!rows.length) return { ...base, ok: false, error: '过滤后没有数据行' };
+
+  switch (task.kind) {
+    case 'total':
+      return { ...base, ok: true, type: 'scalar', value: rows.length, caliber: `共 ${rows.length} 行` };
+    case 'distinct': {
+      const col = resolveColumn(rows, task.measure);
+      if (!col) return { ...base, ok: false, error: `找不到列「${task.measure}」` };
+      const set = new Set(rows.map((r) => String(r[col] ?? '').trim()).filter(Boolean));
+      return { ...base, ok: true, type: 'scalar', value: set.size, caliber: `「${col}」去重后 ${set.size} 个（共 ${rows.length} 行）` };
+    }
+    case 'count':
+      return decorate(base, aggregate({ rows, dimension: task.dimension, agg: 'count' }));
+    case 'sum':
+    case 'avg':
+    case 'max':
+    case 'min':
+      return decorate(base, aggregate({ rows, dimension: task.dimension, measure: task.measure, agg: task.kind }));
+    case 'groupDistinct': {
+      const col = resolveColumn(rows, task.measure);
+      if (!task.measure || !col) return { ...base, ok: false, error: `找不到指标列「${task.measure}」` };
+      const dim = resolveColumn(rows, task.dimension);
+      if (!dim) return { ...base, ok: false, error: `找不到维度列「${task.dimension}」` };
+      const map = new Map();
+      for (const r of rows) {
+        const k = String(r[dim] ?? '').trim() || UNCLASSIFIED;
+        const v = String(r[col] ?? '').trim();
+        if (!map.has(k)) map.set(k, new Set());
+        if (v) map.get(k).add(v);
+      }
+      const groups = [...map.entries()].map(([label, set]) => ({ label, count: set.size, value: set.size })).sort((a, b) => b.value - a.value);
+      return { ...base, ok: true, type: 'table', groups, caliber: `按「${dim}」对「${col}」去重计数，共 ${groups.length} 组` };
+    }
+    case 'top':
+      return decorate(base, aggregate({ rows, dimension: task.dimension, measure: task.measure, agg: task.measure ? 'sum' : 'count', top: task.limit }));
+    case 'matrix': {
+      const res = crossTab({ rows, rowDim: task.rowDim, colDim: task.colDim, agg: task.measure ? 'sum' : 'count', measure: task.measure });
+      return decorate(base, res, 'matrix');
+    }
+    case 'trend': {
+      const res = series({ rows, timeColumn: task.timeColumn, measure: task.measure, grain: task.grain, agg: task.measure ? 'sum' : 'count' });
+      return decorate(base, res, 'series');
+    }
+    default:
+      return { ...base, ok: false, error: `不支持的统计类型 ${task.kind}` };
+  }
+}
+
+function decorate(base, res, forcedType) {
+  if (!res.ok) return { ...base, ok: false, error: res.error };
+  const type = forcedType || (res.cols ? 'matrix' : 'table');
+  return { ...base, ok: true, type, ...res };
+}
+
+function runExpression(task, rows, columns) {
+  const spec = task.fromExpression;
+  const base = { id: task.id, title: task.name || spec.raw, raw: task.raw };
+  const dim = spec.dimension, meas = spec.measure;
+  switch (spec.kind) {
+    case 'total': return { ...base, ok: true, type: 'scalar', value: rows.length, caliber: `总行数 ${rows.length}` };
+    case 'distinct': {
+      if (!meas) return { ...base, ok: true, type: 'scalar', value: rows.length, caliber: `总行数 ${rows.length}` };
+      const col = resolveColumn(rows, meas);
+      if (!col) return { ...base, ok: false, error: `找不到列「${meas}」` };
+      const set = new Set(rows.map((r) => String(r[col] ?? '').trim()).filter(Boolean));
+      return { ...base, ok: true, type: 'scalar', value: set.size, caliber: `「${col}」去重计数` };
+    }
+    // 没给维度的 {{count:X}} / {{sum:X}} / {{avg:X}} = 对整列求总量，而不是按列分组
+    case 'count': case 'pct':
+      if (!dim) return { ...base, ok: true, type: 'scalar', value: rows.length, caliber: `总行数 ${rows.length}` };
+      return decorate(base, aggregate({ rows, dimension: dim, agg: 'count' }));
+    case 'sum': case 'avg': {
+      if (!dim) {
+        const col = resolveColumn(rows, meas);
+        if (!col) return { ...base, ok: false, error: `找不到列「${meas}」；{{${spec.kind}:列名}} 就是整列合计` };
+        const vals = rows.map((r) => parseNumber(r[col])).filter((v) => v !== null);
+        const sum = vals.reduce((a, b) => a + b, 0);
+        const value = spec.kind === 'avg' ? sum / (vals.length || 1) : sum;
+        return { ...base, ok: true, type: 'scalar', value: Number(value.toFixed(4)),
+          caliber: `「${col}」${spec.kind === 'avg' ? '平均' : '合计'}（${vals.length} 个有效数值）` };
+      }
+      return decorate(base, aggregate({ rows, dimension: dim, measure: meas, agg: spec.kind }));
+    }
+    case 'top': return decorate(base, aggregate({ rows, dimension: dim, measure: meas, agg: meas ? 'sum' : 'count', top: spec.limit || 5 }));
+    case 'trend': return decorate(base, series({ rows, timeColumn: spec.timeColumn || dim, measure: meas, grain: spec.grain || 'month', agg: meas ? 'sum' : 'count' }), 'series');
+    case 'matrix': return decorate(base, crossTab({ rows, rowDim: spec.rowDim, colDim: spec.colDim }), 'matrix');
+    default: return { ...base, ok: false, error: `未知表达式 ${spec.raw}` };
+  }
+}
+
+/** 供 UI/CLI 生成一份贴合当前列名的示例规则 */
+function suggestRules(columns) {
+  const dim = firstTextColumn(columns);
+  const meas = firstNumberColumn(columns);
+  const time = firstDateColumn(columns);
+  const lines = [];
+  if (dim) lines.push(`按 ${dim} 统计`);
+  if (dim && meas) lines.push(`按 ${dim} 求和 ${meas}`);
+  if (meas) lines.push(`前5 ${dim || '值'} 按 ${meas}`);
+  if (time) lines.push(`按 ${time} 按天 趋势${meas ? ` 求和 ${meas}` : ''}`);
+  if (dim) lines.push(`${dim} × ${secondTextColumn(columns, dim) || dim}`);
+  lines.push(`总计`);
+  return `# 示例规则（可随意改）：一行一条，# 开头是注释\n${lines.join('\n')}`;
+}
+
+function firstTextColumn(cols) { return cols.find((c) => /收款员|操作人|负责人|姓名|部门|区|省|网点|状态|类别/.test(c)) || cols.find((c) => !/重量|费|金额|价|数量|时间|日期|号/.test(c)); }
+function secondTextColumn(cols, skip) { return cols.find((c) => c !== skip && /省|区|部门|状态|类别|网点/.test(c)); }
+function firstNumberColumn(cols) { return cols.find((c) => /重量|计费重|金额|派费|费用|价|数量/.test(c)); }
+function firstDateColumn(cols) { return cols.find((c) => /时间|日期|分派|签收|创建/.test(c)); }
+
+/* settle */
 // 派费结算引擎：按「列名」而非「列字母」映射，规则与模板公式等价，可在 Node 与浏览器复用。
 // 模板公式来源：明细表 E2 = IF(B<=40, IF(F含"陕西",7,6.5), 7+(B-40)*0.13)
 
@@ -429,11 +1604,18 @@ function breakdown(detail, { rule = FEE_RULE } = {}) {
   };
 }
 
+/* app */
 // 拖拽版应用：把引擎（settle.mjs）接到浏览器 UI。数据全程在本地解析，不上传。
 
+
 const el = (id) => document.getElementById(id);
-const state = { template: null, dataFiles: [], result: null };
+// mk 建元素；el() 只按 id 取现有节点，两者不要混用
+const mk = (tag, className, text) => { const n = document.createElement(tag); if (className) n.className = className; if (text !== undefined && text !== null) n.textContent = String(text); return n; };
+const state = { template: null, dataFiles: [], result: null, custom: null, customColumns: [] };
 const charts = [];
+const customCharts = [];
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* ---------- 文件读取 ---------- */
 
@@ -446,6 +1628,14 @@ async function readWorkbook(file) {
 
 function matrixOf(wb, name) {
   return XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, blankrows: false, defval: null });
+}
+
+// 把已拖入的②原始数据转成 [{name, header, rows}]，供标准流程与自定义流程共用。
+function collectSources() {
+  return state.dataFiles.map((d) => {
+    const m = matrixOf(d.wb, d.wb.SheetNames[0]);
+    return { name: d.name, header: (m[0] || []).map((h) => String(h ?? '')), rows: m.slice(1) };
+  });
 }
 
 /* ---------- 主流程 ---------- */
@@ -463,6 +1653,8 @@ async function handleFiles(kind, fileList) {
     }
   }
   el('run').disabled = !(state.template && state.dataFiles.length);
+  el('run-custom').disabled = !state.dataFiles.length;
+  if (state.dataFiles.length) refreshCustomColumns();
 }
 
 function detectTemplateSheets(wb) {
@@ -554,11 +1746,11 @@ function disposeCharts() {
   el('charts').innerHTML = '';
 }
 
-function chart(title, option) {
+function makeChart(container, store, title, option) {
   const card = document.createElement('div');
   card.className = 'chart-card';
-  card.innerHTML = `<h3>${title}</h3><div class="chart"></div>`;
-  el('charts').appendChild(card);
+  card.innerHTML = `<h3>${esc(title)}</h3><div class="chart"></div>`;
+  container.appendChild(card);
   const dom = card.querySelector('.chart');
   const rect = dom.getBoundingClientRect ? dom.getBoundingClientRect() : { width: 0, height: 0 };
   // SVG 渲染：没有 canvas 的环境（打印/部分内嵌浏览器）也能出图
@@ -566,8 +1758,12 @@ function chart(title, option) {
   if (!rect.width || !rect.height) Object.assign(initOpts, { width: 620, height: 320 });
   const inst = echarts.init(dom, null, initOpts);
   inst.setOption({ textStyle: { fontFamily: 'PingFang SC,system-ui' }, color: ['#d84f2b', '#2f7d5d', '#b6801b', '#4a6fa5'], ...option });
-  charts.push(inst);
+  store.push(inst);
   return inst;
+}
+
+function chart(title, option) {
+  return makeChart(el('charts'), charts, title, option);
 }
 
 function renderCharts(summary, parts, rec) {
@@ -616,6 +1812,219 @@ function renderTables(summary, parts) {
   el('tables-body').innerHTML = `<table><thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}${totals}</tbody></table>
     <p class="hint">明细示例（前 5 条，与模板明细表同口径）</p>
     <table><thead><tr>${DETAIL_HEADER.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${state.result.detail.slice(0, 5).map((d) => `<tr><td>${d.waybill}</td><td class="num">${d.weight ?? ''}</td><td>${d.operator}</td><td>${d.date}</td><td class="num">${d.fee ?? ''}</td><td>${d.origin}</td></tr>`).join('')}</tbody></table>`;
+}
+
+/* ---------- 自定义统计规则 ---------- */
+
+function refreshCustomColumns() {
+  let columns;
+  try {
+    columns = mergeSources(collectSources()).columns;
+  } catch (e) {
+    columns = state.customColumns || [];
+  }
+  state.customColumns = columns;
+  const box = el('col-chips');
+  box.innerHTML = '';
+  if (!columns.length) { box.appendChild(mk('span', 'chip empty', '没识别到列')); return; }
+  columns.forEach((c) => {
+    const chip = mk('button', 'chip', c);
+    chip.type = 'button';
+    chip.title = '插入到规则输入框';
+    chip.addEventListener('click', () => insertAtCursor(el('rules'), c));
+    box.appendChild(chip);
+  });
+}
+
+function insertAtCursor(textarea, text) {
+  const s = textarea.selectionStart ?? textarea.value.length;
+  const e = textarea.selectionEnd ?? textarea.value.length;
+  const before = textarea.value.slice(0, s);
+  const pad = before && !/\s$/.test(before) ? ' ' : '';
+  textarea.value = before + pad + text + textarea.value.slice(e);
+  const pos = s + pad.length + text.length;
+  textarea.focus();
+  textarea.setSelectionRange(pos, pos);
+}
+
+function runCustom() {
+  const status = el('custom-status');
+  try {
+    const sources = collectSources();
+    if (!sources.length) throw new Error('请先拖入②原始数据');
+    const data = mergeSources(sources);
+    if (!data.rows.length) throw new Error('原始数据没有可用数据行');
+    const parsed = parseRules(el('rules').value);
+    if (!parsed.tasks.length && !parsed.filters.length && !parsed.maps.length && !parsed.bins.length) {
+      status.textContent = '请至少输入一条规则（如：按 收款员 统计）';
+      status.className = 'hint';
+      return;
+    }
+    const res = runRules(data, parsed);
+    state.custom = { res, data, parsed };
+    renderCustom(res);
+    el('export-custom').disabled = false;
+    const ok = res.results.filter((r) => r.ok).length;
+    status.textContent = `完成：${res.rows.length} 行参与统计，${ok}/${res.results.length} 条规则出结果`
+      + (res.filteredOut ? `（筛选丢弃 ${res.filteredOut} 行）` : '');
+    status.className = 'hint';
+  } catch (e) {
+    status.textContent = `失败：${e.message}`;
+    status.className = 'hint';
+    el('custom-errors').innerHTML = `<div class="rerr">${esc(e.message)}</div>`;
+  }
+}
+
+function disposeCustomCharts() {
+  customCharts.forEach((c) => c.dispose());
+  customCharts.length = 0;
+  el('custom-charts').innerHTML = '';
+  el('custom-results').innerHTML = '';
+  el('custom-notes').innerHTML = '';
+  el('custom-errors').innerHTML = '';
+}
+
+function renderCustom(res) {
+  disposeCustomCharts();
+  res.errors.forEach((er) => {
+    const d = mk('div', 'rerr');
+    d.innerHTML = (er.line ? `第 ${er.line} 行 ` : '') + esc(er.reason)
+      + (er.text ? `：<code>${esc(er.text)}</code>` : '');
+    el('custom-errors').appendChild(d);
+  });
+  res.notes.forEach((n) => el('custom-notes').appendChild(mk('div', 'rnote', n)));
+
+  res.results.forEach((r) => {
+    if (!r.ok) {
+      const d = mk('div', 'rerr');
+      d.innerHTML = `<b>${esc(r.title)}</b> 没算出来：${esc(r.error)}　<code>${esc(r.raw || '')}</code>`;
+      el('custom-results').appendChild(d);
+      return;
+    }
+    const card = mk('div', 'rcard');
+    card.appendChild(mk('h3', null, r.title));
+    card.appendChild(mk('p', 'caliber', r.caliber || ''));
+    if (r.type === 'scalar') {
+      card.appendChild(mk('div', 'scalar', fmtNum(r.value)));
+      el('custom-results').appendChild(card);
+      return;
+    }
+    if (r.type === 'series') {
+      card.appendChild(seriesTable(r));
+      makeChart(el('custom-charts'), customCharts, r.title, {
+        tooltip: { trigger: 'axis' }, grid: { left: 60, right: 24, bottom: 60 },
+        xAxis: { type: 'category', data: r.labels, axisLabel: { interval: Math.floor(r.labels.length / 12), rotate: 20 } },
+        yAxis: { type: 'value' },
+        series: [{ type: 'line', data: r.values, areaStyle: {}, label: { show: r.labels.length <= 12 } }],
+      });
+    } else if (r.type === 'matrix') {
+      card.appendChild(matrixTable(r));
+    } else {
+      card.appendChild(groupTable(r));
+      const top = r.groups.slice(0, 12);
+      makeChart(el('custom-charts'), customCharts, r.title, {
+        tooltip: { trigger: 'axis' }, grid: { left: 70, right: 24, bottom: 70 },
+        xAxis: { type: 'category', data: top.map((g) => g.label), axisLabel: { interval: 0, rotate: 20 } },
+        yAxis: { type: 'value' },
+        series: [{ type: 'bar', data: top.map((g) => g.value), label: { show: top.length <= 12, position: 'top' } }],
+      });
+    }
+    el('custom-results').appendChild(card);
+  });
+  if (!res.results.length && !res.errors.length) {
+    el('custom-results').appendChild(mk('div', 'rnote', '没有产生结果，检查规则是否都是注释/筛选。'));
+  }
+}
+
+function fmtNum(n) {
+  if (typeof n !== 'number' || !isFinite(n)) return String(n ?? '');
+  return Number.isInteger(n) ? n.toLocaleString('zh-CN') : n.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+}
+
+function tableFrom(headers, rowsOf) {
+  const table = mk('table');
+  const thead = mk('thead');
+  const trh = mk('tr');
+  headers.forEach((h) => trh.appendChild(mk('th', null, h)));
+  thead.appendChild(trh);
+  table.appendChild(thead);
+  const tbody = mk('tbody');
+  rowsOf().forEach((cells) => {
+    const tr = mk('tr');
+    cells.forEach(({ v, num }) => tr.appendChild(mk('td', num ? 'num' : null, v)));
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  const wrap = mk('div', 'table-wrap');
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function groupTable(r) {
+  const metric = r.meta && r.meta.agg === 'count' ? '单数' : '数值';
+  return tableFrom([r.meta && r.meta.dimension ? `按「${r.meta.dimension}」` : '分组', metric, '占比', '行数'],
+    () => r.groups.map((g) => [{ v: g.label }, { v: fmtNum(g.value), num: true }, { v: `${g.pct}%`, num: true }, { v: g.count, num: true }]));
+}
+
+function seriesTable(r) {
+  return tableFrom(['时间', '数值'],
+    () => r.labels.map((l, i) => [{ v: l }, { v: fmtNum(r.values[i]), num: true }]));
+}
+
+function matrixTable(r) {
+  const headers = ['＼'].concat(r.cols).concat(['合计']);
+  return tableFrom(headers, () => r.matrix.map((m) => [
+    { v: m.label },
+    ...m.values.map((v) => ({ v: fmtNum(v), num: true })),
+    { v: fmtNum(Number(m.total.toFixed(2))), num: true },
+  ]));
+}
+
+function exportCustom() {
+  const { res } = state.custom;
+  const wb = XLSX.utils.book_new();
+  const meta = [
+    ['希希的工具箱 · 自定义统计结果'],
+    ['生成时间', new Date().toLocaleString('zh-CN')],
+    ['参与统计行数', res.rows.length],
+    ['筛选丢弃行数', res.filteredOut],
+    ['筛选条件', res.notes.filter((n) => n.startsWith('筛选'))[0] || '（无）'],
+    [], ['规则原文'],
+  ];
+  String(el('rules').value).split(/\r?\n/).forEach((l) => l.trim() && meta.push([l]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(meta), '说明');
+
+  const used = new Set();
+  const safeName = (base) => {
+    let n = (base || '结果').replace(/[\\/?*\[\]:]/g, '_').slice(0, 28) || '结果';
+    let i = 1, out = n;
+    while (used.has(out)) out = `${n.slice(0, 25)}_${i++}`;
+    used.add(out);
+    return out;
+  };
+
+  res.results.filter((r) => r.ok).forEach((r) => {
+    let aoa;
+    if (r.type === 'scalar') aoa = [['项目', '值'], [r.title, r.value]];
+    else if (r.type === 'series') aoa = [['时间', '数值'], ...r.labels.map((l, i) => [l, r.values[i]])];
+    else if (r.type === 'matrix') aoa = [['＼', ...r.cols, '合计'], ...r.matrix.map((m) => [m.label, ...m.values, Number(m.total.toFixed(2))])];
+    else aoa = [['分组', '数值', '占比%', '行数'], ...r.groups.map((g) => [g.label, g.value, g.pct, g.count])];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), safeName(r.title));
+  });
+
+  if (res.errors.length) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['行', '规则', '原因'], ...res.errors.map((e) => [e.line || '', e.text || '', e.reason])]), '未能解析');
+  }
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  state.custom.lastExport = out;
+  download(out, '自定义统计结果.xlsx');
+  el('custom-status').textContent = '已下载自定义统计结果（每个规则一个 sheet）。';
+}
+
+function fillDemoRules() {
+  const cols = state.customColumns.length ? state.customColumns : collectSources().flatMap((s) => s.header);
+  el('rules').value = suggestRules(cols.filter(Boolean));
+  if (state.dataFiles.length) runCustom();
 }
 
 /* ---------- 导出：回填模板 ---------- */
@@ -767,6 +2176,9 @@ function loadDemo() {
   state.dataFiles = [{ name: '示例导出.xlsx', wb: dataWb }];
   el('file-template').textContent = '示例模版.xlsx（内置）';
   el('file-data').textContent = '示例导出.xlsx（内置，含多余列与重复运单号）';
+  el('run').disabled = false;
+  el('run-custom').disabled = false;
+  refreshCustomColumns();
   run();
 }
 
@@ -794,11 +2206,25 @@ if (typeof document !== 'undefined' && document.getElementById('drop-template'))
   el('run').addEventListener('click', run);
   el('demo').addEventListener('click', loadDemo);
   el('export').addEventListener('click', () => exportFilled().catch((e) => { el('status').textContent = `导出失败：${e.message}`; }));
+  el('run-custom').addEventListener('click', runCustom);
+  el('rules-demo').addEventListener('click', fillDemoRules);
+  el('rules-clear').addEventListener('click', () => { el('rules').value = ''; disposeCustomCharts(); el('custom-status').textContent = ''; });
+  el('export-custom').addEventListener('click', () => { try { exportCustom(); } catch (e) { el('custom-status').textContent = `导出失败：${e.message}`; } });
+  el('rules-load').addEventListener('click', () => el('pick-rules').click());
+  el('pick-rules').addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    el('rules').value = await f.text();
+    el('custom-status').textContent = `已读入规则文件 ${f.name}`;
+    if (state.dataFiles.length) runCustom();
+    e.target.value = '';
+  });
 }
 
 // 供 Node / jsdom 测试直接驱动
 if (typeof window !== 'undefined') {
-  window.classifyStats = { state, handleFiles, run, loadDemo, exportFilled, detectTemplateSheets, charts };
+  window.classifyStats = { state, handleFiles, run, loadDemo, exportFilled, detectTemplateSheets, charts,
+    runCustom, exportCustom, fillDemoRules, refreshCustomColumns, collectSources, insertAtCursor };
 }
 
 })()

@@ -5,10 +5,14 @@
     {
       "slug": "classify-stats",
       "name": "派费分类统计",
-      "desc": "拖进结算模版和系统导出，按列名自动对齐、分类统计、三条交叉核对、出图，并回填一份保留原模板公式的结果文件。",
+      "desc": "拖进结算模版和系统导出，按列名自动对齐、分类统计、三条交叉核对、出图，并回填一份保留原模板公式的结果文件。还能只拖数据、用一句句人话写规则（筛选/归类/分档/Top-N/交叉表/趋势），跑每次不一样的统计。",
       "href": "/tools/classify-stats/",
       "icon": "i-table",
-      "tags": ["本地计算", "Excel"]
+      "tags": [
+        "本地计算",
+        "Excel",
+        "自定义规则"
+      ]
     },
     {
       "slug": "csv-inspect",
@@ -16,7 +20,10 @@
       "desc": "拖入 CSV/TSV，自动识别分隔符与编码，给出每列类型、数值列的合计/最值、文本列的高频值，并可导出 Excel 能直接打开的 UTF-8 CSV。",
       "href": "/tools/csv-inspect/",
       "icon": "i-csv",
-      "tags": ["本地计算", "几万行"]
+      "tags": [
+        "本地计算",
+        "几万行"
+      ]
     },
     {
       "slug": "fee-calc",
@@ -24,7 +31,9 @@
       "desc": "输入计费重量与始发省区，按 40kg 分档试算单票派费，支持一次粘一批。",
       "state": "soon",
       "icon": "i-scale",
-      "tags": ["运费"]
+      "tags": [
+        "运费"
+      ]
     },
     {
       "slug": "price-diff",
@@ -32,7 +41,9 @@
       "desc": "贴两组报价表，按网点/重量段列出差异，直接看出走哪边更划算。",
       "state": "soon",
       "icon": "i-tag",
-      "tags": ["运费"]
+      "tags": [
+        "运费"
+      ]
     },
     {
       "slug": "sheet-merge",
@@ -40,7 +51,9 @@
       "desc": "把几份同结构的导出合成一张表，按指定列去重并报告重复项。",
       "state": "soon",
       "icon": "i-box",
-      "tags": ["Excel"]
+      "tags": [
+        "Excel"
+      ]
     },
     {
       "slug": "wish-pool",
@@ -48,7 +61,9 @@
       "desc": "这个站点最早的那一页，留着当纪念。",
       "href": "/wish-pool/",
       "icon": "i-wish",
-      "tags": ["站点"]
+      "tags": [
+        "站点"
+      ]
     }
   ]
 }
