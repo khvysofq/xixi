@@ -707,7 +707,7 @@ function aggregate({ rows, dimension, measure = null, agg = 'count', top = null,
       default: value = b.count;
     }
     if (!Number.isFinite(value)) value = 0;
-    return { label, count: b.count, value: Number(value.toFixed(value >= 100 ? 0 : 2)) };
+    return { label, count: b.count, value: Number(value.toFixed(2)) };
   });
 
   const total = rows.length;
@@ -1380,7 +1380,7 @@ function runExpression(task, rows, columns) {
         const vals = rows.map((r) => parseNumber(r[col])).filter((v) => v !== null);
         const sum = vals.reduce((a, b) => a + b, 0);
         const value = spec.kind === 'avg' ? sum / (vals.length || 1) : sum;
-        return { ...base, ok: true, type: 'scalar', value: Number(value.toFixed(4)),
+        return { ...base, ok: true, type: 'scalar', value: Number(value.toFixed(2)),
           caliber: `「${col}」${spec.kind === 'avg' ? '平均' : '合计'}（${vals.length} 个有效数值）` };
       }
       return decorate(base, aggregate({ rows, dimension: dim, measure: meas, agg: spec.kind }));
