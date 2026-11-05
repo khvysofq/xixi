@@ -39,6 +39,7 @@ const GUIDE = {
 
 async function boot(opts = {}) {
   const calls = [];
+  const health = { hits: 0, ok: opts.healthOk !== false };
   const vc = new VirtualConsole();
   vc.on('jsdomError', () => {});
   vc.on('error', () => {});
@@ -49,8 +50,15 @@ async function boot(opts = {}) {
     virtualConsole: vc,
     beforeParse(window) {
       window.fetch = (url, init) => {
+        // 页面进门的健康探测（GET /api/scene-guide/health）不计入“生成次数”
+        if (!init) {
+          health.hits += 1;
+          if (!health.ok) return Promise.resolve({ ok: false, status: 404, json: async () => ({ ok: false }) });
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, model: 'fake', startedAt: new Date().toISOString() }) });
+        }
         const body = init && init.body ? JSON.parse(init.body) : {};
         calls.push({ url, body });
+        if (opts.fail === 405) return Promise.resolve({ ok: false, status: 405, text: 'Method Not Allowed', json: async () => { throw new Error('no json'); } });
         if (opts.fail) return Promise.resolve({ ok: false, status: 502, json: async () => ({ ok: false, error: '生成超时了，请点重试' }) });
         const data = body.mode === 'more' ? GUIDE : DIALOGUE;
         return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, data }) });
@@ -68,7 +76,7 @@ async function boot(opts = {}) {
   if (!window.sceneEnglish || !window.document.querySelectorAll('#examples .chip').length) {
     throw new Error('页面没完成初始化（事件未绑定）');
   }
-  return { dom, window, calls };
+  return { dom, window, calls, health };
 }
 
 const wait = (ms = 30) => new Promise((r) => setTimeout(r, ms));
@@ -189,4 +197,48 @@ test('历史记录写进 localStorage，点一条能直接调回上次的结果'
   await wait(40);
   assert.equal(window.document.querySelectorAll('#talk .turn').length, 3, '点历史应直接回显，不重新生成');
   assert.equal(calls.length, 1, '调历史不应再打接口');
+});
+
+test('进门先探一次接口：服务不在就当场说，不等主人打完字才报错', async () => {
+  const { window, calls, health } = await boot({});
+  await wait(60);
+  assert.equal(health.hits, 1, '页面加载应探测一次 /health');
+  assert.equal(calls.length, 0, '探测不该算成生成请求');
+  assert.doesNotMatch(window.document.getElementById('status').textContent, /连不上/, '服务在就别吓人');
+
+  const down = await boot({ healthOk: false });
+  await wait(60);
+  assert.match(down.window.document.getElementById('status').textContent, /连不上/, '服务连不上要立刻提示');
+  assert.equal(down.calls.length, 0, '提示本身不烧额度');
+  down.dom.window.close();
+});
+
+test('打到旧进程（HTTP 405）：说清是接口没生效，并给「重试」按钮', async () => {
+  const { window, calls } = await boot({ fail: 405 });
+  window.document.getElementById('scene').value = '旧接口场景';
+  window.document.getElementById('go').click();
+  for (let i = 0; i < 100 && !/没生效/.test(window.document.getElementById('status').textContent); i++) await wait(20);
+  const st = window.document.getElementById('status');
+  assert.match(st.textContent, /生成接口没生效（HTTP 405）/, '要直说是旧服务');
+  assert.match(st.textContent, /重试/, '要给重试出路');
+  assert.equal(st.className, 'status err');
+
+  const retry = window.document.getElementById('retry');
+  assert.ok(retry, '重试按钮要在');
+  retry.click();
+  for (let i = 0; i < 100 && calls.length < 2; i++) await wait(20);
+  assert.equal(calls.length, 2, '点重试要真的重发同一笔请求');
+  assert.equal(calls[1].body.scene, '旧接口场景', '重试保留原场景');
+});
+
+test('生成失败时也给出「重试」，点一下接着上次场景继续', async () => {
+  const { window, calls } = await boot({ fail: true });
+  window.document.getElementById('scene').value = '超时场景';
+  window.document.getElementById('go').click();
+  for (let i = 0; i < 100 && !window.document.getElementById('retry'); i++) await wait(20);
+  assert.match(window.document.getElementById('status').textContent, /生成超时了/);
+  window.document.getElementById('retry').click();
+  for (let i = 0; i < 100 && calls.length < 2; i++) await wait(20);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].body.scene, '超时场景');
 });

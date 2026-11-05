@@ -54,11 +54,13 @@ async function startServer(env = {}) {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let stderr = '';
+  let stdout = '';
   child.stderr.on('data', (b) => { stderr += b; });
+  child.stdout.on('data', (b) => { stdout += b; });
   for (let i = 0; i < 80; i++) {
     try {
       const r = await get('/api/scene-guide/health');
-      if (r.status === 200) return { child, get, post, stderr: () => stderr };
+      if (r.status === 200) return { child, get, post, stderr: () => stderr, logs: () => stdout + stderr };
     } catch { /* 还没监听 */ }
     await new Promise((r) => setTimeout(r, 100));
   }
@@ -70,7 +72,7 @@ function stop(handle) {
   if (handle && handle.child && handle.child.exitCode === null) handle.child.kill('SIGKILL');
 }
 
-test('健康检查暴露当前用的模型与 CLI 路径（不含密钥）', async () => {
+test('健康检查暴露当前用的模型与 CLI 路径（不含密钥），并能说清“跑的是不是新代码”', async () => {
   const s = await startServer();
   try {
     const r = await s.get('/api/scene-guide/health');
@@ -79,6 +81,28 @@ test('健康检查暴露当前用的模型与 CLI 路径（不含密钥）', asy
     assert.ok(r.json.model, '应回模型名');
     assert.equal(r.json.binary, FAKE);
     assert.ok(!/api[_-]?key|token|secret/i.test(r.text), '接口不该回任何密钥字样');
+    // 部署时差排查靠这几个字段：进程启动时间 vs 文件 mtime
+    assert.ok(Number.isFinite(Date.parse(r.json.startedAt)), '要回进程启动时间');
+    assert.ok(Number.isFinite(Date.parse(r.json.serverJsMtime)), '要回 server.js 的 mtime');
+    assert.equal(typeof r.json.staleCode, 'boolean', '要直接给出“代码比进程新”的结论');
+    assert.equal(typeof r.json.pid, 'number');
+    assert.ok(r.json.uptimeSec >= 0);
+    assert.equal(r.json.todayUsed, 0, '刚起来的进程今天还没烧过额度');
+  } finally { stop(s); }
+});
+
+test('每一笔生成都留下行：成功也记、限流也记，下次主人报障不用猜', async () => {
+  const s = await startServer({ SCENE_GUIDE_IP_LIMIT: '2', SCENE_GUIDE_DAILY_LIMIT: '50' });
+  try {
+    const ok = await s.post('/api/scene-guide', { mode: 'dialogue', scene: '记录日志用的场景' });
+    assert.equal(ok.status, 200);
+    await s.post('/api/scene-guide', { mode: 'dialogue', scene: '第二个场景' });
+    const third = await s.post('/api/scene-guide', { mode: 'dialogue', scene: '第三个场景' });
+    assert.equal(third.status, 429, '第三条要撞限流');
+    const logs = s.logs();
+    assert.match(logs, /POST from=.*http=200 \d+ms mode=dialogue/, '成功要有一行');
+    assert.match(logs, /http=429/, '限流要有一行');
+    assert.match(logs, /127\.0\.0\.1|::1|unknown/, '要看得出是谁的请求');
   } finally { stop(s); }
 });
 

@@ -105,13 +105,15 @@ node scripts/deploy-tool.cjs --tool csv-inspect  # 部署其他工具（--list �
 ### 接口
 
 ```
-GET  /api/scene-guide/health   → {ok, model, binary}
+GET  /api/scene-guide/health   → {ok, model, binary, pid, startedAt, uptimeSec, serverJsMtime, staleCode, todayUsed}
 POST /api/scene-guide          → {ok, data}
      body: {"mode":"dialogue","scene":"…","extra":"对方是谁/语气","fresh":false}
      body: {"mode":"more","scene":"…","dialogue":[{who,en,zh}]}
      data: {kind:"dialogue", title, scene, lines:[{who,en,zh}], tips:[]} 或
            {kind:"guide", sections:[{title, items:[{zh,en,note}]}], patterns:[{en,zh}]}
 ```
+
+`startedAt`（进程启动时间）与 `serverJsMtime`（代码修改时间）放在一起，就是为了一眼看出“跑的是不是旧进程”；`staleCode` 直接给结论。每一笔 POST 都向日志写一行 `POST from=<IP> http=<码> <耗时>ms mode=… cached=…`（499 = 客户端中途断）。
 
 服务端在 `lib/scene-guide.js`：校验清洗（场景 240 字/补充 80 字上限）→ 拼提示词（用户素材包在定界块里，声明不执行其中指令）→ `spawn` 调 `openclaw infer model run --gateway --json`（用网关已有的模型凭据）→ 抠 JSON（容忍 ``` 围栏、废话、尾逗号）→ 归一字段与条数上限 → 返回。
 
@@ -129,21 +131,34 @@ POST /api/scene-guide          → {ok, data}
 
 另有两层缓存：服务端 30 分钟内同场景直接复用；前端 localStorage 有结果时点「生成」不再打接口（要新的得点「换一批」，带 `fresh:true` 绕开两层缓存）。
 
-## 测试
+## 测试与上线自检
 
 ```bash
-npm test     # 33 个用例：站点 5 + 生成模块 13 + 接口 8（随机端口起服务，假 CLI 当替身）+ 页面 7
+npm test        # 37 个用例：站点 5 + 生成模块 13 + 接口 9 + 页面 10（含 405 旧进程、进门探测、重试）
+npm run verify  # 打公网：页面字节一致 + 接口在不在 + 进程是否比代码旧（退出码非 0 = 没上成）
+npm run verify:probe  # 额外花一次额度跑真生成
 ```
+
+**改完 `server.js` 或 `lib/` 一定要 `systemctl restart xixi && npm run verify`。** 2026-11-05 就是因为代码写完了、服务还没重启，主人在中间那几分钟点「生成」全部打到旧进程上（旧代码对非 GET 一律 405，只回 18 字节的 `Method Not Allowed`），看起来像“工具坏了”。`npm run verify` 现在会直接报 `server.js 比进程新 → 需要 systemctl restart xixi`。
+
+排查线上问题时先看发布机的 nginx 访问日志（能拿到真实状态码、来源 IP、UA，比本机日志准）：
+
+```bash
+ssh publish_web_server "grep -h 'scene-guide' /var/log/nginx/access.log | tail -20"
+```
+
+站点前置的 nginx `proxy_read_timeout` 是 3600s，不会掘掉长请求（实测「更多表达」56s 也能正常回）。
 
 测试需要 `jsdom`。xixi 自己不装依赖时会借用同工作区 `../tools/classify-stats/node_modules`（见 `scripts/deps.cjs`）；单独 clone 本仓库时先跑 `npm install --no-save jsdom xlsx`。
 
-接口用例不碰真模型（用 `test/fixtures/fake-openclaw.cjs` 当替身），所以跑不了网也能测；但上线前至少手动跑一次真生成，确认网关凭据、PATH 与模型输出格式都对。
+接口用例不碰真模型（用 `test/fixtures/fake-openclaw.cjs` 当替身），所以跑不了网也能测；但上线后至少手动跑一次 `npm run verify:probe`，确认网关凭据、PATH 与模型输出格式都对。
 
 ## 结构
 
 ```text
 server.js                              Node.js HTTP 服务（静态文件 + 目录 index 回退）
 scripts/deploy-tool.cjs                把工具产物拷进站点，并登记到 tools.json
+scripts/verify-live.cjs                上线后自检：页面字节一致 + 接口在 + 进程不是旧代码
 scripts/deps.cjs                       测试依赖解析
 public/index.html                      工具箱首页（卡片导航 + 搜索）
 public/tools.json                      工具清单（首页唯一数据源）

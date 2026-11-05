@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test test/site.test.mjs test/scene-guide.test.mjs test/scene-api.test.mjs test/scene-page.test.mjs",
+    "verify": "node scripts/verify-live.cjs",
+    "verify:probe": "node scripts/verify-live.cjs --probe",
     "build:tool": "node ../tools/classify-stats/build.mjs",
     "deploy:tool": "node scripts/deploy-tool.cjs"
   },

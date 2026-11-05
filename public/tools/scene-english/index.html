@@ -205,10 +205,12 @@
     }
     var json = null;
     try { json = await res.json(); } catch (e) { json = null; }
-    if (!json || !json.ok) {
-      throw new Error((json && json.error) || ('服务返回异常（HTTP ' + res.status + '）'));
+    if (json && json.ok) return json.data;
+    // 接口不存在/方法不对 → 站上的服务还是旧进程（刚改代码没重启），这类错重试有可能直接好
+    if (res.status === 404 || res.status === 405 || res.status === 501) {
+      throw new Error('站上的生成接口没生效（HTTP ' + res.status + '），服务可能是刚更新还没重启。等十几秒点重试。');
     }
-    return json.data;
+    throw new Error((json && json.error) || ('服务返回异常（HTTP ' + res.status + '）'));
   }
 
   function startBusy(text) {
@@ -229,7 +231,32 @@
     state.busy = false;
     el('go').disabled = false;
     el('more').disabled = !!state.dialogue ? false : true;
-    if (msg) { el('status').className = 'status' + (isError ? ' err' : ''); el('status').textContent = msg; }
+    if (msg) {
+      el('status').className = 'status' + (isError ? ' err' : '');
+      el('status').textContent = msg;
+      if (isError && state.lastAction) {
+        var b = mk('button', 'mini ghost', '重试');
+        b.id = 'retry';
+        b.style.marginLeft = '8px';
+        b.addEventListener('click', function () { state.lastAction(); });
+        el('status').appendChild(b);
+      }
+    }
+  }
+
+  // 页面一进来看一眼生成服务在不在，省得主人打完一段字才发现白写
+  function checkService() {
+    if (location.protocol === 'file:') return;
+    fetch(API + '/health').then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (j) {
+      if (!j || !j.ok) throw new Error('接口没就绪');
+    }).catch(function () {
+      if (state.dialogue || state.busy) return;
+      el('status').className = 'status err';
+      el('status').textContent = '生成服务现在连不上（站点可能在更新）。等十几秒再点「生成」。';
+    });
   }
 
   /* ---------- 渲染对话 ---------- */
@@ -467,6 +494,7 @@
       }
     }
     startBusy(isRedo ? '换一批说法，正在重写对话' : '正在写对话，稍等一下');
+    state.lastAction = function () { generate(isRedo); };
     el('dialogue-card').classList.add('hidden');
     el('guide-card').classList.add('hidden');
     try {
@@ -490,6 +518,7 @@
       return;
     }
     startBusy('正在整理这个场景的词和句式');
+    state.lastAction = more;
     try {
       var g = await callApi({
         mode: 'more', scene: state.scene, extra: state.extra,
@@ -532,6 +561,7 @@
     });
     setupVoice();
     renderHistory();
+    checkService();
   }
 
   if (typeof document !== 'undefined' && el('scene')) {
@@ -545,6 +575,7 @@
       state: state, renderDialogue: renderDialogue, renderGuide: renderGuide,
       dialogueText: dialogueText, guideText: guideText, generate: generate, more: more,
       callApi: callApi, keyOf: keyOf, saveItem: saveItem, loadAll: loadAll, bind: bind,
+      checkService: checkService, stopBusy: stopBusy,
     };
   }
 })();

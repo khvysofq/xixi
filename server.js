@@ -11,6 +11,7 @@ const port = Number(process.env.PORT || 10801);
 const host = process.env.HOST || '0.0.0.0';
 const API_PATH = '/api/scene-guide';
 const MAX_BODY_BYTES = 12000;
+const BOOT_AT = new Date(); // 健在哪个代码版本上跑的，靠这个时间跟文件 mtime 对
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -72,7 +73,23 @@ function clientIp(req) {
 
 async function handleApi(req, res, pathname) {
   if (pathname === `${API_PATH}/health`) {
-    sendJson(res, 200, { ok: true, model: sceneGuide.CONFIG.model, binary: sceneGuide.CONFIG.bin });
+    // 不回任何密钥，只用来判断“接口在不在、跑的是新代码还是旧进程”
+    let codeMtime = null;
+    try {
+      const info = await fs.stat(path.join(__dirname, 'server.js'));
+      codeMtime = info.mtime.toISOString();
+    } catch { /* 读不到就算了 */ }
+    sendJson(res, 200, {
+      ok: true,
+      model: sceneGuide.CONFIG.model,
+      binary: sceneGuide.CONFIG.bin,
+      pid: process.pid,
+      startedAt: BOOT_AT.toISOString(),
+      uptimeSec: Math.round(process.uptime()),
+      serverJsMtime: codeMtime,
+      staleCode: !!(codeMtime && new Date(codeMtime) > new Date(BOOT_AT.getTime() + 1000)),
+      todayUsed: sceneGuide.budgetUsed(),
+    });
     return;
   }
   if (pathname !== API_PATH) {
@@ -84,19 +101,32 @@ async function handleApi(req, res, pathname) {
     return;
   }
   let body;
+  const t0 = Date.now();
+  const ip = clientIp(req);
+  let logged = false;
+  const logIt = (status, note) => {
+    if (logged) return;
+    logged = true;
+    const line = `[scene-guide] ${new Date().toISOString()} POST from=${ip} http=${status} ${Date.now() - t0}ms${note ? ' ' + note : ''}`;
+    (status >= 500 || status === 429 ? console.error : console.log)(line);
+  };
+  res.on('close', () => { if (!res.writableEnded) logIt(499, 'client aborted before response'); });
   try {
     const raw = await readBody(req);
     body = raw ? JSON.parse(raw) : null;
   } catch (e) {
-    sendJson(res, e.status === 413 ? 413 : 400, { ok: false, error: e.status === 413 ? e.message : '请求体不是合法 JSON' });
+    const status = e.status === 413 ? 413 : 400;
+    logIt(status, e.message);
+    sendJson(res, status, { ok: false, error: e.status === 413 ? e.message : '请求体不是合法 JSON' });
     return;
   }
   try {
-    const data = await sceneGuide.handleRequest(body, clientIp(req));
+    const data = await sceneGuide.handleRequest(body, ip);
+    logIt(200, `mode=${data.kind || (body && body.mode)} cached=${!!data.cached}`);
     sendJson(res, 200, { ok: true, data });
   } catch (e) {
     const status = e.status || 500;
-    if (status >= 500) console.error(`[scene-guide] ${new Date().toISOString()} ${e.message}`);
+    logIt(status, (e.message || '生成失败').slice(0, 160));
     sendJson(res, status, { ok: false, error: e.message || '生成失败' });
   }
 }
