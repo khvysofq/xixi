@@ -50,6 +50,7 @@ const EXPLAIN = {
     { en: "She's been meaning to try that place.", zh: '她一直想去那家店。' },
   ],
   caution: '别写成 I am meaning to do',
+  category: '职场闲聊',
   sentence: "Hey, you got a minute? I've been meaning to vent about work.",
   scene: '跟同事吐槽工作',
 };
@@ -370,4 +371,108 @@ test('讲解失败时把服务的中文错误显示在讲解卡里，不静默',
   const st = window.document.getElementById('x-status');
   assert.equal(st.className, 'status err');
   assert.match(st.textContent, /生成超时/, '要把服务端说的中文原样给主人看');
+});
+
+/* ---------- 生词本 ---------- */
+
+async function explainOnce(window) {
+  await window.sceneEnglish.explain('been meaning', "Hey, you got a minute? I've been meaning to vent about work.", '');
+  await wait(40);
+}
+
+test('讲解过的词自动进生词本，按模型给的分类归组', async () => {
+  const { window } = await boot();
+  await generate(window, [], '跟同事吐槽工作');
+  await explainOnce(window);
+  const book = window.sceneEnglish.loadBook();
+  assert.equal(book.length, 1, '讲解一次收一个');
+  assert.equal(book[0].cat, '职场闲聊', '分类用讲解时模型给的');
+  assert.equal(book[0].asUsed, 'have been meaning to do sth');
+  assert.ok(book[0].examples.length >= 1, '例句要带进本里');
+
+  window.document.getElementById('book-btn').click();
+  const doc = window.document;
+  assert.equal(doc.getElementById('book-card').classList.contains('hidden'), false);
+  assert.match(doc.getElementById('book-n').textContent, /\(1\)/, '按钮上要显示条数');
+  assert.match(doc.querySelector('#book-body summary').textContent, /职场闲聊/);
+  assert.match(doc.querySelector('#book-body .item .term').textContent, /have been meaning to do sth/);
+  assert.match(doc.getElementById('x-status').textContent, /已收进生词本/, '讲解完要告诉主人收哪了');
+
+  // 同一个词再讲一次不重复收
+  await explainOnce(window);
+  assert.equal(window.sceneEnglish.loadBook().length, 1, '同词去重');
+});
+
+test('生词本能改分类、新建分类、标掌握、搜索筛选', async () => {
+  const { window } = await boot();
+  await generate(window, [], '跟同事吐槽工作');
+  await explainOnce(window);
+  const doc = window.document;
+  doc.getElementById('book-btn').click();
+
+  // 新建分类：选「＋ 新分类…」→ 输入 → 回车
+  let sel = doc.querySelector('#book-body select');
+  sel.value = '__new';
+  sel.dispatchEvent(new window.Event('change', { bubbles: true }));
+  const inp = doc.querySelector('#book-body input.txt');
+  assert.ok(inp, '要出现新分类输入框');
+  inp.value = '拖延症自救';
+  inp.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await wait(20);
+  assert.equal(window.sceneEnglish.loadBook()[0].cat, '拖延症自救');
+  assert.match(doc.querySelector('#book-body summary').textContent, /拖延症自救/);
+
+  // 标掌握 + 筛选
+  doc.querySelector('#book-body .acts button').click();
+  await wait(20);
+  assert.equal(window.sceneEnglish.loadBook()[0].got, true);
+  doc.getElementById('book-f').value = 'new';
+  doc.getElementById('book-f').dispatchEvent(new window.Event('change', { bubbles: true }));
+  assert.match(doc.getElementById('book-body').textContent, /这个筛选/, '已掌握的在“没掌握”筛选下要空');
+  doc.getElementById('book-f').value = 'got';
+  doc.getElementById('book-f').dispatchEvent(new window.Event('change', { bubbles: true }));
+  assert.match(doc.querySelector('#book-body summary').textContent, /拖延症自救/);
+
+  // 搜索
+  doc.getElementById('book-f').value = 'all';
+  doc.getElementById('book-f').dispatchEvent(new window.Event('change', { bubbles: true }));
+  doc.getElementById('book-q').value = 'meaning';
+  doc.getElementById('book-q').dispatchEvent(new window.Event('input', { bubbles: true }));
+  assert.equal(doc.querySelectorAll('#book-body .item').length, 1);
+  doc.getElementById('book-q').value = '完全不沾边的词';
+  doc.getElementById('book-q').dispatchEvent(new window.Event('input', { bubbles: true }));
+  assert.equal(doc.querySelectorAll('#book-body .item').length, 0, '搜不到要空着');
+});
+
+test('生词本导出：txt 分组带例句，CSV 给 Excel 留 BOM，Anki 两列制表符', async () => {
+  const { window } = await boot();
+  await generate(window, [], '跟同事吐槽工作');
+  await explainOnce(window);
+  const txt = window.sceneEnglish.bookText();
+  assert.match(txt, /## 职场闲聊/);
+  assert.match(txt, /have been meaning to do sth/);
+  assert.match(txt, /例句：I've been meaning to call him back\./);
+
+  const csv = window.sceneEnglish.bookCsv();
+  assert.ok(csv.charCodeAt(0) === 0xfeff, 'CSV 要有 BOM，Excel 打开中文才不乱');
+  assert.match(csv.split('\n')[0], /分类,词条,用法结构/);
+  assert.match(csv, /职场闲聊,have been meaning to do sth/);
+
+  const anki = window.sceneEnglish.bookAnki();
+  const cols = anki.split('\n')[0].split('\t');
+  assert.equal(cols.length, 2, 'Anki 导入要正好两列');
+  assert.match(cols[0], /have been meaning to do sth/);
+  assert.match(cols[1], /一直想做/);
+});
+
+test('模型没给分类时按场景关键词兜底归类', async () => {
+  const { window } = await boot();
+  await generate(window, [], '在咖啡店点单');
+  const d = await window.sceneEnglish.explain('light ice', 'Could I get a latte, light ice?', '');
+  await wait(30);
+  assert.equal(d.category, '职场闲聊', 'mock 固定给职场闲聊');
+  // 直接测兜底函数
+  assert.equal(window.sceneEnglish.guessCat('在机场值机，行李超重'), '出行住宿');
+  assert.equal(window.sceneEnglish.guessCat('和朋友聊怎么把肉煮入味'), '吃喝');
+  assert.equal(window.sceneEnglish.guessCat('随便一个场景'), '其他');
 });

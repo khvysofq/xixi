@@ -148,6 +148,22 @@ test('normalizeExplain：字段齐、例句最多 3 条，什么都没讲出来�
   assert.throws(() => sg.normalizeExplain({ examples: [] }, { phrase: 'x', sentence: 'y', scene: 'z' }), (e) => e.status === 502);
 });
 
+test('讲解提示词要模型给分类，生词本靠它归组', () => {
+  const p = sg.buildExplainPrompt({ scene: '点餐', sentence: 'Could I get a latte, light ice?', phrase: 'light ice' });
+  assert.match(p, /category/, 'JSON 结构里要有 category');
+  assert.match(p, /生词本要用它归类/, '要告诉模型分类是干嘛的');
+  assert.match(p, /复用常见标签/, '分类标签要能复用，别每次起新名');
+});
+
+test('normalizeExplain 保留分类；模型没给就留空让前端兜底', () => {
+  const withCat = sg.normalizeExplain({ meaning_zh: '少冰', category: '点餐' }, { phrase: 'x', sentence: 'y', scene: 'z' });
+  assert.equal(withCat.category, '点餐');
+  const noCat = sg.normalizeExplain({ meaning_zh: '少冰' }, { phrase: 'x', sentence: 'y', scene: 'z' });
+  assert.equal(noCat.category, '');
+  const longCat = sg.normalizeExplain({ meaning_zh: '少冰', category: '一个特别特别长的分类名字超过限制' }, { phrase: 'x', sentence: 'y', scene: 'z' });
+  assert.ok(longCat.category.length <= 24, '分类名要截断');
+});
+
 test('讲解走单独的额度桶：连着选好几个词不该把生成额度吃掉', () => {
   const cfg = { ipLimit: 1, explainIpLimit: 4, ipWindowMs: 60000, dailyLimit: 50 };
   const b = sg.createBudget(cfg);

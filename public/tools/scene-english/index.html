@@ -36,6 +36,10 @@
   button.ghost { background: transparent; }
   button:disabled { opacity: .5; cursor: not-allowed; }
   button.mini { padding: 4px 9px; font-size: 13px; border-radius: 8px; }
+  select { font: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fff; color: var(--ink); }
+  select.mini { padding: 4px 6px; font-size: 13px; }
+  .item.got .term { text-decoration: line-through; opacity: .55; }
+  .item .acts { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
   .chip { border: 1px dashed var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
   .chip:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }
@@ -130,6 +134,7 @@
       <button id="more" class="hidden">更多表达 →</button>
       <button id="redo" class="ghost hidden">换一批</button>
       <span class="grow"></span>
+      <button id="book-btn" class="mini ghost">📒 生词本 <span id="book-n"></span></button>
       <button id="trans" class="mini ghost">隐藏中文</button>
       <button id="copy" class="mini ghost hidden">复制对话</button>
     </div>
@@ -171,6 +176,24 @@
       <summary>可以直接套用的句式 <span class="n" id="pat-n"></span></summary>
       <div id="patterns"></div>
     </details>
+  </section>
+
+  <section class="panel hidden" id="book-card">
+    <h2 class="scene-title">生词本</h2>
+    <div class="row" style="margin:0 0 10px">
+      <input class="txt" id="book-q" placeholder="搜词、意思或场景…" style="flex:1 1 150px; padding:8px 10px">
+      <select id="book-f" class="mini">
+        <option value="all">全部</option>
+        <option value="new">还没掌握</option>
+        <option value="got">已掌握</option>
+      </select>
+      <span class="grow"></span>
+      <button class="mini ghost" id="book-txt">复制</button>
+      <button class="mini ghost" id="book-csv">CSV</button>
+      <button class="mini ghost" id="book-anki">Anki</button>
+    </div>
+    <div id="book-body"></div>
+    <p class="hint">点过「讲解」的词会自动收进来，分类是讲解时一起给的、也能改。数据只存在你这台设备的浏览器里，不上传。</p>
   </section>
 
   <section class="panel hidden" id="history-card">
@@ -659,7 +682,12 @@
   async function explain(phrase, sentence, zh) {
     var key = xkey(phrase, sentence);
     var store = loadExplains();
-    if (store[key] && store[key].data) { renderExplain(store[key].data, true); return store[key].data; }
+    if (store[key] && store[key].data) {
+      renderExplain(store[key].data, true);
+      var bk0 = addBookEntry(store[key].data);
+      el('x-status').textContent = '这条之前问过，直接给你；也在生词本「' + (bk0.cat || '其他') + '」里';
+      return store[key].data;
+    }
     el('explain-card').classList.remove('hidden');
     el('x-body').innerHTML = '';
     el('x-status').className = 'status';
@@ -668,6 +696,8 @@
       var d = await callApi({ mode: 'explain', scene: state.scene || sentence, phrase: phrase, sentence: sentence, zh: zh || '' });
       renderExplain(d, false);
       saveExplain(key, d);
+      var bk = addBookEntry(d);
+      el('x-status').textContent = '已收进生词本「' + (bk.cat || '其他') + '」；点 📒 能看全部、改分类、导出';
       return d;
     } catch (e) {
       el('x-status').className = 'status err';
@@ -751,6 +781,201 @@
     return out.join('\n');
   }
 
+  /* ---------- 生词本（本地存、可分类、可导出）---------- */
+  var BLS = 'xixi.scene-english.book.v1';
+  function loadBook() { try { return JSON.parse(localStorage.getItem(BLS) || '[]'); } catch (e) { return []; } }
+  function saveBook(all) { try { localStorage.setItem(BLS, JSON.stringify(all.slice(0, 300))); } catch (e) { /* 存不下就算了 */ } }
+  function bookKey(d) { return String(d.asUsed || d.phrase || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+  // 模型没给分类时的兜底：按场景关键词粗分
+  function guessCat(scene) {
+    var s = String(scene || '');
+    var rules = [
+      [/点餐|咖啡|餐厅|吃|喝|菜|厨|煮|肉|外卖/, '吃喝'],
+      [/机场|值机|行李|酒店|旅行|出行|打车|地铁|火车/, '出行住宿'],
+      [/医|病|药|看诊|感冒|胃/, '看病买药'],
+      [/同事|工作|会议|老板|客户|面试|加班/, '职场'],
+      [/价|砍|买|摊|二手|闲鱼/, '买卖砍价'],
+      [/健身|练|跑步|球|运动/, '运动健身'],
+      [/朋友|闲聊|周末|聚会|聊天/, '日常闲聊'],
+    ];
+    for (var i = 0; i < rules.length; i++) if (rules[i][0].test(s)) return rules[i][1];
+    return '其他';
+  }
+
+  function addBookEntry(d) {
+    var all = loadBook();
+    var key = bookKey(d);
+    var hit = null;
+    all.forEach(function (x) { if (x.key === key) hit = x; });
+    var entry = hit || { key: key, got: false, at: 0 };
+    entry.phrase = d.phrase || key;
+    entry.asUsed = d.asUsed || d.phrase || key;
+    entry.pattern = d.pattern || '';
+    entry.meaning = d.meaning || '';
+    entry.structure = d.structure || '';
+    entry.why = d.why || '';
+    entry.caution = d.caution || '';
+    entry.examples = (d.examples || []).slice(0, 3);
+    entry.sentence = d.sentence || '';
+    entry.scene = d.scene || '';
+    entry.cat = d.category || entry.cat || guessCat(d.scene);
+    entry.at = Date.now();
+    if (hit) all = all.map(function (x) { return x.key === key ? entry : x; });
+    else all.unshift(entry);
+    saveBook(all);
+    renderBook();
+    return entry;
+  }
+
+  function bookCats(all) {
+    var cats = [];
+    (all || []).forEach(function (x) { var c = x.cat || '其他'; if (cats.indexOf(c) < 0) cats.push(c); });
+    return cats;
+  }
+
+  function bookRow(x) {
+    var row = mk('div', 'item' + (x.got ? ' got' : ''));
+    var head = mk('div', 'ih');
+    head.appendChild(mk('span', 'term', x.asUsed || x.phrase));
+    if (x.pattern && x.pattern !== x.asUsed) head.appendChild(mk('span', 'zh', x.pattern));
+    var say = mk('button', 'mini ghost say', '🔊');
+    say.addEventListener('click', function () { speak((x.examples && x.examples[0] && x.examples[0].en) || x.asUsed || x.phrase); });
+    head.appendChild(say);
+    row.appendChild(head);
+    if (x.meaning) row.appendChild(mk('div', 'zh', x.meaning));
+    if (x.examples && x.examples[0] && x.examples[0].en) {
+      var ex = mk('div', 'ex');
+      ex.appendChild(mk('div', 'en', x.examples[0].en));
+      if (x.examples[0].zh) ex.appendChild(mk('div', 'zh', x.examples[0].zh));
+      ex.addEventListener('click', function () {
+        var s = window.getSelection && String(window.getSelection());
+        if (s && s.trim()) return;
+        speak(x.examples[0].en);
+      });
+      row.appendChild(ex);
+    }
+    if (x.caution) row.appendChild(mk('span', 'note', '⚠ ' + x.caution));
+
+    var acts = mk('div', 'acts');
+    var got = mk('button', 'mini ghost', x.got ? '↩ 没掌握' : '✓ 已掌握');
+    got.addEventListener('click', function () {
+      var all = loadBook().map(function (y) { if (y.key === x.key) y.got = !y.got; return y; });
+      saveBook(all); renderBook();
+    });
+    acts.appendChild(got);
+
+    var sel = mk('select', 'mini');
+    var placeholder = mk('option', null, '移到…');
+    placeholder.value = '';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    sel.appendChild(placeholder);
+    bookCats(loadBook()).forEach(function (c) {
+      if (c === (x.cat || '其他')) return;
+      var o = mk('option', null, c); o.value = c; sel.appendChild(o);
+    });
+    var oNew = mk('option', null, '＋ 新分类…'); oNew.value = '__new'; sel.appendChild(oNew);
+    sel.addEventListener('change', function () {
+      var v = sel.value;
+      if (!v) return;
+      if (v === '__new') {
+        var inp = mk('input', 'txt');
+        inp.placeholder = '新分类名（回车确认）';
+        inp.style.cssText = 'width:120px; padding:4px 8px; font-size:13px';
+        var commit = function () {
+          var name = String(inp.value || '').trim().slice(0, 12);
+          if (!name) { renderBook(); return; }
+          var all = loadBook().map(function (y) { if (y.key === x.key) y.cat = name; return y; });
+          saveBook(all); renderBook();
+        };
+        inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') commit(); });
+        inp.addEventListener('blur', commit);
+        acts.appendChild(inp); inp.focus();
+        return;
+      }
+      var all2 = loadBook().map(function (y) { if (y.key === x.key) y.cat = v; return y; });
+      saveBook(all2); renderBook();
+    });
+    acts.appendChild(sel);
+
+    var del = mk('button', 'mini ghost', '删');
+    del.addEventListener('click', function () {
+      saveBook(loadBook().filter(function (y) { return y.key !== x.key; }));
+      renderBook();
+    });
+    acts.appendChild(del);
+    row.appendChild(acts);
+    return row;
+  }
+
+  function renderBook() {
+    var all = loadBook();
+    el('book-n').textContent = all.length ? '(' + all.length + ')' : '';
+    var q = String(el('book-q').value || '').toLowerCase().trim();
+    var f = el('book-f').value;
+    var list = all.filter(function (x) {
+      if (f === 'new' && x.got) return false;
+      if (f === 'got' && !x.got) return false;
+      if (!q) return true;
+      return ((x.asUsed || '') + ' ' + (x.phrase || '') + ' ' + (x.meaning || '') + ' ' + (x.cat || '') + ' ' + (x.scene || '')).toLowerCase().indexOf(q) >= 0;
+    });
+    var body = el('book-body');
+    body.innerHTML = '';
+    if (!all.length) { body.appendChild(mk('p', 'hint', '还没收词。去对话里选中一个词点「讲解」，它就会自动进这里。')); return; }
+    if (!list.length) { body.appendChild(mk('p', 'hint', '这个筛选/搜索下没有词。')); return; }
+    bookCats(list).forEach(function (c) {
+      var items = list.filter(function (x) { return (x.cat || '其他') === c; });
+      var sec = mk('details', 'sec');
+      sec.setAttribute('open', '');
+      var sum = mk('summary');
+      sum.appendChild(mk('span', null, c));
+      var done = items.filter(function (x) { return x.got; }).length;
+      sum.appendChild(mk('span', 'n', items.length + ' 个' + (done ? '，已掌握 ' + done : '')));
+      sec.appendChild(sum);
+      items.forEach(function (x) { sec.appendChild(bookRow(x)); });
+      body.appendChild(sec);
+    });
+  }
+
+  function bookText() {
+    var all = loadBook();
+    if (!all.length) return '';
+    var out = ['# 生词本（' + all.length + ' 个，' + bookCats(all).length + ' 类）'];
+    bookCats(all).forEach(function (c) {
+      out.push('', '## ' + c);
+      all.filter(function (x) { return (x.cat || '其他') === c; }).forEach(function (x) {
+        out.push('- ' + x.asUsed + (x.pattern && x.pattern !== x.asUsed ? '（' + x.pattern + '）' : '') + ' — ' + (x.meaning || ''));
+        if (x.examples && x.examples[0]) out.push('    例句：' + x.examples[0].en + (x.examples[0].zh ? ' / ' + x.examples[0].zh : ''));
+        if (x.caution) out.push('    要留意：' + x.caution);
+        if (x.got) out.push('    [已掌握]');
+      });
+    });
+    return out.join('\n');
+  }
+
+  function csvCell(v) {
+    var s = String(v == null ? '' : v).replace(/\r?\n/g, ' ');
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function bookCsv() {
+    var head = ['分类', '词条', '用法结构', '本句意思', '语法', '为什么', '例句', '例句中文', '易错点', '场景', '已掌握', '收录时间'];
+    var rows = loadBook().map(function (x) {
+      var e0 = (x.examples && x.examples[0]) || {};
+      return [x.cat || '其他', x.asUsed, x.pattern, x.meaning, x.structure, x.why, e0.en || '', e0.zh || '', x.caution, x.scene, x.got ? '是' : '否', new Date(x.at || 0).toISOString().slice(0, 10)];
+    });
+    return '\ufeff' + [head].concat(rows).map(function (r) { return r.map(csvCell).join(','); }).join('\n');
+  }
+  function bookAnki() {
+    // Anki 导入用：制表符分两列，正面英文+例句，背面意思+结构+坑
+    return loadBook().map(function (x) {
+      var e0 = (x.examples && x.examples[0]) || {};
+      var front = (x.asUsed || '') + (e0.en ? '<br>' + e0.en : '');
+      var back = (x.meaning || '') + (x.pattern ? '<br>用法：' + x.pattern : '') + (x.structure ? '<br>结构：' + x.structure : '') + (x.caution ? '<br>⚠ ' + x.caution : '');
+      return front.replace(/\t/g, ' ') + '\t' + back.replace(/\t/g, ' ');
+    }).join('\n');
+  }
+
   /* ---------- 绑定 ---------- */
   function bind() {
     var ex = el('examples');
@@ -792,6 +1017,19 @@
     window.addEventListener('scroll', hidePick, { passive: true });
     el('x-close').addEventListener('click', function () { el('explain-card').classList.add('hidden'); });
     el('x-copy').addEventListener('click', function (ev) { copyText(explainText(), ev.currentTarget); });
+
+    // 生词本
+    el('book-btn').addEventListener('click', function () {
+      var card = el('book-card');
+      var show = card.classList.contains('hidden');
+      card.classList.toggle('hidden', !show);
+      if (show) renderBook();
+    });
+    el('book-q').addEventListener('input', renderBook);
+    el('book-f').addEventListener('change', renderBook);
+    el('book-txt').addEventListener('click', function (ev) { copyText(bookText(), ev.currentTarget); });
+    el('book-csv').addEventListener('click', function () { downloadText(bookCsv(), '生词本.csv'); });
+    el('book-anki').addEventListener('click', function () { downloadText(bookAnki(), '生词本-anki.txt'); });
   }
 
   if (typeof document !== 'undefined' && el('scene')) {
@@ -807,6 +1045,7 @@
       callApi: callApi, keyOf: keyOf, saveItem: saveItem, loadAll: loadAll, bind: bind,
       checkService: checkService, stopBusy: stopBusy,
       explain: explain, renderExplain: renderExplain, onSelectionMaybe: onSelectionMaybe, explainText: explainText, loadExplains: loadExplains,
+      loadBook: loadBook, addBookEntry: addBookEntry, renderBook: renderBook, bookText: bookText, bookCsv: bookCsv, bookAnki: bookAnki, guessCat: guessCat,
     };
   }
 })();
