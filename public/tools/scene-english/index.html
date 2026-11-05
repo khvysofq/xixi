@@ -609,6 +609,8 @@
   }
 
   var pickBtn = null;
+  var lastTouch = false;
+  function markTouch() { lastTouch = true; setTimeout(function () { lastTouch = false; }, 1200); }
   function ensurePick() {
     if (pickBtn) return pickBtn;
     pickBtn = mk('button');
@@ -646,8 +648,10 @@
     try { rect = sel.getRangeAt(0).getBoundingClientRect() || rect; } catch (e) { /* 旧内核没这个方法 */ }
     var vw = window.innerWidth || 980, vh = window.innerHeight || 700;
     btn.style.left = Math.max(8, Math.min(vw - 180, (rect.left || 0) + (rect.width || 0) / 2 - 90)) + 'px';
-    var top = (rect.top || 0) - 48;
-    if (top < 8) top = Math.min(vh - 56, (rect.bottom || 0) + 10);
+    // 触屏时微信/X5 自己的「复制·搜索」菜单就浮在选区上方，我们改浮到下面，别叠在一起
+    var top = lastTouch ? (rect.bottom || 0) + 12 : (rect.top || 0) - 48;
+    if (!lastTouch && top < 8) top = Math.min(vh - 56, (rect.bottom || 0) + 12);
+    if (lastTouch && top > vh - 60) top = Math.max(8, (rect.top || 0) - 48);
     btn.style.top = top + 'px';
     btn.classList.add('show');
   }
@@ -780,7 +784,7 @@
     function schedulePick() { clearTimeout(pickTimer); pickTimer = setTimeout(onSelectionMaybe, 220); }
     document.addEventListener('selectionchange', schedulePick);
     document.addEventListener('mouseup', schedulePick);
-    document.addEventListener('touchend', schedulePick);
+    document.addEventListener('touchend', function () { markTouch(); schedulePick(); });
     document.addEventListener('click', function (ev) {
       if (!pickBtn || !ev.target || ev.target === pickBtn || (pickBtn.contains && pickBtn.contains(ev.target))) return;
       hidePick();
