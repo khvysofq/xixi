@@ -98,7 +98,9 @@ node scripts/deploy-tool.cjs --tool csv-inspect  # 部署其他工具（--list �
 
 线上入口：https://xixi.publicrandom.com/tools/scene-english/
 
-使用者说一句场景（打字或浏览器语音识别），拿到一段真的能开口的中英对照情景对话；点「更多表达」再给这个场景的高频词、短语、句式（自动按场景分类），点句子能听发音，能复制/下载 .txt，历史存在 localStorage。
+使用者说一句场景（打字或点🎤语音），得到一段真的能开口的中英对照情景对话；**选中句子里任何一个词或短语**（电脑拖选 / 手机长按）会浮出「讲解」，讲它在**本句里**的意思、语法结构、跟直译的差别，外加 3 句可套用的例句（选破了也能补全：只选到 `ment` 会当成 `have been meaning to do` 来讲）；点「更多表达」拿这个场景的高频词与句式 —— **只给 3~4 类、每类 3~4 条，每条都带例句**（多了记不住）。点句子可朗读，可复制/下载 .txt，历史与讲解结果都存在 localStorage。
+
+讲解走单独的额度桶（默认每 IP 每窗口 40 次，`SCENE_GUIDE_EXPLAIN_IP_LIMIT`），所以连着点几个词不会把对话生成的额度吃掉。
 
 这个工具是全本地计算的例外：文案是模型生成的，所以走服务端接口，密钥只在服务端，浏览器拿不到。
 
@@ -109,8 +111,10 @@ GET  /api/scene-guide/health   → {ok, model, binary, pid, startedAt, uptimeSec
 POST /api/scene-guide          → {ok, data}
      body: {"mode":"dialogue","scene":"…","extra":"对方是谁/语气","fresh":false}
      body: {"mode":"more","scene":"…","dialogue":[{who,en,zh}]}
+     body: {"mode":"explain","scene":"…","sentence":"整句英文","phrase":"选中的片段","zh":"这句中文"}
      data: {kind:"dialogue", title, scene, lines:[{who,en,zh}], tips:[]} 或
-           {kind:"guide", sections:[{title, items:[{zh,en,note}]}], patterns:[{en,zh}]}
+           {kind:"guide", sections:[{title, items:[{zh,en,note,example:{en,zh}}]}], patterns:[{en,zh}]} 或
+           {kind:"explain", phrase, asUsed, pattern, meaning, structure, why, examples:[{en,zh}], caution, sentence, scene}
 ```
 
 `startedAt`（进程启动时间）与 `serverJsMtime`（代码修改时间）放在一起，就是为了一眼看出“跑的是不是旧进程”；`staleCode` 直接给结论。每一笔 POST 都向日志写一行 `POST from=<IP> http=<码> <耗时>ms mode=… cached=…`（499 = 客户端中途断）。
@@ -124,17 +128,20 @@ POST /api/scene-guide          → {ok, data}
 | `SCENE_GUIDE_BIN` | `/usr/local/bin/openclaw` | 生成命令的可执行文件 |
 | `SCENE_GUIDE_AGENT` | 科技嘻的 agent id | 用哪个 agent 的模型与凭据 |
 | `SCENE_GUIDE_MODEL` | `aliyun/deepseek-v4.1-flash` | 模型（改 `aliyun/qwen3.8-max` 等更贵的会吃额度） |
-| `SCENE_GUIDE_IP_LIMIT` / `_IP_WINDOW_MS` | 12 / 600000 | 每个出口 IP 每窗口次数（限流按 X-Forwarded-For，可被伪造，只用于限速） |
-| `SCENE_GUIDE_DAILY_LIMIT` | 300 | 全站每日次数，烧的是主人的额度 |
+| `SCENE_GUIDE_IP_LIMIT` / `_IP_WINDOW_MS` | 12 / 600000 | 每 IP 每窗口次数（对话与更多表达共用一个桶） |
+| `SCENE_GUIDE_EXPLAIN_IP_LIMIT` | 40 | 选词讲解单独的桶（连着点几个词很常见） |
+| `SCENE_GUIDE_DAILY_LIMIT` | 300 | 全站每日次数（所有 mode 一起算），烧的是主人的额度 |
 | `SCENE_GUIDE_TIMEOUT_MS` | 90000 | 单次生成超时 |
 | `SCENE_GUIDE_MAX_CONCURRENCY` | 2 | 同时跑的生成数（再多回 503） |
 
-另有两层缓存：服务端 30 分钟内同场景直接复用；前端 localStorage 有结果时点「生成」不再打接口（要新的得点「换一批」，带 `fresh:true` 绕开两层缓存）。
+另有两层缓存：服务端 30 分钟内同场景直接复用（explain 按 句子+选中片段 缓存）；前端 localStorage 有结果时点「生成」不再打接口（要新的得点「换一批」，带 `fresh:true` 绕开两层缓存），讲解结果另存一份（最多 80 条），同一个词问第二次不花钱。
+
+「更多表达」还有一道质量兜底：模型偶尔偷懒只交一类、句式为空，服务端发现 `sections < 3 或 patterns 为空` 会自动重跑一次，取更丰满的那份（测试里用 `FAKE_OPENCLAW_THIN=1` 验证）。
 
 ## 测试与上线自检
 
 ```bash
-npm test        # 37 个用例：站点 5 + 生成模块 13 + 接口 9 + 页面 10（含 405 旧进程、进门探测、重试）
+npm test        # 49 个用例：站点 5 + 生成模块 17 + 接口 13 + 页面 14（含选词讲解、405 旧进程、进门探测、重试、偷懒重跑）
 npm run verify  # 打公网：页面字节一致 + 接口在不在 + 进程是否比代码旧（退出码非 0 = 没上成）
 npm run verify:probe  # 额外花一次额度跑真生成
 ```

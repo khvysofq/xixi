@@ -26,15 +26,32 @@ const GUIDE = {
   kind: 'guide',
   sections: [
     { title: '预处理', items: [
-      { zh: '吸干水分', en: 'pat dry', note: '煎肉不溅油的关键' },
-      { zh: '焯水', en: 'blanch', note: '' },
+      { zh: '吸干水分', en: 'pat dry', note: '煎肉不溅油的关键', example: { en: 'Pat the steak dry before it hits the pan.', zh: '下锅前先把牛排表面吸干。' } },
+      { zh: '焯水', en: 'blanch', note: '', example: { en: 'Blanch the ribs first.', zh: '排骨先焯水。' } },
     ] },
-    { title: '火候', items: [{ zh: '小火微沸', en: 'simmer', note: '别大火猛滚' }] },
+    { title: '火候', items: [{ zh: '小火微沸', en: 'simmer', note: '别大火猛滚', example: { en: 'Let it simmer for an hour.', zh: '小火炖一个小时。' } }] },
   ],
   patterns: [
     { en: 'Do you have any tips for…?', zh: '你有什么窍门吗？' },
     { en: 'How long do you simmer it for?', zh: '你小火炖多久？' },
   ],
+};
+
+const EXPLAIN = {
+  kind: 'explain',
+  phrase: 'been meaning',
+  asUsed: 'have been meaning to do sth',
+  pattern: 'have been meaning to do sth',
+  meaning: '一直想做（但还没做成）',
+  structure: '现在完成进行时：have been + doing',
+  why: '强调从过去一直拖到现在，不是「打算」',
+  examples: [
+    { en: "I've been meaning to call him back.", zh: '我一直想给他回电话。' },
+    { en: "She's been meaning to try that place.", zh: '她一直想去那家店。' },
+  ],
+  caution: '别写成 I am meaning to do',
+  sentence: "Hey, you got a minute? I've been meaning to vent about work.",
+  scene: '跟同事吐槽工作',
 };
 
 async function boot(opts = {}) {
@@ -60,6 +77,7 @@ async function boot(opts = {}) {
         calls.push({ url, body });
         if (opts.fail === 405) return Promise.resolve({ ok: false, status: 405, text: 'Method Not Allowed', json: async () => { throw new Error('no json'); } });
         if (opts.fail) return Promise.resolve({ ok: false, status: 502, json: async () => ({ ok: false, error: '生成超时了，请点重试' }) });
+        if (body.mode === 'explain') return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, data: EXPLAIN }) });
         const data = body.mode === 'more' ? GUIDE : DIALOGUE;
         return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, data }) });
       };
@@ -129,9 +147,12 @@ test('点「更多表达」：分类语料 + 句式渲染，note 跟在英文后
   assert.equal(doc.getElementById('guide-card').classList.contains('hidden'), false);
   assert.equal(doc.querySelectorAll('#sections details.sec').length, 2, '两个分类');
   assert.match(doc.querySelector('#sections summary').textContent, /预处理/);
-  assert.equal(doc.querySelectorAll('#sections table.v tr').length, 3, '共 3 条词条');
-  assert.match(doc.querySelector('#sections td.en .note').textContent, /溅油/);
+  assert.equal(doc.querySelectorAll('#sections .item').length, 3, '共 3 条词条');
+  assert.equal(doc.querySelectorAll('#sections .item .ex .en').length, 3, '每条都要带例句');
+  assert.match(doc.querySelector('#sections .item .term').textContent, /pat dry/);
+  assert.match(doc.querySelector('#sections .item .note').textContent, /溅油/);
   assert.equal(doc.querySelectorAll('#patterns .pat').length, 2, '两条句式');
+  assert.match(doc.getElementById('guide-status').textContent, /只留最常用/, '要说清为什么只有几条');
 });
 
 test('同场景重复点「生成」走本地缓存，不再花钱；「换一批」才重新请求', async () => {
@@ -178,6 +199,7 @@ test('隐藏中文只影响显示，复制/下载出来的文本仍然中英齐�
   const g = window.sceneEnglish.guideText();
   assert.match(g, /## 预处理/);
   assert.match(g, /吸干水分 — pat dry（煎肉不溅油的关键）/);
+  assert.match(g, /例句：Pat the steak dry before it hits the pan\./, '复制出来也要有例句');
   assert.match(g, /## 可直接套用的句式/);
 });
 
@@ -241,4 +263,111 @@ test('生成失败时也给出「重试」，点一下接着上次场景继续',
   for (let i = 0; i < 100 && calls.length < 2; i++) await wait(20);
   assert.equal(calls.length, 2);
   assert.equal(calls[1].body.scene, '超时场景');
+});
+
+/* ---------- 选词讲解 ---------- */
+
+// 在第一个气泡的英文里选中一段文字，模拟用户拖选/长按（按内容找位置，不硬写偏移）
+function selectInFirstBubble(window, want) {
+  const en = window.document.querySelector('#talk .turn .en');
+  const node = en.firstChild;
+  const text = String(node.nodeValue);
+  const from = text.indexOf(want);
+  assert.ok(from >= 0, `第一句里要有「${want}」才能测选词，实际：${text}`);
+  const range = window.document.createRange();
+  range.setStart(node, from);
+  range.setEnd(node, from + want.length);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  return String(sel.toString());
+}
+
+test('选中对话里的词 →「讲解」按钮出现 → 点开给出本句用法', async () => {
+  const { window, calls } = await boot();
+  await generate(window, calls, '跟同事吐槽工作');
+  const picked = selectInFirstBubble(window, 'been trying');
+  window.sceneEnglish.onSelectionMaybe();
+  const pill = window.document.getElementById('pick');
+  assert.ok(pill, '讲解按钮要已创建');
+  assert.ok(pill.classList.contains('show'), '选中句子里的词要浮出按钮');
+  assert.match(pill.textContent, /讲解/, `按钮文案要说明干什么：${pill.textContent}`);
+  assert.equal(picked, 'been trying', '选区应落在英文句内');
+
+  pill.click();
+  for (let i = 0; i < 100 && !window.sceneEnglish.state.explain; i++) await wait(20);
+  const doc = window.document;
+  assert.equal(doc.getElementById('explain-card').classList.contains('hidden'), false, '讲解卡要出现');
+  assert.match(doc.getElementById('x-title').textContent, /have been meaning to do sth/, '标题用补全后的搭配');
+  assert.match(doc.querySelector('#x-body .xp').textContent, /have been meaning to do sth/, '结构式做成醒目标签');
+  assert.match(doc.getElementById('x-body').textContent, /现在完成进行时/, '语法结构');
+  assert.match(doc.getElementById('x-body').textContent, /一直想做/, '在本句里的意思');
+  assert.equal(doc.querySelectorAll('#x-body .xex .ex').length, 2, '给可套用的例句');
+  assert.equal(doc.querySelectorAll('#x-body mark').length, 1, '原句里要把选中的词标出来');
+
+  const last = calls[calls.length - 1];
+  assert.equal(last.body.mode, 'explain', '请求走 explain');
+  assert.equal(last.body.phrase, picked.trim());
+  assert.match(last.body.sentence, /braised beef/, '整句要带过去（不是只带选中的词）');
+  assert.match(window.sceneEnglish.explainText(), /用法：have been meaning to do sth/);
+});
+
+test('同一个词问第二次走本地缓存，不再花钱', async () => {
+  const { window, calls } = await boot();
+  await generate(window, calls, '缓存讲解场景');
+  selectInFirstBubble(window, 'been trying');
+  window.sceneEnglish.onSelectionMaybe();
+  window.document.getElementById('pick').click();
+  for (let i = 0; i < 100 && !window.sceneEnglish.state.explain; i++) await wait(20);
+  const before = calls.filter((c) => c.body.mode === 'explain').length;
+  assert.equal(before, 1);
+
+  await window.sceneEnglish.explain(calls[calls.length - 1].body.phrase, calls[calls.length - 1].body.sentence, '');
+  await wait(40);
+  const after = calls.filter((c) => c.body.mode === 'explain').length;
+  assert.equal(after, before, '第二次不该再打接口');
+  assert.match(window.document.getElementById('x-status').textContent, /之前问过/);
+  assert.ok(window.document.getElementById('x-body').textContent.length > 20, '缓存的内容照样渲染');
+});
+
+test('选的不是句子（比如顶部说明文字）不要浮出讲解按钮', async () => {
+  const { window } = await boot();
+  const sub = window.document.querySelector('.sub');
+  const range = window.document.createRange();
+  range.setStart(sub.firstChild, 0);
+  range.setEnd(sub.firstChild, 6);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  window.sceneEnglish.onSelectionMaybe();
+  const pill = window.document.getElementById('pick');
+  assert.ok(!pill || !pill.classList.contains('show'), '非句子区域不该冒按钮');
+
+
+  // 选中太长（>60 字）也不冒，避免把整段话当词去问
+  await generate(window, [], '长选区场景');
+  const en = window.document.querySelector('#talk .turn .en');
+  const r2 = window.document.createRange();
+  r2.setStart(en.firstChild, 0);
+  r2.setEnd(en.firstChild, String(en.firstChild.nodeValue).length);
+  const sel2 = window.getSelection();
+  sel2.removeAllRanges();
+  sel2.addRange(r2);
+  window.sceneEnglish.onSelectionMaybe();
+  const pill2 = window.document.getElementById('pick');
+  const whole = String(sel2.toString());
+  if (whole.length > 60) {
+    assert.ok(!pill2.classList.contains('show'), '整句太长不该冒讲解按钮');
+  } else {
+    assert.ok(pill2.classList.contains('show'), '短句（≤60 字）应该冒按钮');
+  }
+});
+
+test('讲解失败时把服务的中文错误显示在讲解卡里，不静默', async () => {
+  const { window } = await boot({ fail: true });
+  const d = await window.sceneEnglish.explain('simmer', 'Let it simmer for an hour.', '小火炖');
+  assert.equal(d, null);
+  const st = window.document.getElementById('x-status');
+  assert.equal(st.className, 'status err');
+  assert.match(st.textContent, /生成超时/, '要把服务端说的中文原样给主人看');
 });

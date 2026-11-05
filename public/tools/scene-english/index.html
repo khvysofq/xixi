@@ -64,6 +64,29 @@
   .tips ul { margin: 6px 0 0; padding-left: 20px; }
 
   details.sec { border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-bottom: 10px; overflow: hidden; }
+  .item { padding: 12px 14px; border-top: 1px solid var(--line); }
+  .item:first-child { border-top: none; }
+  .ih { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .ih .term { font-size: 17px; font-weight: 600; }
+  .ih .zh { font-size: 14px; color: var(--muted); }
+  .ih .say { margin-left: auto; }
+  .ex { margin-top: 6px; padding: 8px 10px; background: #faf6f2; border-left: 3px solid var(--accent-soft, #e8b7a4); border-radius: 8px; cursor: pointer; }
+  .ex .en { font-size: 16px; }
+  .ex .zh { font-size: 13px; margin-top: 3px; }
+  .item .note { display: block; font-size: 12px; color: var(--muted); margin-top: 5px; }
+
+  /* 选中一段文字后浮出来的「讲解」按钮 */
+  #pick { position: fixed; z-index: 50; display: none; background: var(--ink); color: #fff; border: none;
+    border-radius: 999px; padding: 8px 14px; font-size: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.22); max-width: 84vw; }
+  #pick.show { display: block; }
+  #pick .q { opacity: .75; margin-right: 6px; }
+  mark { background: #ffe6a3; color: inherit; padding: 0 2px; border-radius: 3px; }
+  .xp { display: inline-block; background: var(--you); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 10px; font-size: 16px; font-weight: 600; margin: 2px 0 10px; }
+  .xrow { margin: 0 0 10px; font-size: 15px; line-height: 1.6; }
+  .xrow .k { font-size: 12px; color: var(--muted); letter-spacing: .5px; display: block; margin-bottom: 2px; }
+  .xex { border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 8px; }
+  .xcap { color: var(--bad); font-size: 14px; margin-top: 8px; }
   details.sec > summary { list-style: none; cursor: pointer; padding: 12px 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
   details.sec > summary::-webkit-details-marker { display: none; }
   details.sec > summary .n { margin-left: auto; font-size: 13px; color: var(--muted); font-weight: 400; }
@@ -91,7 +114,7 @@
     <h1>场景英语提示</h1>
     <a class="back" href="/">← 回工具箱</a>
   </header>
-  <p class="sub">说一句你在什么场合、跟谁、聊什么 —— 我给你一段真能开口的中英对照对话；点「更多表达」再给你这个场景的高频词、短语和句式。</p>
+  <p class="sub">说一句你在什么场合、跟谁、聊什么 —— 我给你一段真能开口的中英对照对话；<b>选中句子里任何一个词或短语</b>可以问用法；点「更多表达」拿这个场景最少而真的几条，每条都带例句。</p>
 
   <section class="panel">
     <label class="cap" for="scene">场景（说人话就行，越具体越像真的）</label>
@@ -117,10 +140,22 @@
     <h2 class="scene-title" id="d-title"></h2>
     <p class="hint" id="d-scene"></p>
     <div class="talk" id="talk"></div>
+    <p class="hint" id="pick-hint">💡 <b>选中句子里任何一个词或短语</b>（电脑上拖选，手机上长按），会出现「讲解」——告诉你它在这个句子里到底怎么说、为什么这么说。</p>
     <div class="tips hidden" id="tips-box">
       <b>教练提示</b>
       <ul id="tips-list"></ul>
     </div>
+  </section>
+
+  <section class="panel hidden" id="explain-card">
+    <h2 class="scene-title" id="x-title">用法讲解</h2>
+    <div class="row" style="margin:0 0 10px">
+      <button class="mini ghost" id="x-copy">复制讲解</button>
+      <button class="mini ghost" id="x-close">收起</button>
+      <span class="grow"></span>
+      <span class="status" id="x-status"></span>
+    </div>
+    <div id="x-body"></div>
   </section>
 
   <section class="panel hidden" id="guide-card">
@@ -175,7 +210,7 @@
     if (text !== undefined && text !== null) n.textContent = String(text);
     return n;
   };
-  var state = { scene: '', extra: '', dialogue: null, guide: null, busy: false, timer: null };
+  var state = { scene: '', extra: '', dialogue: null, guide: null, explain: null, busy: false, timer: null, lastAction: null };
 
   /* ---------- 存储 ---------- */
   function loadAll() {
@@ -274,8 +309,13 @@
       bubble.appendChild(mk('span', 'say', '🔊'));
       bubble.appendChild(mk('div', 'en', line.en));
       bubble.appendChild(mk('div', 'zh', line.zh));
-      bubble.title = '点这里朗读英文';
-      bubble.addEventListener('click', function () { speak(line.en); });
+      bubble.title = '点这里朗读英文；选中里面的词可以叫希希讲解用法';
+      bubble.addEventListener('click', function () {
+        // 正在选字的时候别抢着朗读
+        var s = window.getSelection && String(window.getSelection());
+        if (s && s.trim()) return;
+        speak(line.en);
+      });
       turn.appendChild(who);
       turn.appendChild(bubble);
       talk.appendChild(turn);
@@ -292,7 +332,7 @@
     el('copy').classList.remove('hidden');
   }
 
-  /* ---------- 渲染语料 ---------- */
+  /* ---------- 渲染语料（每类只留几条，每条都带例句）---------- */
   function renderGuide(g) {
     state.guide = g;
     el('guide-card').classList.remove('hidden');
@@ -305,21 +345,30 @@
       sum.appendChild(mk('span', null, sec.title || '相关表达'));
       sum.appendChild(mk('span', 'n', sec.items.length + ' 条'));
       d.appendChild(sum);
-      var table = mk('table', 'v');
       sec.items.forEach(function (it) {
-        var tr = mk('tr');
-        var td1 = mk('td', 'zh', it.zh || '');
-        var td2 = mk('td', 'en');
-        td2.appendChild(mk('span', null, it.en || ''));
-        if (it.note) td2.appendChild(mk('span', 'note', it.note));
-        var td3 = mk('td', 'act');
-        var btn = mk('button', 'mini ghost', '🔊');
+        var item = mk('div', 'item');
+        var head = mk('div', 'ih');
+        head.appendChild(mk('span', 'term', it.en || ''));
+        if (it.zh) head.appendChild(mk('span', 'zh', it.zh));
+        var btn = mk('button', 'mini ghost say', '🔊');
         btn.addEventListener('click', function () { speak(it.en); });
-        td3.appendChild(btn);
-        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
-        table.appendChild(tr);
+        head.appendChild(btn);
+        item.appendChild(head);
+        if (it.example && it.example.en) {
+          var ex = mk('div', 'ex');
+          ex.appendChild(mk('div', 'en', it.example.en));
+          if (it.example.zh) ex.appendChild(mk('div', 'zh', it.example.zh));
+          ex.title = '点这里朗读例句；选中里面的词可讲解';
+          ex.addEventListener('click', function () {
+            var s = window.getSelection && String(window.getSelection());
+            if (s && s.trim()) return;
+            speak(it.example.en);
+          });
+          item.appendChild(ex);
+        }
+        if (it.note) item.appendChild(mk('span', 'note', it.note));
+        d.appendChild(item);
       });
-      d.appendChild(table);
       box.appendChild(d);
     });
     var pats = el('patterns');
@@ -331,11 +380,16 @@
       d.appendChild(mk('div', 'en', p.en));
       d.appendChild(mk('div', 'zh', p.zh || ''));
       d.style.cursor = 'pointer';
-      d.addEventListener('click', function () { speak(p.en); });
+      d.addEventListener('click', function () {
+        var sel = window.getSelection && String(window.getSelection());
+        if (sel && sel.trim()) return;
+        speak(p.en);
+      });
       pats.appendChild(d);
     });
     el('pat-n').textContent = (g.patterns || []).length + ' 句';
     el('patterns-box').classList.toggle('hidden', !(g.patterns || []).length);
+    el('guide-status').textContent = '每类只留最常用的几条，都带例句；选中不认识的词点「讲解」。';
   }
 
   /* ---------- 文本拼接 / 复制下载 ---------- */
@@ -356,7 +410,10 @@
     var out = ['# ' + state.scene + ' · 高频表达'];
     (g.sections || []).forEach(function (s) {
       out.push('', '## ' + s.title);
-      s.items.forEach(function (i) { out.push('- ' + i.zh + ' — ' + i.en + (i.note ? '（' + i.note + '）' : '')); });
+      s.items.forEach(function (i) {
+        out.push('- ' + i.zh + ' — ' + i.en + (i.note ? '（' + i.note + '）' : ''));
+        if (i.example && i.example.en) out.push('    例句：' + i.example.en + (i.example.zh ? ' / ' + i.example.zh : ''));
+      });
     });
     if (g.patterns && g.patterns.length) {
       out.push('', '## 可直接套用的句式');
@@ -535,6 +592,161 @@
     }
   }
 
+  /* ---------- 选词讲解 ---------- */
+  var XLS = 'xixi.scene-english.explain.v1';
+  function loadExplains() { try { return JSON.parse(localStorage.getItem(XLS) || '{}'); } catch (e) { return {}; } }
+  function saveExplain(key, data) {
+    var all = loadExplains();
+    all[key] = { at: Date.now(), data: data };
+    var ks = Object.keys(all);
+    if (ks.length > 80) {
+      ks.sort(function (a, b) { return all[a].at - all[b].at; }).slice(0, ks.length - 80).forEach(function (k) { delete all[k]; });
+    }
+    try { localStorage.setItem(XLS, JSON.stringify(all)); } catch (e) { /* 存不下就算了 */ }
+  }
+  function xkey(phrase, sentence) {
+    return ((state.scene || '') + '|' + sentence + '|' + phrase).toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  var pickBtn = null;
+  function ensurePick() {
+    if (pickBtn) return pickBtn;
+    pickBtn = mk('button');
+    pickBtn.id = 'pick';
+    pickBtn.type = 'button';
+    pickBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var p = pickBtn._p;
+      hidePick();
+      if (p) explain(p.phrase, p.sentence, p.zh);
+    });
+    document.body.appendChild(pickBtn);
+    return pickBtn;
+  }
+  function hidePick() { if (pickBtn) pickBtn.classList.remove('show'); }
+
+  // 选中一段文字 → 看它是不是句子里的某个词/短语 → 把「讲解」按钮递到嘴边
+  function onSelectionMaybe() {
+    var sel = window.getSelection && window.getSelection();
+    if (!sel || !sel.rangeCount) return hidePick();
+    var text = String(sel.toString() || '').replace(/\s+/g, ' ').trim();
+    if (!text || text.length < 1 || text.length > 60) return hidePick();
+    var node = sel.anchorNode;
+    var host = node && (node.nodeType === 3 ? node.parentElement : node);
+    var enBox = host && host.closest ? host.closest('.en') : null;
+    if (!enBox) return hidePick();
+    var block = enBox.closest('.bubble, .ex, .pat') || enBox.parentNode;
+    var sentence = String(enBox.textContent || '').trim();
+    if (sentence.length < 3) return hidePick();
+    var zhBox = block && block.querySelector ? block.querySelector('.zh') : null;
+    var btn = ensurePick();
+    btn._p = { phrase: text, sentence: sentence, zh: zhBox ? String(zhBox.textContent).trim() : '' };
+    btn.textContent = '🔍 讲解「' + (text.length > 16 ? text.slice(0, 16) + '…' : text) + '」';
+    var rect = { left: 0, top: 0, bottom: 0, width: 0 };
+    try { rect = sel.getRangeAt(0).getBoundingClientRect() || rect; } catch (e) { /* 旧内核没这个方法 */ }
+    var vw = window.innerWidth || 980, vh = window.innerHeight || 700;
+    btn.style.left = Math.max(8, Math.min(vw - 180, (rect.left || 0) + (rect.width || 0) / 2 - 90)) + 'px';
+    var top = (rect.top || 0) - 48;
+    if (top < 8) top = Math.min(vh - 56, (rect.bottom || 0) + 10);
+    btn.style.top = top + 'px';
+    btn.classList.add('show');
+  }
+
+  async function explain(phrase, sentence, zh) {
+    var key = xkey(phrase, sentence);
+    var store = loadExplains();
+    if (store[key] && store[key].data) { renderExplain(store[key].data, true); return store[key].data; }
+    el('explain-card').classList.remove('hidden');
+    el('x-body').innerHTML = '';
+    el('x-status').className = 'status';
+    el('x-status').textContent = '正在讲「' + phrase + '」…（大约 10~20 秒）';
+    try {
+      var d = await callApi({ mode: 'explain', scene: state.scene || sentence, phrase: phrase, sentence: sentence, zh: zh || '' });
+      renderExplain(d, false);
+      saveExplain(key, d);
+      return d;
+    } catch (e) {
+      el('x-status').className = 'status err';
+      el('x-status').textContent = e.message;
+      return null;
+    }
+  }
+
+  function markInto(box, sentence, phrase) {
+    box.innerHTML = '';
+    var i = phrase ? sentence.toLowerCase().indexOf(phrase.toLowerCase()) : -1;
+    if (i < 0) { box.appendChild(document.createTextNode(sentence)); return; }
+    if (i > 0) box.appendChild(document.createTextNode(sentence.slice(0, i)));
+    box.appendChild(mk('mark', null, sentence.slice(i, i + phrase.length)));
+    var rest = sentence.slice(i + phrase.length);
+    if (rest) box.appendChild(document.createTextNode(rest));
+  }
+
+  function row(label, text) {
+    var r = mk('div', 'xrow');
+    r.appendChild(mk('span', 'k', label));
+    r.appendChild(mk('div', null, text));
+    return r;
+  }
+
+  function renderExplain(d, fromCache) {
+    state.explain = d;
+    el('explain-card').classList.remove('hidden');
+    var head = String(d.asUsed || d.phrase || '');
+    if (head.length > 42) head = head.slice(0, 42) + '…';
+    el('x-title').textContent = '「' + head + '」在这个句子里';
+    var body = el('x-body');
+    body.innerHTML = '';
+    if (d.pattern) body.appendChild(mk('div', 'xp', d.pattern));
+    var sent = mk('div', 'xrow');
+    sent.appendChild(mk('span', 'k', '原句'));
+    var line = mk('div', 'en');
+    // 优先把补全后的完整搭配标出来（用户只选到半个词时也能看清整块）
+    var sentText = String(d.sentence || '');
+    var want = String(d.asUsed || '');
+    if (!want || sentText.toLowerCase().indexOf(want.toLowerCase()) < 0) want = String(d.phrase || '');
+    markInto(line, sentText, want);
+    sent.appendChild(line);
+    body.appendChild(sent);
+    if (d.meaning) body.appendChild(row('这里的意思', d.meaning));
+    if (d.structure) body.appendChild(row('语法结构', d.structure));
+    if (d.why) body.appendChild(row('为什么这么说', d.why));
+    if ((d.examples || []).length) {
+      var wrap = mk('div', 'xex');
+      wrap.appendChild(mk('span', 'k', '换到你自己的话里（点句能听）'));
+      d.examples.forEach(function (e) {
+        var ex = mk('div', 'ex');
+        ex.appendChild(mk('div', 'en', e.en));
+        if (e.zh) ex.appendChild(mk('div', 'zh', e.zh));
+        ex.addEventListener('click', function () {
+          var s = window.getSelection && String(window.getSelection());
+          if (s && s.trim()) return;
+          speak(e.en);
+        });
+        wrap.appendChild(ex);
+      });
+      body.appendChild(wrap);
+    }
+    if (d.caution) body.appendChild(mk('div', 'xcap', '⚠ ' + d.caution));
+    el('x-status').className = 'status';
+    el('x-status').textContent = fromCache ? '这条之前问过，直接给你（不重新生成）' : '想换词再选一次；点例句能听发音';
+    if (el('explain-card').scrollIntoView) { try { el('explain-card').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* jsdom 没实现 */ } }
+  }
+
+  function explainText() {
+    var d = state.explain;
+    if (!d) return '';
+    var out = ['【' + (d.asUsed || d.phrase || '') + '】在这个句子里'];
+    if (d.pattern) out.push('用法：' + d.pattern);
+    if (d.sentence) out.push('原句：' + d.sentence);
+    if (d.meaning) out.push('这里的意思：' + d.meaning);
+    if (d.structure) out.push('语法结构：' + d.structure);
+    if (d.why) out.push('为什么这么说：' + d.why);
+    (d.examples || []).forEach(function (e, i) { out.push('例句' + (i + 1) + '：' + e.en + (e.zh ? ' / ' + e.zh : '')); });
+    if (d.caution) out.push('要留意：' + d.caution);
+    return out.join('\n');
+  }
+
   /* ---------- 绑定 ---------- */
   function bind() {
     var ex = el('examples');
@@ -562,6 +774,20 @@
     setupVoice();
     renderHistory();
     checkService();
+
+    // 选词讲解
+    var pickTimer = null;
+    function schedulePick() { clearTimeout(pickTimer); pickTimer = setTimeout(onSelectionMaybe, 220); }
+    document.addEventListener('selectionchange', schedulePick);
+    document.addEventListener('mouseup', schedulePick);
+    document.addEventListener('touchend', schedulePick);
+    document.addEventListener('click', function (ev) {
+      if (!pickBtn || !ev.target || ev.target === pickBtn || (pickBtn.contains && pickBtn.contains(ev.target))) return;
+      hidePick();
+    }, true);
+    window.addEventListener('scroll', hidePick, { passive: true });
+    el('x-close').addEventListener('click', function () { el('explain-card').classList.add('hidden'); });
+    el('x-copy').addEventListener('click', function (ev) { copyText(explainText(), ev.currentTarget); });
   }
 
   if (typeof document !== 'undefined' && el('scene')) {
@@ -576,6 +802,7 @@
       dialogueText: dialogueText, guideText: guideText, generate: generate, more: more,
       callApi: callApi, keyOf: keyOf, saveItem: saveItem, loadAll: loadAll, bind: bind,
       checkService: checkService, stopBusy: stopBusy,
+      explain: explain, renderExplain: renderExplain, onSelectionMaybe: onSelectionMaybe, explainText: explainText, loadExplains: loadExplains,
     };
   }
 })();

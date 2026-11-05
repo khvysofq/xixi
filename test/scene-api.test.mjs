@@ -7,6 +7,7 @@ import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -91,6 +92,74 @@ test('健康检查暴露当前用的模型与 CLI 路径（不含密钥），并
   } finally { stop(s); }
 });
 
+test('POST explain：选中句子中的一个词 → 回到本句用法（含补全与例句）', async () => {
+  const s = await startServer();
+  try {
+    const r = await s.post('/api/scene-guide', {
+      mode: 'explain', scene: '跟同事吐槽工作',
+      sentence: "Hey, you got a minute? I've been meaning to vent about work.",
+      phrase: 'ment', zh: '我一直想找人说说工作上的烦心事',
+    }, { 'X-Forwarded-For': '10.0.0.30' });
+    assert.equal(r.status, 200, r.text);
+    const d = r.json.data;
+    assert.equal(d.kind, 'explain');
+    assert.equal(d.phrase, 'ment', '回显用户真的选了啥');
+    assert.equal(d.asUsed, 'have been meaning to do sth', '选破了要自动补全成完整搭配');
+    assert.match(d.pattern, /have been meaning to do/);
+    assert.match(d.meaning, /想做/);
+    assert.equal(d.examples.length, 3, '给 3 句能直接套的');
+    assert.ok(d.examples[0].en && d.examples[0].zh);
+    assert.equal(d.sentence, "Hey, you got a minute? I've been meaning to vent about work.", '原句要回给页面做高亮');
+    assert.match(d.caution, /I am meaning/);
+  } finally { stop(s); }
+});
+
+test('explain 走单独的宽桶：连着问好几个词不会把生成额度吃掉', async () => {
+  const s = await startServer({ SCENE_GUIDE_IP_LIMIT: '1', SCENE_GUIDE_EXPLAIN_IP_LIMIT: '4' });
+  try {
+    const base = { mode: 'explain', scene: '点餐', sentence: 'Go easy on the ice.' };
+    for (const phrase of ['easy', 'go easy on', 'ice', 'the']) {
+      const r = await s.post('/api/scene-guide', { ...base, phrase }, { 'X-Forwarded-For': '10.0.0.31' });
+      assert.equal(r.status, 200, `${phrase} 应允许：${r.text}`);
+    }
+    const fifth = await s.post('/api/scene-guide', { ...base, phrase: 'on' }, { 'X-Forwarded-For': '10.0.0.31' });
+    assert.equal(fifth.status, 429);
+    assert.match(fifth.json.error, /讲解/);
+    const gen1 = await s.post('/api/scene-guide', { mode: 'dialogue', scene: '点餐生成一' }, { 'X-Forwarded-For': '10.0.0.31' });
+    assert.equal(gen1.status, 200, '对话桶还有一次额度');
+    const gen2 = await s.post('/api/scene-guide', { mode: 'dialogue', scene: '点餐生成二' }, { 'X-Forwarded-For': '10.0.0.31' });
+    assert.equal(gen2.status, 429, '对话桶（1 次/窗口）已满，和讲解互不影响');
+    assert.doesNotMatch(gen2.json.error, /讲解/, '这一下撞的是生成桶');
+  } finally { stop(s); }
+});
+
+test('模型偷懒只给一类、句式为空时，服务端自动重跑一次取更丰满的', async () => {
+  const tick = path.join(os.tmpdir(), `fake-tick-${process.pid}-${Date.now()}`);
+  const s = await startServer({ FAKE_OPENCLAW_THIN: '1', FAKE_OPENCLAW_TICK: tick });
+  try {
+    const r = await s.post('/api/scene-guide', {
+      mode: 'more', scene: '咖啡店点单偷懒测试',
+      dialogue: [{ who: 'A', en: 'Can I get a latte?', zh: '来杯拿铁' }],
+    }, { 'X-Forwarded-For': '10.0.0.40' });
+    assert.equal(r.status, 200, r.text);
+    assert.ok(r.json.data.sections.length >= 3, `分类不该只有一类，实际 ${r.json.data.sections.length}`);
+    assert.ok(r.json.data.patterns.length >= 1, '句式不能空着');
+    assert.equal(fs.readFileSync(tick, 'utf8'), '2', '应该真的重跑了一次');
+  } finally { stop(s); try { fs.unlinkSync(tick); } catch {} }
+});
+
+test('缺 sentence 或 phrase 的 explain 请求给 400，不花模型钱', async () => {
+  const s = await startServer();
+  try {
+    const a = await s.post('/api/scene-guide', { mode: 'explain', scene: '点餐', phrase: 'ice' }, { 'X-Forwarded-For': '10.0.0.32' });
+    assert.equal(a.status, 400);
+    assert.match(a.json.error, /整句/);
+    const b = await s.post('/api/scene-guide', { mode: 'explain', scene: '点餐', sentence: 'Go easy on the ice.' }, { 'X-Forwarded-For': '10.0.0.32' });
+    assert.equal(b.status, 400);
+    assert.match(b.json.error, /选中/);
+  } finally { stop(s); }
+});
+
 test('每一笔生成都留下行：成功也记、限流也记，下次主人报障不用猜', async () => {
   const s = await startServer({ SCENE_GUIDE_IP_LIMIT: '2', SCENE_GUIDE_DAILY_LIMIT: '50' });
   try {
@@ -134,7 +203,9 @@ test('POST more：分类语料与句式都回来（围栏 JSON 也能解析）',
     assert.equal(g.kind, 'guide');
     assert.equal(g.sections[0].title, '点单常用');
     assert.ok(g.sections[0].items[0].note.includes('少冰'));
-    assert.equal(g.patterns.length, 1);
+    assert.equal(g.sections.length, 3, '按新口径给 3 类');
+    assert.equal(g.patterns.length, 2);
+    assert.ok(g.sections[0].items[0].example.en, '每条要带例句');
   } finally { stop(s); }
 });
 

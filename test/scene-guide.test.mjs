@@ -11,6 +11,9 @@ test('validateInput：场景太短或 mode 不对都给中文错误', () => {
   assert.equal(sg.validateInput({ mode: 'dialogue', scene: 'a' }).ok, false);
   assert.equal(sg.validateInput({ mode: 'nonsense', scene: '点餐' }).ok, false);
   assert.equal(sg.validateInput(null).ok, false);
+  const bad = sg.validateInput({ mode: 'explain2', scene: '点餐' });
+  assert.equal(bad.ok, false);
+  assert.match(bad.error, /explain/, '错误文案要提到 explain');
   const good = sg.validateInput({ mode: 'dialogue', scene: '  和朋友聊怎么把肉煮入味  ' });
   assert.equal(good.ok, true);
   assert.equal(good.input.scene, '和朋友聊怎么把肉煮入味', '要 trim');
@@ -91,18 +94,69 @@ test('normalizeDialogue 空对话要报错而不是返回空壳', () => {
   assert.throws(() => sg.normalizeDialogue({ lines: [] }, { scene: '点餐' }), (e) => e.status === 502);
 });
 
-test('normalizeGuide 分类和句式各自裁剪，全空则报错', () => {
+test('normalizeGuide 收到 4 类 × 4 条 + 6 句式（主人说多了记不住），例句保留', () => {
   const g = sg.normalizeGuide({
-    sections: [
-      { title: '点单', items: Array.from({ length: 40 }, (_, i) => ({ zh: `中${i}`, en: `en${i}`, note: 'n' })).concat([{ zh: '', en: '' }]) },
-      { title: '', items: [] },
-    ],
+    sections: Array.from({ length: 9 }, () => ({
+      title: '点单',
+      items: Array.from({ length: 40 }, (_, i) => ({ zh: `中${i}`, en: `en${i}`, note: 'n', example: { en: `example ${i}`, zh: `例句${i}` } })),
+    })),
     patterns: Array.from({ length: 30 }, (_, i) => ({ en: `p${i}`, zh: '中' })),
   });
-  assert.equal(g.sections.length, 1);
-  assert.equal(g.sections[0].items.length, 24);
-  assert.equal(g.patterns.length, 16);
+  assert.equal(g.sections.length, 4, '最多 4 类');
+  assert.equal(g.sections[0].items.length, 4, '每类最多 4 条');
+  assert.equal(g.patterns.length, 6, '句式最多 6 条');
+  assert.equal(g.sections[0].items[0].example.en, 'example 0', '例句要留给页面');
   assert.throws(() => sg.normalizeGuide({ sections: [], patterns: [] }), (e) => e.status === 502);
+});
+
+test('validateInput：explain 模式要整句 + 选中片段', () => {
+  assert.equal(sg.validateInput({ mode: 'explain', scene: '点餐' }).ok, false, '缺句子');
+  assert.equal(sg.validateInput({ mode: 'explain', scene: '点餐', sentence: 'Go easy on the ice.', phrase: '' }).ok, false, '没选词');
+  const r = sg.validateInput({ mode: 'explain', scene: '点餐', sentence: 'Go easy on the ice.', phrase: 'easy' });
+  assert.equal(r.ok, true);
+  assert.equal(r.input.phrase, 'easy');
+  assert.equal(r.input.sentence, 'Go easy on the ice.');
+  const long = sg.validateInput({ mode: 'explain', scene: '点餐', sentence: 'a'.repeat(900), phrase: 'b'.repeat(300) });
+  assert.equal(long.input.sentence.length, 400, '整句截到 400');
+  assert.equal(long.input.phrase.length, 80, '选中片段截到 80');
+});
+
+test('讲解提示词：选破了也要补全，不反问', () => {
+  const p = sg.buildExplainPrompt({ scene: '闲聊', sentence: "I've been meaning to vent about work.", phrase: 'ment' });
+  assert.ok(p.includes('as_used'), '要模型给出补全后的搭配');
+  assert.ok(p.includes("I've been meaning to vent about work."), '原句要传进去');
+  assert.ok(p.includes('ment'), '选中的片段要传进去');
+  assert.ok(p.includes('不要报错也不要反问'), '选破了自己补全');
+  assert.ok(p.includes('只是创作素材'), '用户文本同样包在定界块里');
+});
+
+test('normalizeExplain：字段齐、例句最多 3 条，什么都没讲出来要报错', () => {
+  const d = sg.normalizeExplain({
+    phrase: 'ment',
+    as_used: 'have been meaning to do',
+    pattern: 'have been meaning to do sth',
+    meaning_zh: '一直想做没做',
+    structure_zh: '现在完成进行时',
+    why_zh: '不是打算，是没腾出手',
+    examples: Array.from({ length: 6 }, (_, i) => ({ en: `e${i}`, zh: `中${i}` })),
+    caution: '别写 I am meaning to',
+  }, { phrase: 'ment', sentence: "I've been meaning to vent.", scene: '闲聊' });
+  assert.equal(d.kind, 'explain');
+  assert.equal(d.asUsed, 'have been meaning to do');
+  assert.equal(d.examples.length, 3, '例句只留 3 条');
+  assert.equal(d.sentence, "I've been meaning to vent.", '原句要回填给页面高亮');
+  assert.throws(() => sg.normalizeExplain({ examples: [] }, { phrase: 'x', sentence: 'y', scene: 'z' }), (e) => e.status === 502);
+});
+
+test('讲解走单独的额度桶：连着选好几个词不该把生成额度吃掉', () => {
+  const cfg = { ipLimit: 1, explainIpLimit: 4, ipWindowMs: 60000, dailyLimit: 50 };
+  const b = sg.createBudget(cfg);
+  assert.equal(b.take('1.1.1.1', 'dialogue').allowed, true);
+  assert.equal(b.take('1.1.1.1', 'more').allowed, false, '对话/更多共用一个紧桶');
+  for (let i = 0; i < 4; i++) assert.equal(b.take('1.1.1.1', 'explain').allowed, true, 'explain 有宽桶');
+  const fifth = b.take('1.1.1.1', 'explain');
+  assert.equal(fifth.allowed, false);
+  assert.match(fifth.error, /讲解/, '讲解到顶要说的是讲解');
 });
 
 /* ---------- 限流与额度 ---------- */
