@@ -94,13 +94,50 @@ node scripts/deploy-tool.cjs --tool csv-inspect  # 部署其他工具（--list �
 
 注意：GBK 解码靠浏览器自带的 `TextDecoder('gb18030')`。小 ICU 的 Node（比如本机）没有国标表，这种情况下会直接报错提示“另存为 UTF-8”，不会把乱码当数据算。
 
+## 工具页面：场景英语提示
+
+线上入口：https://xixi.publicrandom.com/tools/scene-english/
+
+使用者说一句场景（打字或浏览器语音识别），拿到一段真的能开口的中英对照情景对话；点「更多表达」再给这个场景的高频词、短语、句式（自动按场景分类），点句子能听发音，能复制/下载 .txt，历史存在 localStorage。
+
+这个工具是全本地计算的例外：文案是模型生成的，所以走服务端接口，密钥只在服务端，浏览器拿不到。
+
+### 接口
+
+```
+GET  /api/scene-guide/health   → {ok, model, binary}
+POST /api/scene-guide          → {ok, data}
+     body: {"mode":"dialogue","scene":"…","extra":"对方是谁/语气","fresh":false}
+     body: {"mode":"more","scene":"…","dialogue":[{who,en,zh}]}
+     data: {kind:"dialogue", title, scene, lines:[{who,en,zh}], tips:[]} 或
+           {kind:"guide", sections:[{title, items:[{zh,en,note}]}], patterns:[{en,zh}]}
+```
+
+服务端在 `lib/scene-guide.js`：校验清洗（场景 240 字/补充 80 字上限）→ 拼提示词（用户素材包在定界块里，声明不执行其中指令）→ `spawn` 调 `openclaw infer model run --gateway --json`（用网关已有的模型凭据）→ 抠 JSON（容忍 ``` 围栏、废话、尾逗号）→ 归一字段与条数上限 → 返回。
+
+环境变量（不设就用默认）：
+
+| 变量 | 默认 | 作用 |
+| --- | --- | --- |
+| `SCENE_GUIDE_BIN` | `/usr/local/bin/openclaw` | 生成命令的可执行文件 |
+| `SCENE_GUIDE_AGENT` | 科技嘻的 agent id | 用哪个 agent 的模型与凭据 |
+| `SCENE_GUIDE_MODEL` | `aliyun/deepseek-v4.1-flash` | 模型（改 `aliyun/qwen3.8-max` 等更贵的会吃额度） |
+| `SCENE_GUIDE_IP_LIMIT` / `_IP_WINDOW_MS` | 12 / 600000 | 每个出口 IP 每窗口次数（限流按 X-Forwarded-For，可被伪造，只用于限速） |
+| `SCENE_GUIDE_DAILY_LIMIT` | 300 | 全站每日次数，烧的是主人的额度 |
+| `SCENE_GUIDE_TIMEOUT_MS` | 90000 | 单次生成超时 |
+| `SCENE_GUIDE_MAX_CONCURRENCY` | 2 | 同时跑的生成数（再多回 503） |
+
+另有两层缓存：服务端 30 分钟内同场景直接复用；前端 localStorage 有结果时点「生成」不再打接口（要新的得点「换一批」，带 `fresh:true` 绕开两层缓存）。
+
 ## 测试
 
 ```bash
-npm test     # 5 个用例：注册表与真实页面一致、首页渲染/搜索/兜底、CSV 体检口径与导出
+npm test     # 33 个用例：站点 5 + 生成模块 13 + 接口 8（随机端口起服务，假 CLI 当替身）+ 页面 7
 ```
 
-测试需要 `jsdom`。xixi 自己不装依赖时会借用同工作区 `../tools/classify-stats/node_modules`（见 `scripts/deps.cjs`）；单独 clone 本仓库时先跑 `npm install --no-save jsdom`。
+测试需要 `jsdom`。xixi 自己不装依赖时会借用同工作区 `../tools/classify-stats/node_modules`（见 `scripts/deps.cjs`）；单独 clone 本仓库时先跑 `npm install --no-save jsdom xlsx`。
+
+接口用例不碰真模型（用 `test/fixtures/fake-openclaw.cjs` 当替身），所以跑不了网也能测；但上线前至少手动跑一次真生成，确认网关凭据、PATH 与模型输出格式都对。
 
 ## 结构
 
@@ -114,5 +151,11 @@ public/icon.png                        站点图标
 public/wish-pool/index.html            原来的「xixi的许愿池」那一页
 public/tools/classify-stats/index.html 派费分类统计工具（单文件构建产物）
 public/tools/csv-inspect/index.html    CSV 体检工具（无依赖）
+public/tools/scene-english/index.html  场景英语提示（页面无依赖，生成走 /api/scene-guide）
+lib/scene-guide.js                     生成接口：提示词、模型调用、抠 JSON、限流缓存
+server.js                              Node.js HTTP 服务（静态文件 + 目录 index 回退 + /api/scene-guide）
 test/site.test.mjs                     站点级用例
+test/scene-guide.test.mjs              生成模块单测
+test/scene-api.test.mjs                接口端到端（起真服务 + 假 CLI）
+test/scene-page.test.mjs               工具页面用例
 ```

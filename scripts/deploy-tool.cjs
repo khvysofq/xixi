@@ -30,6 +30,11 @@ const TOOLS = {
     dir: siteRoot,
     source: path.join('public', 'tools', 'csv-inspect', 'index.html'),
   },
+  'scene-english': {
+    // 页面本身零依赖；生成靠站点的 /api/scene-guide（服务端调网关，密钥不进浏览器）
+    dir: siteRoot,
+    source: path.join('public', 'tools', 'scene-english', 'index.html'),
+  },
 };
 
 const args = process.argv.slice(2);

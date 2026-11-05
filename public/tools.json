@@ -1,6 +1,6 @@
 {
   "site": "希希的工具箱",
-  "updated": "2026-10-27",
+  "updated": "2026-11-05",
   "tools": [
     {
       "slug": "classify-stats",
@@ -24,6 +24,14 @@
         "本地计算",
         "几万行"
       ]
+    },
+    {
+      "slug": "scene-english",
+      "name": "场景英语提示",
+      "desc": "说一句场景（打字或语音），先给你一段真能开口的中英对照情景对话；点「更多表达」再给这个场景的高频词、短语和句式，点句子能听发音。",
+      "href": "/tools/scene-english/",
+      "icon": "i-chat",
+      "tags": ["口语", "需要希希服务生成"]
     },
     {
       "slug": "fee-calc",

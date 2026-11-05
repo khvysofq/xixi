@@ -105,7 +105,7 @@ test('工具箱主页按 tools.json 渲染卡片，占位工具不可点，搜�
   const filtered = [...window.document.querySelectorAll('.card')];
   assert.ok(filtered.length > 0 && filtered.length < registry.tools.length, `搜索应缩小结果：${filtered.length}`);
   assert.ok(filtered.every((c) => /派费/.test(c.textContent)));
-  assert.match(window.document.getElementById('count').textContent, /共 6 个 · 显示/);
+  assert.match(window.document.getElementById('count').textContent, new RegExp(`共 ${registry.tools.length} 个 · 显示`), '总数要跟着注册表走');
 });
 
 test('读不到 tools.json 时主页仍能用内置备份渲染', async () => {

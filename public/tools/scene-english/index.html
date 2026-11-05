@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f6f1e8">
+<title>场景英语提示 · 说出场景就给你能开口的对话</title>
+<style>
+  :root {
+    --bg: #f6f1e8; --ink: #25211d; --accent: #d84f2b; --line: #ddd3c4;
+    --card: #fffdf9; --muted: #7a6f61; --ok: #2f8f5b; --warn: #b6801b; --bad: #b02a1a;
+    --you: #fdece4; --other: #eef3ea;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.65 -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%; }
+  .wrap { width: min(860px, calc(100% - 28px)); margin: 0 auto; padding: 20px 0 72px; }
+  header.top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  header.top h1 { font-size: clamp(20px, 5vw, 27px); margin: 0; letter-spacing: .5px; }
+  header.top .back { margin-left: auto; font-size: 14px; color: var(--accent); text-decoration: none; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  label.cap { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; letter-spacing: .5px; }
+  textarea, input.txt { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    padding: 12px; font: inherit; color: var(--ink); resize: vertical; }
+  textarea { min-height: 92px; }
+  textarea:focus, input.txt:focus { outline: 2px solid rgba(216,79,43,.35); border-color: var(--accent); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .row .grow { flex: 1 1 220px; }
+  button { font: inherit; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--ink);
+    padding: 10px 14px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.ghost { background: transparent; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.mini { padding: 4px 9px; font-size: 13px; border-radius: 8px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .chip { border: 1px dashed var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
+  .chip:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 10px; }
+  .hint b { color: var(--ink); }
+
+  .status { font-size: 14px; color: var(--muted); min-height: 22px; }
+  .status.err { color: var(--bad); }
+  .status .dots::after { content: '…'; }
+
+  .talk { display: flex; flex-direction: column; gap: 12px; }
+  .turn { max-width: 88%; }
+  .turn.A { align-self: flex-end; }
+  .turn.B { align-self: flex-start; }
+  .bubble { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; cursor: pointer; }
+  .turn.A .bubble { background: var(--you); }
+  .turn.B .bubble { background: var(--other); }
+  .en { font-size: 17px; line-height: 1.5; }
+  .zh { font-size: 14px; color: var(--muted); margin-top: 4px; }
+  body.notrans .zh { display: none; }
+  .who { font-size: 12px; color: var(--muted); margin-bottom: 4px; letter-spacing: .5px; }
+  .turn.A .who { text-align: right; }
+  .say { float: right; margin-left: 8px; font-size: 13px; color: var(--accent); }
+  h2.scene-title { font-size: 18px; margin: 4px 0 14px; }
+  .tips { margin: 14px 0 0; padding: 12px 14px; background: #fff8e9; border: 1px solid #ecd9a6; border-radius: 12px; font-size: 14px; }
+  .tips ul { margin: 6px 0 0; padding-left: 20px; }
+
+  details.sec { border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-bottom: 10px; overflow: hidden; }
+  details.sec > summary { list-style: none; cursor: pointer; padding: 12px 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary .n { margin-left: auto; font-size: 13px; color: var(--muted); font-weight: 400; }
+  table.v { width: 100%; border-collapse: collapse; font-size: 15px; }
+  table.v td { padding: 9px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+  table.v td.zh { width: 34%; color: var(--ink); }
+  table.v td.en { width: 44%; }
+  table.v td.act { width: 22%; text-align: right; }
+  .note { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .pat { padding: 9px 14px; border-top: 1px solid var(--line); }
+  .pat .en { font-size: 16px; }
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 2px 2px; }
+  .hidden { display: none !important; }
+  footer.foot { color: var(--muted); font-size: 12.5px; margin-top: 24px; line-height: 1.7; }
+  footer.foot code { background: #efe7da; padding: 1px 5px; border-radius: 6px; }
+  @media (max-width: 560px) {
+    .turn { max-width: 100%; }
+    table.v td.zh { width: 38%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>场景英语提示</h1>
+    <a class="back" href="/">← 回工具箱</a>
+  </header>
+  <p class="sub">说一句你在什么场合、跟谁、聊什么 —— 我给你一段真能开口的中英对照对话；点「更多表达」再给你这个场景的高频词、短语和句式。</p>
+
+  <section class="panel">
+    <label class="cap" for="scene">场景（说人话就行，越具体越像真的）</label>
+    <textarea id="scene" placeholder="例：和朋友闲聊，聊到怎么把肉煮得更入味"></textarea>
+    <div class="chips" id="examples"></div>
+
+    <label class="cap" for="extra" style="margin-top:14px">补充（可选）：对方是谁 / 你想要的语气</label>
+    <input class="txt" id="extra" placeholder="例：对面是美国同事，语气随意一点">
+
+    <div class="row">
+      <button class="primary" id="go">生成情景对话</button>
+      <button id="voice" class="ghost hidden">🎤 语音说场景</button>
+      <button id="more" class="hidden">更多表达 →</button>
+      <button id="redo" class="ghost hidden">换一批</button>
+      <span class="grow"></span>
+      <button id="trans" class="mini ghost">隐藏中文</button>
+      <button id="copy" class="mini ghost hidden">复制对话</button>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+  </section>
+
+  <section class="panel hidden" id="dialogue-card">
+    <h2 class="scene-title" id="d-title"></h2>
+    <p class="hint" id="d-scene"></p>
+    <div class="talk" id="talk"></div>
+    <div class="tips hidden" id="tips-box">
+      <b>教练提示</b>
+      <ul id="tips-list"></ul>
+    </div>
+  </section>
+
+  <section class="panel hidden" id="guide-card">
+    <h2 class="scene-title">这个场景的高频词与句式</h2>
+    <div class="row" style="margin:0 0 12px">
+      <button class="mini ghost" id="copy-guide">复制这份语料</button>
+      <button class="mini ghost" id="download-guide">下载 .txt</button>
+      <span class="grow"></span>
+      <span class="status" id="guide-status"></span>
+    </div>
+    <div id="sections"></div>
+    <details class="sec" id="patterns-box" open>
+      <summary>可以直接套用的句式 <span class="n" id="pat-n"></span></summary>
+      <div id="patterns"></div>
+    </details>
+  </section>
+
+  <section class="panel hidden" id="history-card">
+    <label class="cap">最近用过（点一下直接调回来，不重新生成）</label>
+    <div class="chips" id="history"></div>
+  </section>
+
+  <footer class="foot">
+    点击对话气泡 = 朗读英文（浏览器自带语音）。<br>
+    场景文字会发到你自己的站点服务（<code>/api/scene-guide</code>）由服务器调模型生成，密钥只在服务端，浏览器看不到；<b>不要把运单、结算表这类业务内容写进场景里</b>。<br>
+    生成一次约 10~30 秒，同一场景 30 分钟内重复点会直接取缓存。
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var API = '/api/scene-guide';
+  var LS = 'xixi.scene-english.v1';
+  var EXAMPLES = [
+    '和朋友闲聊，聊到怎么把肉煮得更入味',
+    '和同事吃工作餐，互相问周末去哪玩',
+    '在咖啡店点单，想说少冰、换燕麦奶',
+    '机场值机，行李超重被查',
+    '健身房里请教别人怎么练背不伤腰',
+    '在美国同事家里做客，被问要不要加点辣',
+    '酒店前台投诉空调吵，要求换房',
+    '看医生，描述胃胀和睡眠不好',
+    '接机，第一次见外国笔友，路上闲聊',
+    '和朋友砍价，地摊上买手办',
+  ];
+
+  var el = function (id) { return document.getElementById(id); };
+  var mk = function (tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null) n.textContent = String(text);
+    return n;
+  };
+  var state = { scene: '', extra: '', dialogue: null, guide: null, busy: false, timer: null };
+
+  /* ---------- 存储 ---------- */
+  function loadAll() {
+    try { return JSON.parse(localStorage.getItem(LS) || '[]'); } catch (e) { return []; }
+  }
+  function saveItem(item) {
+    var all = loadAll().filter(function (x) { return x.key !== item.key; });
+    all.unshift(item);
+    try { localStorage.setItem(LS, JSON.stringify(all.slice(0, 15))); } catch (e) { /* 隐私模式存不下就算了 */ }
+  }
+  function keyOf(scene, extra) { return (scene + '||' + (extra || '')).toLowerCase(); }
+
+  /* ---------- 请求 ---------- */
+  async function callApi(payload) {
+    var res;
+    try {
+      res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      if (location.protocol === 'file:') {
+        throw new Error('本地双击打开时无法生成（要连站点的服务）。请上 ' + API.replace('/api/scene-guide', '') + ' 用，或让主人给你一个在线链接');
+      }
+      throw new Error('连不上生成服务：' + e.message);
+    }
+    var json = null;
+    try { json = await res.json(); } catch (e) { json = null; }
+    if (!json || !json.ok) {
+      throw new Error((json && json.error) || ('服务返回异常（HTTP ' + res.status + '）'));
+    }
+    return json.data;
+  }
+
+  function startBusy(text) {
+    var t0 = Date.now();
+    state.busy = true;
+    el('go').disabled = true;
+    el('more').disabled = true;
+    el('status').className = 'status';
+    clearInterval(state.timer);
+    state.timer = setInterval(function () {
+      var s = Math.round((Date.now() - t0) / 1000);
+      el('status').textContent = text + '（已 ' + s + ' 秒，一般 10~30 秒）';
+    }, 1000);
+    el('status').textContent = text;
+  }
+  function stopBusy(msg, isError) {
+    clearInterval(state.timer);
+    state.busy = false;
+    el('go').disabled = false;
+    el('more').disabled = !!state.dialogue ? false : true;
+    if (msg) { el('status').className = 'status' + (isError ? ' err' : ''); el('status').textContent = msg; }
+  }
+
+  /* ---------- 渲染对话 ---------- */
+  function renderDialogue(d) {
+    state.dialogue = d;
+    el('dialogue-card').classList.remove('hidden');
+    el('d-title').textContent = d.title || '情景对话';
+    el('d-scene').textContent = d.scene || '';
+    var talk = el('talk');
+    talk.innerHTML = '';
+    (d.lines || []).forEach(function (line, i) {
+      var turn = mk('div', 'turn ' + (line.who === 'A' ? 'A' : 'B'));
+      var who = mk('div', 'who', line.who === 'A' ? '你（A）' : '对方（' + (line.who || 'B') + '）');
+      var bubble = mk('div', 'bubble');
+      bubble.appendChild(mk('span', 'say', '🔊'));
+      bubble.appendChild(mk('div', 'en', line.en));
+      bubble.appendChild(mk('div', 'zh', line.zh));
+      bubble.title = '点这里朗读英文';
+      bubble.addEventListener('click', function () { speak(line.en); });
+      turn.appendChild(who);
+      turn.appendChild(bubble);
+      talk.appendChild(turn);
+      if (i === 0) turn.setAttribute('id', 'first-turn');
+    });
+    var tips = (d.tips || []).filter(Boolean);
+    el('tips-box').classList.toggle('hidden', !tips.length);
+    var ul = el('tips-list');
+    ul.innerHTML = '';
+    tips.forEach(function (t) { ul.appendChild(mk('li', null, t)); });
+    el('more').classList.remove('hidden');
+    el('more').disabled = false;
+    el('redo').classList.remove('hidden');
+    el('copy').classList.remove('hidden');
+  }
+
+  /* ---------- 渲染语料 ---------- */
+  function renderGuide(g) {
+    state.guide = g;
+    el('guide-card').classList.remove('hidden');
+    var box = el('sections');
+    box.innerHTML = '';
+    (g.sections || []).forEach(function (sec, idx) {
+      var d = mk('details', 'sec');
+      if (idx === 0) d.setAttribute('open', '');
+      var sum = mk('summary');
+      sum.appendChild(mk('span', null, sec.title || '相关表达'));
+      sum.appendChild(mk('span', 'n', sec.items.length + ' 条'));
+      d.appendChild(sum);
+      var table = mk('table', 'v');
+      sec.items.forEach(function (it) {
+        var tr = mk('tr');
+        var td1 = mk('td', 'zh', it.zh || '');
+        var td2 = mk('td', 'en');
+        td2.appendChild(mk('span', null, it.en || ''));
+        if (it.note) td2.appendChild(mk('span', 'note', it.note));
+        var td3 = mk('td', 'act');
+        var btn = mk('button', 'mini ghost', '🔊');
+        btn.addEventListener('click', function () { speak(it.en); });
+        td3.appendChild(btn);
+        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+        table.appendChild(tr);
+      });
+      d.appendChild(table);
+      box.appendChild(d);
+    });
+    var pats = el('patterns');
+    pats.innerHTML = '';
+    (g.patterns || []).forEach(function (p) {
+      var d = mk('div', 'pat');
+      var s = mk('span', 'say', '🔊');
+      d.appendChild(s);
+      d.appendChild(mk('div', 'en', p.en));
+      d.appendChild(mk('div', 'zh', p.zh || ''));
+      d.style.cursor = 'pointer';
+      d.addEventListener('click', function () { speak(p.en); });
+      pats.appendChild(d);
+    });
+    el('pat-n').textContent = (g.patterns || []).length + ' 句';
+    el('patterns-box').classList.toggle('hidden', !(g.patterns || []).length);
+  }
+
+  /* ---------- 文本拼接 / 复制下载 ---------- */
+  function dialogueText() {
+    var d = state.dialogue;
+    if (!d) return '';
+    var out = [d.title ? '# ' + d.title : '', d.scene || ''];
+    (d.lines || []).forEach(function (l) {
+      out.push((l.who === 'A' ? 'A（你）: ' : (l.who || 'B') + ': ') + l.en);
+      if (l.zh) out.push('   ' + l.zh);
+    });
+    if (d.tips && d.tips.length) out.push('', '教练提示：', d.tips.map(function (t) { return '- ' + t; }).join('\n'));
+    return out.filter(Boolean).join('\n');
+  }
+  function guideText() {
+    var g = state.guide;
+    if (!g) return '';
+    var out = ['# ' + state.scene + ' · 高频表达'];
+    (g.sections || []).forEach(function (s) {
+      out.push('', '## ' + s.title);
+      s.items.forEach(function (i) { out.push('- ' + i.zh + ' — ' + i.en + (i.note ? '（' + i.note + '）' : '')); });
+    });
+    if (g.patterns && g.patterns.length) {
+      out.push('', '## 可直接套用的句式');
+      g.patterns.forEach(function (p, i) { out.push((i + 1) + '. ' + p.en + ' — ' + (p.zh || '')); });
+    }
+    return out.join('\n');
+  }
+  async function copyText(text, btn) {
+    var done = function () {
+      var old = btn.textContent;
+      btn.textContent = '已复制 ✓';
+      setTimeout(function () { btn.textContent = old; }, 1500);
+    };
+    try {
+      await navigator.clipboard.writeText(text);
+      done();
+    } catch (e) {
+      var ta = mk('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); } catch (e2) { alert('复制失败，请长按选中文字手动复制'); }
+      document.body.removeChild(ta);
+    }
+  }
+  function downloadText(text, filename) {
+    var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    var a = mk('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 300);
+  }
+
+  /* ---------- 朗读 ---------- */
+  function pickVoice() {
+    var vs = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+    var en = vs.filter(function (v) { return /^en/i.test(v.lang || ''); });
+    return en.filter(function (v) { return /Google|Samantha|Daniel|Karen|Natural/i.test(v.name); })[0] || en[0] || null;
+  }
+  function speak(text) {
+    if (!text) return;
+    if (!('speechSynthesis' in window)) { alert('这个浏览器不能朗读，请在系统浏览器里打开（微信内置浏览器一般不支持）'); return; }
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(String(text));
+    u.lang = 'en-US';
+    var v = pickVoice();
+    if (v) u.voice = v;
+    u.rate = 0.95;
+    window.speechSynthesis.speak(u);
+  }
+
+  /* ---------- 语音输入 ---------- */
+  function setupVoice() {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      el('voice').classList.add('hidden');
+      return;
+    }
+    var btn = el('voice');
+    btn.classList.remove('hidden');
+    var rec = new SR();
+    rec.lang = 'zh-CN';
+    rec.interimResults = false;
+    rec.continuous = false;
+    var listening = false;
+    btn.addEventListener('click', function () {
+      if (listening) { rec.stop(); return; }
+      try { rec.start(); } catch (e) { return; }
+      listening = true;
+      btn.textContent = '🎤 正在听…（再点停止）';
+    });
+    rec.onresult = function (ev) {
+      var t = '';
+      for (var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript;
+      el('scene').value = (el('scene').value.trim() + ' ' + t).trim();
+    };
+    rec.onerror = function (ev) {
+      listening = false;
+      btn.textContent = '🎤 语音说场景';
+      el('status').className = 'status err';
+      el('status').textContent = ev && ev.error === 'not-allowed'
+        ? '浏览器要的麦克风权限被拒了；可以在微信键盘里用语音输入打完再点生成'
+        : '语音识别没起来（' + ((ev && ev.error) || 'unknown') + '），可以直接打字';
+    };
+    rec.onend = function () {
+      listening = false;
+      btn.textContent = '🎤 语音说场景';
+    };
+  }
+
+  /* ---------- 历史 ---------- */
+  function renderHistory() {
+    var all = loadAll();
+    var box = el('history');
+    box.innerHTML = '';
+    if (!all.length) { el('history-card').classList.add('hidden'); return; }
+    el('history-card').classList.remove('hidden');
+    all.forEach(function (item) {
+      var c = mk('button', 'chip', (item.scene || '').slice(0, 18) + ((item.scene || '').length > 18 ? '…' : ''));
+      c.title = (item.scene || '') + (item.extra ? '（' + item.extra + '）' : '');
+      c.addEventListener('click', function () {
+        el('scene').value = item.scene || '';
+        el('extra').value = item.extra || '';
+        if (item.dialogue) renderDialogue(item.dialogue);
+        if (item.guide) renderGuide(item.guide);
+        el('more').classList.toggle('hidden', !item.dialogue);
+        el('status').className = 'status';
+        el('status').textContent = '从本地记录里调出来的，没有重新生成';
+      });
+      box.appendChild(c);
+    });
+  }
+
+  /* ---------- 主流程 ---------- */
+  async function generate(isRedo) {
+    var scene = el('scene').value.trim();
+    if (scene.length < 2) {
+      el('status').className = 'status err';
+      el('status').textContent = '先说一句场景，哪怕很短：「和同事吃饭聊周末」';
+      el('scene').focus();
+      return;
+    }
+    state.scene = scene;
+    state.extra = el('extra').value.trim();
+    if (!isRedo) {
+      var cached = loadAll().find(function (x) { return x.key === keyOf(scene, state.extra) && x.dialogue; });
+      if (cached) {
+        renderDialogue(cached.dialogue);
+        if (cached.guide) renderGuide(cached.guide);
+        el('status').className = 'status';
+        el('status').textContent = '这个场景之前生成过，直接给你（点「换一批」要新的）';
+        return;
+      }
+    }
+    startBusy(isRedo ? '换一批说法，正在重写对话' : '正在写对话，稍等一下');
+    el('dialogue-card').classList.add('hidden');
+    el('guide-card').classList.add('hidden');
+    try {
+      var d = await callApi({ mode: 'dialogue', scene: scene, extra: state.extra, fresh: !!isRedo });
+      renderDialogue(d);
+      stopBusy('对话好了，点句子能朗读；要词和句式就点「更多表达」。');
+      saveItem({ key: keyOf(scene, state.extra), scene: scene, extra: state.extra, dialogue: d, guide: state.guide, at: Date.now() });
+      renderHistory();
+    } catch (e) {
+      stopBusy(e.message, true);
+    }
+  }
+
+  async function more() {
+    if (!state.dialogue) { generate(); return; }
+    var existing = loadAll().find(function (x) { return x.key === keyOf(state.scene, state.extra); });
+    if (existing && existing.guide) {
+      state.guide = existing.guide;
+      renderGuide(existing.guide);
+      el('guide-status').textContent = '这份语料之前生成过';
+      return;
+    }
+    startBusy('正在整理这个场景的词和句式');
+    try {
+      var g = await callApi({
+        mode: 'more', scene: state.scene, extra: state.extra,
+        dialogue: (state.dialogue.lines || []).slice(0, 24).map(function (l) { return { who: l.who, en: l.en, zh: l.zh }; }),
+      });
+      renderGuide(g);
+      stopBusy('语料好了，可以点 🔊 听发音。');
+      var prev = loadAll().find(function (x) { return x.key === keyOf(state.scene, state.extra); });
+      saveItem({ key: keyOf(state.scene, state.extra), scene: state.scene, extra: state.extra,
+        dialogue: (prev && prev.dialogue) || state.dialogue, guide: g, at: Date.now() });
+      renderHistory();
+    } catch (e) {
+      stopBusy(e.message, true);
+    }
+  }
+
+  /* ---------- 绑定 ---------- */
+  function bind() {
+    var ex = el('examples');
+    EXAMPLES.forEach(function (s) {
+      var c = mk('button', 'chip', s);
+      c.addEventListener('click', function () { el('scene').value = s; el('go').focus(); });
+      ex.appendChild(c);
+    });
+    el('go').addEventListener('click', function () { generate(false); });
+    el('redo').addEventListener('click', function () { generate(true); });
+    el('more').addEventListener('click', more);
+    el('copy').addEventListener('click', function (ev) { copyText(dialogueText(), ev.currentTarget); });
+    el('copy-guide').addEventListener('click', function (ev) { copyText(guideText(), ev.currentTarget); });
+    el('download-guide').addEventListener('click', function () {
+      if (!state.guide) return;
+      downloadText(guideText(), (state.scene || '场景表达').replace(/[\\/:*?"<>|]/g, '').slice(0, 20) + '.txt');
+    });
+    el('trans').addEventListener('click', function (ev) {
+      document.body.classList.toggle('notrans');
+      ev.currentTarget.textContent = document.body.classList.contains('notrans') ? '显示中文' : '隐藏中文';
+    });
+    el('scene').addEventListener('keydown', function (ev) {
+      if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') { ev.preventDefault(); generate(false); }
+    });
+    setupVoice();
+    renderHistory();
+  }
+
+  if (typeof document !== 'undefined' && el('scene')) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+    else bind();
+  }
+
+  // 供 Node/jsdom 测试驱动
+  if (typeof window !== 'undefined') {
+    window.sceneEnglish = {
+      state: state, renderDialogue: renderDialogue, renderGuide: renderGuide,
+      dialogueText: dialogueText, guideText: guideText, generate: generate, more: more,
+      callApi: callApi, keyOf: keyOf, saveItem: saveItem, loadAll: loadAll, bind: bind,
+    };
+  }
+})();
+</script>
+</body>
+</html>
