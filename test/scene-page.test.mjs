@@ -1,4 +1,4 @@
-// 场景英语提示页的界面用例：mock 掉 /api/scene-guide，验证渲染、更多、缓存、报错都不撒谎。
+// 场景英语提示页的界面用例：mock 掉 /api/scene-guide，验证渲染、讲解（含类似表达）、缓存、报错都不撒谎。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -48,6 +48,10 @@ const EXPLAIN = {
   examples: [
     { en: "I've been meaning to call him back.", zh: '我一直想给他回电话。' },
     { en: "She's been meaning to try that place.", zh: '她一直想去那家店。' },
+  ],
+  similar: [
+    { en: 'I want to get that off my chest.', zh: '我想把这事说出来痛快痛快。', note: '更直接，没有拖了很久的意思' },
+    { en: "It's been on my mind for weeks.", zh: '这事我心里憋了好几周了。', note: '近结构，语气更轻' },
   ],
   caution: '别写成 I am meaning to do',
   category: '职场闲聊',
@@ -112,7 +116,8 @@ test('页面骨架：输入框、示例 chips、生成按钮都在，更多按�
   const doc = window.document;
   assert.ok(doc.getElementById('scene'), '要有场景输入框');
   assert.ok(doc.querySelectorAll('#examples .chip').length >= 5, '要有可直接点的场景示例');
-  assert.equal(doc.getElementById('more').classList.contains('hidden'), true, '没生成前不该给「更多」');
+  assert.equal(doc.getElementById('more'), null, '「更多表达」独立模块已按主人要求去掉');
+  assert.equal(doc.getElementById('guide-card'), null, '语料面板也应该没了');
   assert.ok(doc.querySelector('footer.foot').textContent.includes('不要把运单'), '要写清楚别放业务数据');
 });
 
@@ -133,28 +138,35 @@ test('生成对话：中英对照气泡、你说/对方标注、教练提示都�
   assert.match(turns[1].querySelector('.en').textContent, /Pat it dry/);
   assert.match(turns[1].querySelector('.zh').textContent, /吸干/);
   assert.equal(doc.querySelectorAll('#tips-box li').length, 1, '教练提示要显示');
-  assert.equal(doc.getElementById('more').classList.contains('hidden'), false, '生成后要能点更多');
+  assert.match(doc.getElementById('status').textContent, /问用法/, '生成完的提示要指向选词讲解');
 });
 
-test('点「更多表达」：分类语料 + 句式渲染，note 跟在英文后面', async () => {
+test('讲解自带「也能这么说」：3~4 条类似表达贴在用法下面，还能选中继续问', async () => {
   const { window, calls } = await boot();
-  await generate(window, calls, '和朋友聊炖肉');
-  window.document.getElementById('more').click();
-  for (let i = 0; i < 100 && !window.sceneEnglish.state.guide; i++) await wait(20);
-  const more = calls.find((c) => c.body.mode === 'more');
-  assert.ok(more, '应发起 more 请求');
-  assert.equal(more.body.dialogue.length, 3, '要把已生成的对话带给模型当素材');
+  await generate(window, calls, '跟同事吐槽工作');
+  await window.sceneEnglish.explain('been meaning', EXPLAIN.sentence, '');
+  await wait(40);
   const doc = window.document;
-  assert.equal(doc.getElementById('guide-card').classList.contains('hidden'), false);
-  assert.equal(doc.querySelectorAll('#sections details.sec').length, 2, '两个分类');
-  assert.match(doc.querySelector('#sections summary').textContent, /预处理/);
-  assert.equal(doc.querySelectorAll('#sections .item').length, 3, '共 3 条词条');
-  assert.equal(doc.querySelectorAll('#sections .item .ex .en').length, 3, '每条都要带例句');
-  assert.match(doc.querySelector('#sections .item .term').textContent, /pat dry/);
-  assert.match(doc.querySelector('#sections .item .note').textContent, /溅油/);
-  assert.equal(doc.querySelectorAll('#patterns .pat').length, 2, '两条句式');
-  assert.match(doc.getElementById('guide-status').textContent, /只留最常用/, '要说清为什么只有几条');
+  const simBox = [...doc.querySelectorAll('#x-body .xex')].find((b) => /也能这么说/.test(b.textContent));
+  assert.ok(simBox, '讲解卡里要有「也能这么说」段');
+  const lines = simBox.querySelectorAll('.ex');
+  assert.equal(lines.length, 2, 'fixture 给 2 条就渲染 2 条');
+  assert.match(lines[0].querySelector('.en').textContent, /off my chest/);
+  assert.match(lines[0].querySelector('.zh').textContent, /更直接/, 'note 要拼在中文后面');
+  // 讲解卡里的英文也允许选中再问（选词逻辑不挑位置，只认 .en）
+  const en = lines[1].querySelector('.en');
+  const range = doc.createRange();
+  range.setStart(en.firstChild, 0);
+  range.setEnd(en.firstChild, 8);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  window.sceneEnglish.onSelectionMaybe();
+  const pick = doc.getElementById('pick');
+  assert.ok(pick && pick.classList.contains('show'), '讲解里的类似表达选中后也要能再问');
+  sel.removeAllRanges();
 });
+
 
 test('同场景重复点「生成」走本地缓存，不再花钱；「换一批」才重新请求', async () => {
   const { window, calls } = await boot();
@@ -195,13 +207,12 @@ test('隐藏中文只影响显示，复制/下载出来的文本仍然中英齐�
   assert.match(txt, /我最近一直在琢磨/);
   assert.match(txt, /教练提示/);
 
-  window.document.getElementById('more').click();
-  for (let i = 0; i < 100 && !window.sceneEnglish.state.guide; i++) await wait(20);
-  const g = window.sceneEnglish.guideText();
-  assert.match(g, /## 预处理/);
-  assert.match(g, /吸干水分 — pat dry（煎肉不溅油的关键）/);
-  assert.match(g, /例句：Pat the steak dry before it hits the pan\./, '复制出来也要有例句');
-  assert.match(g, /## 可直接套用的句式/);
+  await window.sceneEnglish.explain('been meaning', EXPLAIN.sentence, '');
+  await wait(40);
+  const g = window.sceneEnglish.explainText();
+  assert.match(g, /【have been meaning to do sth】在这个句子里/);
+  assert.match(g, /也能这么说：I want to get that off my chest\. \|? ?/);
+  assert.match(g, /也能这么说：It's been on my mind for weeks\. /);
 });
 
 test('历史记录写进 localStorage，点一条能直接调回上次的结果', async () => {
@@ -303,7 +314,7 @@ test('选中对话里的词 →「讲解」按钮出现 → 点开给出本句�
   assert.match(doc.querySelector('#x-body .xp').textContent, /have been meaning to do sth/, '结构式做成醒目标签');
   assert.match(doc.getElementById('x-body').textContent, /现在完成进行时/, '语法结构');
   assert.match(doc.getElementById('x-body').textContent, /一直想做/, '在本句里的意思');
-  assert.equal(doc.querySelectorAll('#x-body .xex .ex').length, 2, '给可套用的例句');
+  assert.equal(doc.querySelectorAll('#x-body .xex .ex').length, 4, '2 条例句 + 2 条类似表达（都在 .xex 里）');
   assert.equal(doc.querySelectorAll('#x-body mark').length, 1, '原句里要把选中的词标出来');
 
   const last = calls[calls.length - 1];
@@ -449,6 +460,7 @@ test('生词本导出：txt 分组带例句，CSV 给 Excel 留 BOM，Anki 两�
   await generate(window, [], '跟同事吐槽工作');
   await explainOnce(window);
   const txt = window.sceneEnglish.bookText();
+  assert.match(txt, /也能说：I want to get that off my chest\./, 'txt 导出要带类似表达');
   assert.match(txt, /## 职场闲聊/);
   assert.match(txt, /have been meaning to do sth/);
   assert.match(txt, /例句：I've been meaning to call him back\./);
@@ -456,6 +468,8 @@ test('生词本导出：txt 分组带例句，CSV 给 Excel 留 BOM，Anki 两�
   const csv = window.sceneEnglish.bookCsv();
   assert.ok(csv.charCodeAt(0) === 0xfeff, 'CSV 要有 BOM，Excel 打开中文才不乱');
   assert.match(csv.split('\n')[0], /分类,词条,用法结构/);
+  assert.match(csv.split('\n')[0], /类似说法/, 'CSV 要有类似表达这一列');
+  assert.match(csv, /off my chest/);
   assert.match(csv, /职场闲聊,have been meaning to do sth/);
 
   const anki = window.sceneEnglish.bookAnki();
@@ -463,6 +477,7 @@ test('生词本导出：txt 分组带例句，CSV 给 Excel 留 BOM，Anki 两�
   assert.equal(cols.length, 2, 'Anki 导入要正好两列');
   assert.match(cols[0], /have been meaning to do sth/);
   assert.match(cols[1], /一直想做/);
+  assert.match(cols[1], /也能说：I want to get that off my chest\. \/ It's been on my mind/, 'Anki 背面要带类似说法');
 });
 
 test('模型没给分类时按场景关键词兜底归类', async () => {

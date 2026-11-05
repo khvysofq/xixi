@@ -107,6 +107,9 @@ test('POST explain：选中句子中的一个词 → 回到本句用法（含补
     assert.equal(d.asUsed, 'have been meaning to do sth', '选破了要自动补全成完整搭配');
     assert.match(d.pattern, /have been meaning to do/);
     assert.match(d.meaning, /想做/);
+    assert.equal(d.similar.length, 3, '讲解要自带 3~4 条类似表达——原「更多表达」的功能并到这里了');
+    assert.ok(d.similar.every((t) => t.en && t.zh), '类似表达每条都有英文和中文');
+    assert.ok(d.similar[0].note, 'note 要说清跟主说法差在哪');
     assert.equal(d.examples.length, 3, '给 3 句能直接套的');
     assert.ok(d.examples[0].en && d.examples[0].zh);
     assert.equal(d.sentence, "Hey, you got a minute? I've been meaning to vent about work.", '原句要回给页面做高亮');

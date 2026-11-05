@@ -98,7 +98,11 @@ node scripts/deploy-tool.cjs --tool csv-inspect  # 部署其他工具（--list �
 
 线上入口：https://xixi.publicrandom.com/tools/scene-english/
 
-使用者说一句场景（打字或点🎤语音），得到一段真的能开口的中英对照情景对话；**选中句子里任何一个词或短语**（电脑拖选 / 手机长按）会浮出「讲解」，讲它在**本句里**的意思、语法结构、跟直译的差别，外加 3 句可套用的例句（选破了也能补全：只选到 `ment` 会当成 `have been meaning to do` 来讲）；点「更多表达」拿这个场景的高频词与句式 —— **只给 3~4 类、每类 3~4 条，每条都带例句**（多了记不住）。点句子可朗读，可复制/下载 .txt，历史与讲解结果都存在 localStorage。
+使用者说一句场景（打字或点🎤语音），得到一段真的能开口的中英对照情景对话；**选中句子里任何一个词或短语**（电脑拖选 / 手机长按）会浮出「讲解」，讲它在**本句里**的意思、语法结构、跟直译的差别，外加 3 句可套用的例句（选破了也能补全：只选到 `ment` 会当成 `have been meaning to do` 来讲）；讲解里自带「也能这么说」——顺带 3~4 条**类似表达**（至少一条近义、一条近结构，note 点出语气/场合差在哪），选中这些句子还能接着问，形成链式。
+
+> 独立的「更多表达」模块已于 2026-11-05 按主人要求去掉：分开的词表要单独记、效果差，类似说法应该在讲解选中词的语境里自然带出。`mode=more` 接口保留（旧页面标签可能还在调），但前端已无入口。
+
+点句子可朗读，可复制/下载 .txt，历史与讲解结果都存在 localStorage。
 
 **生词本**：点过「讲解」的词自动收进 📒（本地 localStorage，上限 300 条，同词去重）。分类由讲解时模型顺手给出（`category` 字段，不额外花钱），没给就按场景关键词兜底；可以改分类、新建分类、标「已掌握」、搜索、按掌握状态筛选。导出三种：分组 .txt（复制）、CSV（带 BOM，Excel 打开中文不乱）、Anki TSV（正面英文+例句，背面意思+结构+坑）。
 
@@ -130,7 +134,7 @@ POST /api/scene-guide          → {ok, data}
 | `SCENE_GUIDE_BIN` | `/usr/local/bin/openclaw` | 生成命令的可执行文件 |
 | `SCENE_GUIDE_AGENT` | 科技嘻的 agent id | 用哪个 agent 的模型与凭据 |
 | `SCENE_GUIDE_MODEL` | `aliyun/deepseek-v4.1-flash` | 模型（改 `aliyun/qwen3.8-max` 等更贵的会吃额度） |
-| `SCENE_GUIDE_IP_LIMIT` / `_IP_WINDOW_MS` | 12 / 600000 | 每 IP 每窗口次数（对话与更多表达共用一个桶） |
+| `SCENE_GUIDE_IP_LIMIT` / `_IP_WINDOW_MS` | 12 / 600000 | 每 IP 每窗口次数（对话与语料 more〔遗留〕共用一个桶） |
 | `SCENE_GUIDE_EXPLAIN_IP_LIMIT` | 40 | 选词讲解单独的桶（连着点几个词很常见） |
 | `SCENE_GUIDE_DAILY_LIMIT` | 300 | 全站每日次数（所有 mode 一起算），烧的是主人的额度 |
 | `SCENE_GUIDE_TIMEOUT_MS` | 90000 | 单次生成超时 |
@@ -138,12 +142,12 @@ POST /api/scene-guide          → {ok, data}
 
 另有两层缓存：服务端 30 分钟内同场景直接复用（explain 按 句子+选中片段 缓存）；前端 localStorage 有结果时点「生成」不再打接口（要新的得点「换一批」，带 `fresh:true` 绕开两层缓存），讲解结果另存一份（最多 80 条），同一个词问第二次不花钱。
 
-「更多表达」还有一道质量兜底：模型偶尔偷懒只交一类、句式为空，服务端发现 `sections < 3 或 patterns 为空` 会自动重跑一次，取更丰满的那份（测试里用 `FAKE_OPENCLAW_THIN=1` 验证）。
+遗留的「更多表达」（more）还有一道质量兜底：模型偶尔偷懒只交一类、句式为空，服务端发现 `sections < 3 或 patterns 为空` 会自动重跑一次，取更丰满的那份（测试里用 `FAKE_OPENCLAW_THIN=1` 验证）。前端已去掉该模块，类似表达改由 `explain.similar` 带出（3~4 条，含近义+近结构）。
 
 ## 测试与上线自检
 
 ```bash
-npm test        # 55 个用例：站点 5 + 生成模块 19 + 接口 13 + 页面 18（含选词讲解、生词本分类/掌握/导出、405 旧进程、进门探测、重试、偷懒重跑）
+npm test        # 57 个用例：站点 5 + 生成模块 21 + 接口 13 + 页面 18（含选词讲解带类似表达、生词本分类/掌握/导出、405 旧进程、进门探测、重试、偷懒重跑）
 npm run verify  # 打公网：页面字节一致 + 接口在不在 + 进程是否比代码旧（退出码非 0 = 没上成）
 npm run verify:probe  # 额外花一次额度跑真生成
 ```
@@ -156,7 +160,7 @@ npm run verify:probe  # 额外花一次额度跑真生成
 ssh publish_web_server "grep -h 'scene-guide' /var/log/nginx/access.log | tail -20"
 ```
 
-站点前置的 nginx `proxy_read_timeout` 是 3600s，不会掘掉长请求（实测「更多表达」56s 也能正常回）。
+站点前置的 nginx `proxy_read_timeout` 是 3600s，不会掘掉长请求（实测旧「更多表达」56s 也能正常回）。
 
 测试需要 `jsdom`。xixi 自己不装依赖时会借用同工作区 `../tools/classify-stats/node_modules`（见 `scripts/deps.cjs`）；单独 clone 本仓库时先跑 `npm install --no-save jsdom xlsx`。
 

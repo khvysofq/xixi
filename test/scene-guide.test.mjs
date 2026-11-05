@@ -148,6 +148,26 @@ test('normalizeExplain：字段齐、例句最多 3 条，什么都没讲出来�
   assert.throws(() => sg.normalizeExplain({ examples: [] }, { phrase: 'x', sentence: 'y', scene: 'z' }), (e) => e.status === 502);
 });
 
+test('讲解提示词要「也能这么说」的类似表达（更多表达并进来的那部分）', () => {
+  const p = sg.buildExplainPrompt({ scene: '吐槽工作', sentence: 'I have been meaning to vent.', phrase: 'meaning' });
+  assert.match(p, /"similar"/, 'JSON 结构里要有 similar');
+  assert.match(p, /3~4 条类似表达/, '数量要写死');
+  assert.match(p, /至少 1 条近义[^\n]*近结构/,  '既要近义也要近结构，不能全是同义词罗列');
+});
+
+test('normalizeExplain 的 similar：留 4 条封顶、缺英文的丢掉', () => {
+  const five = { meaning_zh: 'x', similar: [
+    { en: 'a', zh: '甲', note: 'n' }, { en: 'b', zh: '乙' }, { en: 'c' }, { en: 'd', zh: '丁' }, { en: 'e', zh: '戊' },
+    { en: '', zh: '没有英文的垃圾条目' },
+  ] };
+  const out = sg.normalizeExplain(five, { phrase: 'x', sentence: 'y', scene: 'z' });
+  assert.equal(out.similar.length, 4, '最多 4 条');
+  assert.deepEqual(out.similar.map((t) => t.en), ['a', 'b', 'c', 'd']);
+  assert.equal(out.similar[0].note, 'n');
+  const none = sg.normalizeExplain({ meaning_zh: 'x' }, { phrase: 'x', sentence: 'y', scene: 'z' });
+  assert.deepEqual(none.similar, [], '模型没给也不炸');
+});
+
 test('讲解提示词要模型给分类，生词本靠它归组', () => {
   const p = sg.buildExplainPrompt({ scene: '点餐', sentence: 'Could I get a latte, light ice?', phrase: 'light ice' });
   assert.match(p, /category/, 'JSON 结构里要有 category');

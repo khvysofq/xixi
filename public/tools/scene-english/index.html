@@ -118,7 +118,7 @@
     <h1>场景英语提示</h1>
     <a class="back" href="/">← 回工具箱</a>
   </header>
-  <p class="sub">说一句你在什么场合、跟谁、聊什么 —— 我给你一段真能开口的中英对照对话；<b>选中句子里任何一个词或短语</b>可以问用法；点「更多表达」拿这个场景最少而真的几条，每条都带例句。</p>
+  <p class="sub">说一句你在什么场合、跟谁、聊什么 —— 我给你一段真能开口的中英对照对话；<b>选中句子里任何一个词或短语</b>可以问用法——讲解会顺带给你几句类似的说法，讲过的词自动进生词本。</p>
 
   <section class="panel">
     <label class="cap" for="scene">场景（说人话就行，越具体越像真的）</label>
@@ -131,7 +131,6 @@
     <div class="row">
       <button class="primary" id="go">生成情景对话</button>
       <button id="voice" class="ghost hidden">🎤 语音说场景</button>
-      <button id="more" class="hidden">更多表达 →</button>
       <button id="redo" class="ghost hidden">换一批</button>
       <span class="grow"></span>
       <button id="book-btn" class="mini ghost">📒 生词本 <span id="book-n"></span></button>
@@ -145,7 +144,7 @@
     <h2 class="scene-title" id="d-title"></h2>
     <p class="hint" id="d-scene"></p>
     <div class="talk" id="talk"></div>
-    <p class="hint" id="pick-hint">💡 <b>选中句子里任何一个词或短语</b>（电脑上拖选，手机上长按），会出现「讲解」——告诉你它在这个句子里到底怎么说、为什么这么说。</p>
+    <p class="hint" id="pick-hint">💡 <b>选中句子里任何一个词或短语</b>（电脑上拖选，手机上长按），会出现「讲解」——告诉你它在这个句子里到底怎么说、为什么这么说，顺带几句<b>类似的说法</b>；选中讲解里的任何英文还能接着问。</p>
     <div class="tips hidden" id="tips-box">
       <b>教练提示</b>
       <ul id="tips-list"></ul>
@@ -161,21 +160,6 @@
       <span class="status" id="x-status"></span>
     </div>
     <div id="x-body"></div>
-  </section>
-
-  <section class="panel hidden" id="guide-card">
-    <h2 class="scene-title">这个场景的高频词与句式</h2>
-    <div class="row" style="margin:0 0 12px">
-      <button class="mini ghost" id="copy-guide">复制这份语料</button>
-      <button class="mini ghost" id="download-guide">下载 .txt</button>
-      <span class="grow"></span>
-      <span class="status" id="guide-status"></span>
-    </div>
-    <div id="sections"></div>
-    <details class="sec" id="patterns-box" open>
-      <summary>可以直接套用的句式 <span class="n" id="pat-n"></span></summary>
-      <div id="patterns"></div>
-    </details>
   </section>
 
   <section class="panel hidden" id="book-card">
@@ -233,7 +217,7 @@
     if (text !== undefined && text !== null) n.textContent = String(text);
     return n;
   };
-  var state = { scene: '', extra: '', dialogue: null, guide: null, explain: null, busy: false, timer: null, lastAction: null };
+  var state = { scene: '', extra: '', dialogue: null, explain: null, busy: false, timer: null, lastAction: null };
 
   /* ---------- 存储 ---------- */
   function loadAll() {
@@ -275,7 +259,6 @@
     var t0 = Date.now();
     state.busy = true;
     el('go').disabled = true;
-    el('more').disabled = true;
     el('status').className = 'status';
     clearInterval(state.timer);
     state.timer = setInterval(function () {
@@ -288,7 +271,6 @@
     clearInterval(state.timer);
     state.busy = false;
     el('go').disabled = false;
-    el('more').disabled = !!state.dialogue ? false : true;
     if (msg) {
       el('status').className = 'status' + (isError ? ' err' : '');
       el('status').textContent = msg;
@@ -349,70 +331,8 @@
     var ul = el('tips-list');
     ul.innerHTML = '';
     tips.forEach(function (t) { ul.appendChild(mk('li', null, t)); });
-    el('more').classList.remove('hidden');
-    el('more').disabled = false;
     el('redo').classList.remove('hidden');
     el('copy').classList.remove('hidden');
-  }
-
-  /* ---------- 渲染语料（每类只留几条，每条都带例句）---------- */
-  function renderGuide(g) {
-    state.guide = g;
-    el('guide-card').classList.remove('hidden');
-    var box = el('sections');
-    box.innerHTML = '';
-    (g.sections || []).forEach(function (sec, idx) {
-      var d = mk('details', 'sec');
-      if (idx === 0) d.setAttribute('open', '');
-      var sum = mk('summary');
-      sum.appendChild(mk('span', null, sec.title || '相关表达'));
-      sum.appendChild(mk('span', 'n', sec.items.length + ' 条'));
-      d.appendChild(sum);
-      sec.items.forEach(function (it) {
-        var item = mk('div', 'item');
-        var head = mk('div', 'ih');
-        head.appendChild(mk('span', 'term', it.en || ''));
-        if (it.zh) head.appendChild(mk('span', 'zh', it.zh));
-        var btn = mk('button', 'mini ghost say', '🔊');
-        btn.addEventListener('click', function () { speak(it.en); });
-        head.appendChild(btn);
-        item.appendChild(head);
-        if (it.example && it.example.en) {
-          var ex = mk('div', 'ex');
-          ex.appendChild(mk('div', 'en', it.example.en));
-          if (it.example.zh) ex.appendChild(mk('div', 'zh', it.example.zh));
-          ex.title = '点这里朗读例句；选中里面的词可讲解';
-          ex.addEventListener('click', function () {
-            var s = window.getSelection && String(window.getSelection());
-            if (s && s.trim()) return;
-            speak(it.example.en);
-          });
-          item.appendChild(ex);
-        }
-        if (it.note) item.appendChild(mk('span', 'note', it.note));
-        d.appendChild(item);
-      });
-      box.appendChild(d);
-    });
-    var pats = el('patterns');
-    pats.innerHTML = '';
-    (g.patterns || []).forEach(function (p) {
-      var d = mk('div', 'pat');
-      var s = mk('span', 'say', '🔊');
-      d.appendChild(s);
-      d.appendChild(mk('div', 'en', p.en));
-      d.appendChild(mk('div', 'zh', p.zh || ''));
-      d.style.cursor = 'pointer';
-      d.addEventListener('click', function () {
-        var sel = window.getSelection && String(window.getSelection());
-        if (sel && sel.trim()) return;
-        speak(p.en);
-      });
-      pats.appendChild(d);
-    });
-    el('pat-n').textContent = (g.patterns || []).length + ' 句';
-    el('patterns-box').classList.toggle('hidden', !(g.patterns || []).length);
-    el('guide-status').textContent = '每类只留最常用的几条，都带例句；选中不认识的词点「讲解」。';
   }
 
   /* ---------- 文本拼接 / 复制下载 ---------- */
@@ -426,23 +346,6 @@
     });
     if (d.tips && d.tips.length) out.push('', '教练提示：', d.tips.map(function (t) { return '- ' + t; }).join('\n'));
     return out.filter(Boolean).join('\n');
-  }
-  function guideText() {
-    var g = state.guide;
-    if (!g) return '';
-    var out = ['# ' + state.scene + ' · 高频表达'];
-    (g.sections || []).forEach(function (s) {
-      out.push('', '## ' + s.title);
-      s.items.forEach(function (i) {
-        out.push('- ' + i.zh + ' — ' + i.en + (i.note ? '（' + i.note + '）' : ''));
-        if (i.example && i.example.en) out.push('    例句：' + i.example.en + (i.example.zh ? ' / ' + i.example.zh : ''));
-      });
-    });
-    if (g.patterns && g.patterns.length) {
-      out.push('', '## 可直接套用的句式');
-      g.patterns.forEach(function (p, i) { out.push((i + 1) + '. ' + p.en + ' — ' + (p.zh || '')); });
-    }
-    return out.join('\n');
   }
   async function copyText(text, btn) {
     var done = function () {
@@ -543,8 +446,6 @@
         el('scene').value = item.scene || '';
         el('extra').value = item.extra || '';
         if (item.dialogue) renderDialogue(item.dialogue);
-        if (item.guide) renderGuide(item.guide);
-        el('more').classList.toggle('hidden', !item.dialogue);
         el('status').className = 'status';
         el('status').textContent = '从本地记录里调出来的，没有重新生成';
       });
@@ -567,7 +468,6 @@
       var cached = loadAll().find(function (x) { return x.key === keyOf(scene, state.extra) && x.dialogue; });
       if (cached) {
         renderDialogue(cached.dialogue);
-        if (cached.guide) renderGuide(cached.guide);
         el('status').className = 'status';
         el('status').textContent = '这个场景之前生成过，直接给你（点「换一批」要新的）';
         return;
@@ -576,39 +476,11 @@
     startBusy(isRedo ? '换一批说法，正在重写对话' : '正在写对话，稍等一下');
     state.lastAction = function () { generate(isRedo); };
     el('dialogue-card').classList.add('hidden');
-    el('guide-card').classList.add('hidden');
     try {
       var d = await callApi({ mode: 'dialogue', scene: scene, extra: state.extra, fresh: !!isRedo });
       renderDialogue(d);
-      stopBusy('对话好了，点句子能朗读；要词和句式就点「更多表达」。');
-      saveItem({ key: keyOf(scene, state.extra), scene: scene, extra: state.extra, dialogue: d, guide: state.guide, at: Date.now() });
-      renderHistory();
-    } catch (e) {
-      stopBusy(e.message, true);
-    }
-  }
-
-  async function more() {
-    if (!state.dialogue) { generate(); return; }
-    var existing = loadAll().find(function (x) { return x.key === keyOf(state.scene, state.extra); });
-    if (existing && existing.guide) {
-      state.guide = existing.guide;
-      renderGuide(existing.guide);
-      el('guide-status').textContent = '这份语料之前生成过';
-      return;
-    }
-    startBusy('正在整理这个场景的词和句式');
-    state.lastAction = more;
-    try {
-      var g = await callApi({
-        mode: 'more', scene: state.scene, extra: state.extra,
-        dialogue: (state.dialogue.lines || []).slice(0, 24).map(function (l) { return { who: l.who, en: l.en, zh: l.zh }; }),
-      });
-      renderGuide(g);
-      stopBusy('语料好了，可以点 🔊 听发音。');
-      var prev = loadAll().find(function (x) { return x.key === keyOf(state.scene, state.extra); });
-      saveItem({ key: keyOf(state.scene, state.extra), scene: state.scene, extra: state.extra,
-        dialogue: (prev && prev.dialogue) || state.dialogue, guide: g, at: Date.now() });
+      stopBusy('对话好了，点句子能朗读；选中不认识的词，就地问用法。');
+      saveItem({ key: keyOf(scene, state.extra), scene: scene, extra: state.extra, dialogue: d, at: Date.now() });
       renderHistory();
     } catch (e) {
       stopBusy(e.message, true);
@@ -702,6 +574,10 @@
     } catch (e) {
       el('x-status').className = 'status err';
       el('x-status').textContent = e.message;
+      var rb = mk('button', 'mini ghost', '重试');
+      rb.style.marginLeft = '8px';
+      rb.addEventListener('click', function () { explain(phrase, sentence, zh); });
+      el('x-status').appendChild(rb);
       return null;
     }
   }
@@ -761,9 +637,26 @@
       });
       body.appendChild(wrap);
     }
+    if ((d.similar || []).length) {
+      var sim = mk('div', 'xex');
+      sim.appendChild(mk('span', 'k', '也能这么说（挑顺口的记，选中还能接着问）'));
+      d.similar.forEach(function (t) {
+        var ex = mk('div', 'ex');
+        ex.appendChild(mk('div', 'en', t.en));
+        var zhline = String(t.zh || '') + (t.note ? ' —— ' + t.note : '');
+        if (zhline.trim()) ex.appendChild(mk('div', 'zh', zhline.trim()));
+        ex.addEventListener('click', function () {
+          var s0 = window.getSelection && String(window.getSelection());
+          if (s0 && s0.trim()) return;
+          speak(t.en);
+        });
+        sim.appendChild(ex);
+      });
+      body.appendChild(sim);
+    }
     if (d.caution) body.appendChild(mk('div', 'xcap', '⚠ ' + d.caution));
     el('x-status').className = 'status';
-    el('x-status').textContent = fromCache ? '这条之前问过，直接给你（不重新生成）' : '想换词再选一次；点例句能听发音';
+    el('x-status').textContent = fromCache ? '这条之前问过，直接给你（不重新生成）' : '点例句能听；选中「也能这么说」里的句子还能接着问；讲过的词已进生词本';
     if (el('explain-card').scrollIntoView) { try { el('explain-card').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* jsdom 没实现 */ } }
   }
 
@@ -777,6 +670,7 @@
     if (d.structure) out.push('语法结构：' + d.structure);
     if (d.why) out.push('为什么这么说：' + d.why);
     (d.examples || []).forEach(function (e, i) { out.push('例句' + (i + 1) + '：' + e.en + (e.zh ? ' / ' + e.zh : '')); });
+    (d.similar || []).forEach(function (t) { out.push('也能这么说：' + t.en + (t.zh ? ' / ' + t.zh : '') + (t.note ? '（' + t.note + '）' : '')); });
     if (d.caution) out.push('要留意：' + d.caution);
     return out.join('\n');
   }
@@ -817,6 +711,7 @@
     entry.why = d.why || '';
     entry.caution = d.caution || '';
     entry.examples = (d.examples || []).slice(0, 3);
+    entry.similar = (d.similar || []).slice(0, 4);
     entry.sentence = d.sentence || '';
     entry.scene = d.scene || '';
     entry.cat = d.category || entry.cat || guessCat(d.scene);
@@ -856,6 +751,27 @@
       row.appendChild(ex);
     }
     if (x.caution) row.appendChild(mk('span', 'note', '⚠ ' + x.caution));
+    if (x.similar && x.similar.length) {
+      var sd = mk('details', 'sec');
+      var ss = mk('summary');
+      ss.appendChild(mk('span', null, '🔁 也能这么说'));
+      ss.appendChild(mk('span', 'n', x.similar.length + ' 条'));
+      sd.appendChild(ss);
+      x.similar.forEach(function (t) {
+        var ex = mk('div', 'ex');
+        ex.appendChild(mk('div', 'en', t.en));
+        var z = String(t.zh || '') + (t.note ? ' —— ' + t.note : '');
+        if (z.trim()) ex.appendChild(mk('div', 'zh', z.trim()));
+        ex.addEventListener('click', function () {
+          var s0 = window.getSelection && String(window.getSelection());
+          if (s0 && s0.trim()) return;
+          speak(t.en);
+        });
+        ex.title = '点这里听发音';
+        sd.appendChild(ex);
+      });
+      row.appendChild(sd);
+    }
 
     var acts = mk('div', 'acts');
     var got = mk('button', 'mini ghost', x.got ? '↩ 没掌握' : '✓ 已掌握');
@@ -947,6 +863,7 @@
       all.filter(function (x) { return (x.cat || '其他') === c; }).forEach(function (x) {
         out.push('- ' + x.asUsed + (x.pattern && x.pattern !== x.asUsed ? '（' + x.pattern + '）' : '') + ' — ' + (x.meaning || ''));
         if (x.examples && x.examples[0]) out.push('    例句：' + x.examples[0].en + (x.examples[0].zh ? ' / ' + x.examples[0].zh : ''));
+        (x.similar || []).forEach(function (t) { out.push('    也能说：' + t.en + (t.zh ? ' / ' + t.zh : '') + (t.note ? '（' + t.note + '）' : '')); });
         if (x.caution) out.push('    要留意：' + x.caution);
         if (x.got) out.push('    [已掌握]');
       });
@@ -959,10 +876,11 @@
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
   function bookCsv() {
-    var head = ['分类', '词条', '用法结构', '本句意思', '语法', '为什么', '例句', '例句中文', '易错点', '场景', '已掌握', '收录时间'];
+    var head = ['分类', '词条', '用法结构', '本句意思', '语法', '为什么', '例句', '例句中文', '类似说法', '易错点', '场景', '已掌握', '收录时间'];
     var rows = loadBook().map(function (x) {
       var e0 = (x.examples && x.examples[0]) || {};
-      return [x.cat || '其他', x.asUsed, x.pattern, x.meaning, x.structure, x.why, e0.en || '', e0.zh || '', x.caution, x.scene, x.got ? '是' : '否', new Date(x.at || 0).toISOString().slice(0, 10)];
+      var sim = (x.similar || []).map(function (t) { return t.en + (t.zh ? '（' + t.zh + '）' : ''); }).join(' | ');
+      return [x.cat || '其他', x.asUsed, x.pattern, x.meaning, x.structure, x.why, e0.en || '', e0.zh || '', sim, x.caution, x.scene, x.got ? '是' : '否', new Date(x.at || 0).toISOString().slice(0, 10)];
     });
     return '\ufeff' + [head].concat(rows).map(function (r) { return r.map(csvCell).join(','); }).join('\n');
   }
@@ -971,7 +889,8 @@
     return loadBook().map(function (x) {
       var e0 = (x.examples && x.examples[0]) || {};
       var front = (x.asUsed || '') + (e0.en ? '<br>' + e0.en : '');
-      var back = (x.meaning || '') + (x.pattern ? '<br>用法：' + x.pattern : '') + (x.structure ? '<br>结构：' + x.structure : '') + (x.caution ? '<br>⚠ ' + x.caution : '');
+      var sims = (x.similar || []).map(function (t) { return t.en; }).join(' / ');
+      var back = (x.meaning || '') + (x.pattern ? '<br>用法：' + x.pattern : '') + (x.structure ? '<br>结构：' + x.structure : '') + (sims ? '<br>也能说：' + sims : '') + (x.caution ? '<br>⚠ ' + x.caution : '');
       return front.replace(/\t/g, ' ') + '\t' + back.replace(/\t/g, ' ');
     }).join('\n');
   }
@@ -986,13 +905,7 @@
     });
     el('go').addEventListener('click', function () { generate(false); });
     el('redo').addEventListener('click', function () { generate(true); });
-    el('more').addEventListener('click', more);
     el('copy').addEventListener('click', function (ev) { copyText(dialogueText(), ev.currentTarget); });
-    el('copy-guide').addEventListener('click', function (ev) { copyText(guideText(), ev.currentTarget); });
-    el('download-guide').addEventListener('click', function () {
-      if (!state.guide) return;
-      downloadText(guideText(), (state.scene || '场景表达').replace(/[\\/:*?"<>|]/g, '').slice(0, 20) + '.txt');
-    });
     el('trans').addEventListener('click', function (ev) {
       document.body.classList.toggle('notrans');
       ev.currentTarget.textContent = document.body.classList.contains('notrans') ? '显示中文' : '隐藏中文';
@@ -1040,8 +953,8 @@
   // 供 Node/jsdom 测试驱动
   if (typeof window !== 'undefined') {
     window.sceneEnglish = {
-      state: state, renderDialogue: renderDialogue, renderGuide: renderGuide,
-      dialogueText: dialogueText, guideText: guideText, generate: generate, more: more,
+      state: state, renderDialogue: renderDialogue,
+      dialogueText: dialogueText, generate: generate,
       callApi: callApi, keyOf: keyOf, saveItem: saveItem, loadAll: loadAll, bind: bind,
       checkService: checkService, stopBusy: stopBusy,
       explain: explain, renderExplain: renderExplain, onSelectionMaybe: onSelectionMaybe, explainText: explainText, loadExplains: loadExplains,
