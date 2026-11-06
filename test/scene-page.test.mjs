@@ -491,3 +491,126 @@ test('模型没给分类时按场景关键词兜底归类', async () => {
   assert.equal(window.sceneEnglish.guessCat('和朋友聊怎么把肉煮入味'), '吃喝');
   assert.equal(window.sceneEnglish.guessCat('随便一个场景'), '其他');
 });
+
+/* ---------- 练一练（生词本小游戏） ---------- */
+
+function addW(window, phrase, asUsed, meaning, sentence, scene) {
+  return window.sceneEnglish.addBookEntry({
+    kind: 'explain', phrase, asUsed, pattern: asUsed, meaning,
+    structure: '', why: '', examples: [{ en: sentence, zh: meaning }],
+    caution: '', category: '测试分类', sentence, scene: scene || '测试场景',
+  });
+}
+function stock(window) {
+  addW(window, 'vent about', 'vent about sth', '跟人吐槽某事', "I've been meaning to vent about work.", '吐槽工作');
+  addW(window, 'blanch', 'blanch sth with sth', '用…焯水', 'I always blanch it with ginger slices.', '做肉');
+  addW(window, 'simmer', 'let sth simmer', '小火慢炖', 'Let it simmer for an hour.', '做肉');
+  addW(window, 'pat', 'pat sth dry', '把表面吸干', 'Pat the steak dry before it hits the pan.', '做肉');
+  addW(window, 'got a sec', 'got a sec', '有空吗', 'Hey, you got a sec?', '拦人说话');
+}
+
+test('填空练一练：挖掉的必须是词本里的原词，全答对能一路练到结算', async () => {
+  const { window } = await boot();
+  stock(window);
+  const SE = window.sceneEnglish;
+  SE.startQuiz('cloze');
+  await wait(30);
+  const doc = window.document;
+  assert.equal(SE.quizState().q.length, 5, '5 个词出 5 题');
+  assert.equal(SE.quizState().q.every((q) => q.type === 'cloze'), true);
+
+  const q0 = SE.quizState().q[SE.quizState().i];
+  const sentText = doc.querySelector('.q-sent').textContent;
+  assert.equal(sentText.toLowerCase().includes(q0.answer.toLowerCase()), false, '题干里不能泄答案');
+  assert.ok(doc.getElementById('q-blank'), '要有空');
+
+  // 💡 首字母提示
+  [...doc.querySelectorAll('#g-body .row button')].find((b) => /首字母/.test(b.textContent)).click();
+  const blankTxt = doc.getElementById('q-blank').textContent;
+  assert.equal(blankTxt.split(' ')[0][0], q0.answer[0], `首字母提示要对上答案：${blankTxt}`);
+  assert.match(blankTxt, /_/, '提示应该是下划线样式');
+
+  // 大小写不敏感判对，一路清完全部题
+  let guard = 0;
+  while (SE.quizState().i < SE.quizState().q.length && guard++ < 30) {
+    const q = SE.quizState().q[SE.quizState().i];
+    doc.getElementById('q-in').value = q.answer.toUpperCase();
+    doc.getElementById('q-check').click();
+    await wait(10);
+    doc.getElementById('q-next').click();
+    await wait(10);
+  }
+  assert.match(doc.getElementById('g-body').textContent, /练完了/, '要出结算屏');
+  assert.match(doc.getElementById('g-body').textContent, /答对 5 题/);
+  assert.equal(SE.quizState().right, 5);
+});
+
+test('答错的词会再出一次，错的词进「只练错的」', async () => {
+  const { window } = await boot();
+  stock(window);
+  const SE = window.sceneEnglish;
+  SE.startQuiz('cloze');
+  await wait(20);
+  const doc = window.document;
+  const q = SE.quizState().q[0];
+  doc.getElementById('q-in').value = '完全不搭的答案';
+  doc.getElementById('q-check').click();
+  await wait(20);
+  assert.match(doc.getElementById('g-fb').textContent, new RegExp('答案是：' + q.answer.slice(0, 4)), '要公布答案');
+  assert.equal(SE.quizState().q.length, 6, '错的词追加到队尾再考一次');
+  assert.equal(Object.keys(SE.quizState().wrongKeys).length, 1);
+  doc.getElementById('q-next').click();
+  await wait(10);
+  // 只练错的：应该只剩那个错词相关的题
+  SE.startQuiz('cloze', true);
+  await wait(20);
+  assert.ok(SE.quizState().q.length >= 1);
+  const keys = SE.quizState().q.map((x) => x.x.key);
+  assert.equal(keys.every((k) => k === q.x.key), true, '只练错的就只考错的词');
+});
+
+test('选择练一练：四个选项、点对加分、点错标红且正确项标绿', async () => {
+  const { window } = await boot();
+  stock(window);
+  const SE = window.sceneEnglish;
+  SE.startQuiz('mc');
+  await wait(20);
+  const doc = window.document;
+  const st = SE.quizState();
+  assert.equal(st.q.every((q) => q.type === 'mc'), true);
+  assert.equal(doc.querySelectorAll('.q-opt').length, 4, '四个选项');
+  const q = st.q[st.i];
+  const correct = [...doc.querySelectorAll('.q-opt')].find((b) => b.textContent === q.x.asUsed);
+  const wrongBtn = [...doc.querySelectorAll('.q-opt')].find((b) => b !== correct);
+  wrongBtn.click();
+  await wait(20);
+  assert.equal(wrongBtn.classList.contains('wrongpick'), true, '选错的要标红');
+  assert.equal(correct.classList.contains('right'), true, '正确项要标绿');
+  assert.match(doc.getElementById('g-fb').textContent, /正确是：/);
+  doc.getElementById('q-next').click();
+  await wait(10);
+  const q2 = SE.quizState().q[SE.quizState().i];
+  [...doc.querySelectorAll('.q-opt')].find((b) => b.textContent === q2.x.asUsed).click();
+  await wait(20);
+  assert.match(doc.getElementById('g-fb').textContent, /✅/);
+  assert.equal(SE.quizState().right, 1);
+});
+
+test('词太少不给开局，用中文说明要几个词', async () => {
+  const { window } = await boot();
+  const SE = window.sceneEnglish;
+  addW(window, 'vent about', 'vent about sth', '跟人吐槽某事', "I've been meaning to vent about work.");
+  SE.startQuiz('cloze');
+  await wait(20);
+  assert.equal(window.document.getElementById('g-status').className.includes('err'), true);
+  assert.match(window.document.getElementById('g-status').textContent, /至少要有 2 个词/);
+});
+
+test('判分宽容度：大小写、标点、空格都不算错', async () => {
+  const { window } = await boot();
+  const SE = window.sceneEnglish;
+  assert.equal(SE.qNorm('  Got a SEC? '), SE.qNorm('got a sec'), '大小写和首尾标点');
+  assert.equal(SE.qNorm("pat the steak's dry"), SE.qNorm('pat the steaks dry'), '撇号不算差异');
+  assert.equal(SE.clozeOk({ sentence: 'Let it simmer for an hour.', phrase: 'simmer' }), true);
+  assert.equal(SE.clozeOk({ sentence: 'Let it simmer for an hour.', phrase: '不存在' }), false, '句子对不上就不出填空题');
+});

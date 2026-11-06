@@ -110,6 +110,15 @@
     .turn { max-width: 100%; }
     table.v td.zh { width: 38%; }
   }
+
+  .q-sent { font-size: 17px; line-height: 1.75; margin: 4px 0 10px; }
+  .q-blank { color: #7c5cff; font-weight: 700; letter-spacing: 2px; padding: 0 4px; }
+  .q-opt { display: block; width: 100%; text-align: left; margin: 6px 0; padding: 10px 12px;
+    border: 1px solid #d8d3c8; border-radius: 10px; background: #fff; font-size: 15px; cursor: pointer; }
+  .q-opt.right { border-color: #2e9e5b; background: #e9f7ee; font-weight: 600; }
+  .q-opt.wrongpick { border-color: #c0392b; background: #fdecec; }
+  .status.ok { color: #1e7d43; }
+  .g-done { font-size: 15px; line-height: 1.8; }
 </style>
 </head>
 <body>
@@ -172,12 +181,26 @@
         <option value="got">已掌握</option>
       </select>
       <span class="grow"></span>
+      <button class="mini ghost" id="game-btn">🎯 练一练</button>
       <button class="mini ghost" id="book-txt">复制</button>
       <button class="mini ghost" id="book-csv">CSV</button>
       <button class="mini ghost" id="book-anki">Anki</button>
     </div>
     <div id="book-body"></div>
-    <p class="hint">点过「讲解」的词会自动收进来，分类是讲解时一起给的、也能改。数据只存在你这台设备的浏览器里，不上传。</p>
+    <p class="hint">点过「讲解」的词会自动收进来，分类是讲解时一起给的、也能改。数据只存在你这台设备的浏览器里，不上传。下面点「🎯 练一练」用填空/选择把搭配真正记住。</p>
+  </section>
+
+  <section class="panel hidden" id="game-card">
+    <h2 class="scene-title">🎯 练一练 —— 把搭配真正记住</h2>
+    <div class="row" style="margin:0 0 10px">
+      <button class="mini" id="g-mix">混合</button>
+      <button class="mini ghost" id="g-cloze">只填空</button>
+      <button class="mini ghost" id="g-mc">只选择</button>
+      <button class="mini ghost" id="g-reredo">只练错的</button>
+      <span class="grow"></span>
+      <span class="status" id="g-status"></span>
+    </div>
+    <div id="g-body"></div>
   </section>
 
   <section class="panel hidden" id="history-card">
@@ -895,6 +918,233 @@
     }).join('\n');
   }
 
+  /* ---------- 练一练（填空/选择，纯本地判分，不花钱） ---------- */
+  var G = { q: [], i: 0, right: 0, wrongKeys: {}, retry: {}, mode: 'mix', answered: false };
+  function qNorm(v) {
+    return String(v || '')
+      .toLowerCase()
+      .replace(/['’‘`]/g, '')
+      .replace(/[.,!?;:—–_"（）()\[\]{}，。！？；：、]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  function clozeOk(x) {
+    if (!x.sentence || !x.phrase) return false;
+    var ph = String(x.phrase).trim();
+    if (ph.length < 2) return false;
+    return String(x.sentence).toLowerCase().indexOf(ph.toLowerCase()) >= 0;
+  }
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function uniquePool(pool) {
+    var seen = {}, out = [];
+    (pool || []).forEach(function (x) {
+      var k = qNorm(x.asUsed || x.phrase);
+      if (k && !seen[k]) { seen[k] = 1; out.push(x); }
+    });
+    return out;
+  }
+  function makeQ(x, pool, mode) {
+    var c = clozeOk(x);
+    var others = uniquePool(pool).filter(function (y) { return qNorm(y.asUsed) !== qNorm(x.asUsed); });
+    var mcAble = others.length >= 3 && !!String(x.meaning || '').trim();
+    var type;
+    if (mode === 'cloze') type = c ? 'cloze' : null;
+    else if (mode === 'mc') type = mcAble ? 'mc' : null;
+    else type = c && mcAble ? (Math.random() < 0.5 ? 'cloze' : 'mc') : c ? 'cloze' : mcAble ? 'mc' : null;
+    if (!type) return null;
+    if (type === 'cloze') {
+      var idx = x.sentence.toLowerCase().indexOf(x.phrase.toLowerCase().trim());
+      return { type: 'cloze', x: x, before: x.sentence.slice(0, idx), after: x.sentence.slice(idx + x.phrase.trim().length), answer: x.phrase.trim() };
+    }
+    var list = shuffle([x].concat(others.slice(0, 3)));
+    return { type: 'mc', x: x, opts: list };
+  }
+  function firstLetters(ans) {
+    return ans.split(/\s+/).map(function (w) { return w.charAt(0) + '_'.repeat(Math.max(2, w.length - 1)); }).join(' ');
+  }
+  function startQuiz(mode, onlyWrong) {
+    var st = el('g-status');
+    if (mode) G.mode = mode;
+    var all = loadBook();
+    if (all.length < 2) {
+      st.className = 'status err';
+      st.textContent = '生词本里至少要有 2 个词才能练：回对话里多选中几个词点「讲解」。';
+      el('g-body').innerHTML = '';
+      return;
+    }
+    var base = onlyWrong && Object.keys(G.wrongKeys).length
+      ? all.filter(function (x) { return G.wrongKeys[x.key]; })
+      : all.filter(function (x) { return !x.got; });
+    if (!base.length) base = all;
+    var qs = [];
+    shuffle(base.slice()).forEach(function (x) {
+      var q = makeQ(x, all, G.mode);
+      if (q) qs.push(q);
+    });
+    if (qs.length < (onlyWrong ? 1 : 2)) {
+      st.className = 'status err';
+      st.textContent = '这批词出不了足够的题（句子对不上原词、或选项凑不齐 4 个），换一种题型试试。';
+      el('g-body').innerHTML = '';
+      return;
+    }
+    G.q = shuffle(qs).slice(0, 12);
+    G.i = 0; G.right = 0; G.retry = {}; G.wrongKeys = {};
+    ['g-mix', 'g-cloze', 'g-mc'].forEach(function (id) {
+      el(id).className = 'mini ' + (G.mode === id.slice(2) ? '' : 'ghost');
+    });
+    renderQ();
+  }
+  function gProg() {
+    var wrongN = Object.keys(G.wrongKeys).length;
+    return '第 ' + Math.min(G.i + 1, G.q.length) + ' / ' + G.q.length + ' 题 · 答对 ' + G.right + (wrongN ? ' · 错 ' + wrongN + ' 词' : '');
+  }
+  function nextQ() { G.i += 1; renderQ(); }
+  function afterAnswer() {
+    G.answered = true;
+    el('q-check').classList.add('hidden');
+    el('q-next').classList.remove('hidden');
+    el('g-status').textContent = gProg();
+  }
+  function feedback(text, cls) {
+    var fb = el('g-fb');
+    fb.className = 'status ' + cls;
+    fb.textContent = text;
+  }
+  function wrongRec(x, q) {
+    G.wrongKeys[x.key] = x.asUsed || x.phrase;
+    if (!G.retry[x.key]) {
+      G.retry[x.key] = 1;
+      var again = q.type === 'mc' ? (makeQ(x, loadBook(), 'mc') || q) : q;
+      G.q.push(again);
+    }
+  }
+  function answerCloze() {
+    var q = G.q[G.i];
+    if (!q || q.type !== 'cloze' || G.answered) return;
+    var inp = el('q-in');
+    var v = String(inp.value || '').trim();
+    if (!v) { feedback('先把空补上——想不起来就点 💡 看首字母。', 'err'); return; }
+    if (qNorm(v) === qNorm(q.answer)) {
+      G.right += 1;
+      feedback('✅ 答对了：' + q.answer + (q.x.pattern && qNorm(q.x.pattern) !== qNorm(q.answer) ? '（用法：' + q.x.pattern + '）' : ''), 'ok');
+      el('q-blank').textContent = q.answer;
+    } else {
+      feedback('✗ 答案是：' + q.answer + ' —— 这个词待会儿还会再出一次', 'err');
+      el('q-blank').textContent = q.answer;
+      wrongRec(q.x, q);
+    }
+    afterAnswer();
+  }
+  function answerMc(btn, isRight) {
+    var q = G.q[G.i];
+    if (!q || q.type !== 'mc' || G.answered) return;
+    var opts = el('g-body').querySelectorAll('.q-opt');
+    for (var i = 0; i < opts.length; i++) {
+      if (qNorm(opts[i].textContent) === qNorm(q.x.asUsed || q.x.phrase)) opts[i].classList.add('right');
+    }
+    if (isRight) {
+      G.right += 1;
+      feedback('✅ 对：' + (q.x.asUsed || '') + (q.x.meaning ? ' —— ' + q.x.meaning : ''), 'ok');
+    } else {
+      btn.classList.add('wrongpick');
+      feedback('✗ 正确是：' + (q.x.asUsed || '') + ' —— ' + (q.x.meaning || ''), 'err');
+      wrongRec(q.x, q);
+    }
+    afterAnswer();
+  }
+  function renderQ() {
+    var body = el('g-body');
+    body.innerHTML = '';
+    G.answered = false;
+    if (G.i >= G.q.length) {
+      var done = mk('div', 'g-done');
+      done.appendChild(mk('p', null, '🎉 这一轮练完了：答对 ' + G.right + ' 题。' + (Object.keys(G.wrongKeys).length ? '答错的词都再出过一次，可以再只练错的。' : '全对，搭配基本焊住了。')));
+      var wk = Object.keys(G.wrongKeys);
+      if (wk.length) {
+        done.appendChild(mk('p', 'hint', '这次错的：' + wk.map(function (k) { return G.wrongKeys[k]; }).join('、').slice(0, 150)));
+        var again = mk('button', 'primary', '只练错的');
+        again.addEventListener('click', function () { startQuiz(G.mode, true); });
+        done.appendChild(again);
+      }
+      var r2 = mk('button', 'mini ghost', '再来一轮');
+      r2.style.marginLeft = '8px';
+      r2.addEventListener('click', function () { startQuiz(G.mode, false); });
+      done.appendChild(r2);
+      body.appendChild(done);
+      el('g-status').className = 'status';
+      el('g-status').textContent = '一轮结束';
+      return;
+    }
+    el('g-status').className = 'status';
+    el('g-status').textContent = gProg();
+    var q = G.q[G.i];
+    var x = q.x;
+    var inp = null;
+    if (q.type === 'cloze') {
+      body.appendChild(mk('p', 'hint', '填空 · 把原句里被挖掉的搭配补回来（中文意思是提示）'));
+      var sent = mk('div', 'q-sent');
+      sent.appendChild(document.createTextNode(q.before + ' '));
+      var blank = mk('span', 'q-blank', '＿＿＿');
+      blank.id = 'q-blank';
+      sent.appendChild(blank);
+      sent.appendChild(document.createTextNode(' ' + q.after));
+      body.appendChild(sent);
+      if (x.meaning) body.appendChild(mk('p', 'zh', '这句说的是：' + x.meaning));
+      var row = mk('div', 'row');
+      inp = mk('input', 'txt');
+      inp.id = 'q-in';
+      inp.setAttribute('autocomplete', 'off');
+      inp.setAttribute('autocapitalize', 'off');
+      inp.setAttribute('autocorrect', 'off');
+      inp.placeholder = '把空的搭配打出来…';
+      row.appendChild(inp);
+      body.appendChild(row);
+    } else {
+      body.appendChild(mk('p', 'hint', '选择 · 这句中文对应哪个英文搭配'));
+      body.appendChild(mk('div', 'q-sent', '「' + (x.meaning || '') + '」' + (x.scene ? '（' + x.scene + '）' : '')));
+      var box = mk('div');
+      q.opts.forEach(function (o) {
+        var b = mk('button', 'q-opt', o.asUsed || o.phrase);
+        b.addEventListener('click', function () { answerMc(b, qNorm(o.asUsed || o.phrase) === qNorm(x.asUsed || x.phrase)); });
+        box.appendChild(b);
+      });
+      body.appendChild(box);
+    }
+    var fb = mk('div', 'status');
+    fb.id = 'g-fb';
+    body.appendChild(fb);
+    var acts = mk('div', 'row');
+    var chk = mk('button', 'primary', '检查');
+    chk.id = 'q-check';
+    chk.addEventListener('click', answerCloze);
+    var hintB = mk('button', 'mini ghost', '💡 首字母');
+    hintB.addEventListener('click', function () {
+      var bl = el('q-blank');
+      if (bl && !G.answered && q.type === 'cloze') bl.textContent = firstLetters(q.answer);
+    });
+    var nxt = mk('button', 'mini ghost', '下一题 →');
+    nxt.id = 'q-next';
+    nxt.classList.add('hidden');
+    nxt.addEventListener('click', nextQ);
+    acts.appendChild(chk);
+    acts.appendChild(hintB);
+    acts.appendChild(nxt);
+    body.appendChild(acts);
+    if (inp) {
+      inp.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter') return;
+        if (G.answered) nextQ();
+        else answerCloze();
+      });
+    }
+  }
+
   /* ---------- 绑定 ---------- */
   function bind() {
     var ex = el('examples');
@@ -943,6 +1193,17 @@
     el('book-txt').addEventListener('click', function (ev) { copyText(bookText(), ev.currentTarget); });
     el('book-csv').addEventListener('click', function () { downloadText(bookCsv(), '生词本.csv'); });
     el('book-anki').addEventListener('click', function () { downloadText(bookAnki(), '生词本-anki.txt'); });
+
+    // 练一练：从生词本出题，填空 + 中译英选择，纯本地判分
+    el('game-btn').addEventListener('click', function () {
+      el('game-card').classList.remove('hidden');
+      startQuiz(G.mode, false);
+      if (el('game-card').scrollIntoView) { try { el('game-card').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* jsdom */ } }
+    });
+    el('g-mix').addEventListener('click', function () { startQuiz('mix', false); });
+    el('g-cloze').addEventListener('click', function () { startQuiz('cloze', false); });
+    el('g-mc').addEventListener('click', function () { startQuiz('mc', false); });
+    el('g-reredo').addEventListener('click', function () { startQuiz(G.mode, true); });
   }
 
   if (typeof document !== 'undefined' && el('scene')) {
@@ -959,6 +1220,7 @@
       checkService: checkService, stopBusy: stopBusy,
       explain: explain, renderExplain: renderExplain, onSelectionMaybe: onSelectionMaybe, explainText: explainText, loadExplains: loadExplains,
       loadBook: loadBook, addBookEntry: addBookEntry, renderBook: renderBook, bookText: bookText, bookCsv: bookCsv, bookAnki: bookAnki, guessCat: guessCat,
+      startQuiz: startQuiz, quizState: function () { return G; }, qNorm: qNorm, clozeOk: clozeOk, makeQ: makeQ,
     };
   }
 })();
