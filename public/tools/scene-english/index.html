@@ -601,7 +601,7 @@
   }
 
   /* ---------- 选词讲解 ---------- */
-  var XLS = 'xixi.scene-english.explain.v1';
+  var XLS = 'xixi.scene-english.explain.v2';
   function loadExplains() { try { return JSON.parse(localStorage.getItem(XLS) || '{}'); } catch (e) { return {}; } }
   function saveExplain(key, data) {
     var all = loadExplains();
@@ -676,7 +676,7 @@
     el('explain-card').classList.remove('hidden');
     el('x-body').innerHTML = '';
     el('x-status').className = 'status';
-    el('x-status').textContent = '正在讲「' + phrase + '」…（大约 10~20 秒）';
+    el('x-status').textContent = '正在讲「' + phrase + '」…（要查语境、组例句，大约 15~35 秒）';
     try {
       var d = await callApi({ mode: 'explain', scene: state.scene || sentence, phrase: phrase, sentence: sentence, zh: zh || '' });
       renderExplain(d, false);
@@ -750,6 +750,25 @@
       });
       body.appendChild(wrap);
     }
+    if ((d.contexts || []).length) {
+      var ctx = mk('div', 'xex');
+      ctx.appendChild(mk('span', 'k', '平时用来形容什么（按语境记，比背释义牢）'));
+      d.contexts.forEach(function (c) {
+        var ex = mk('div', 'ex');
+        var head = mk('div', 'zh');
+        head.textContent = '🧭 ' + (c.domain || '') + (c.how ? ' —— ' + c.how : '');
+        ex.appendChild(head);
+        ex.appendChild(mk('div', 'en', c.en));
+        if (c.zh) ex.appendChild(mk('div', 'zh', c.zh));
+        ex.addEventListener('click', function () {
+          var s0 = window.getSelection && String(window.getSelection());
+          if (s0 && s0.trim()) return;
+          speak(c.en);
+        });
+        ctx.appendChild(ex);
+      });
+      body.appendChild(ctx);
+    }
     if ((d.similar || []).length) {
       var sim = mk('div', 'xex');
       sim.appendChild(mk('span', 'k', '也能这么说（挑顺口的记，选中还能接着问）'));
@@ -768,6 +787,7 @@
       body.appendChild(sim);
     }
     if (d.caution) body.appendChild(mk('div', 'xcap', '⚠ ' + d.caution));
+    if (d.notFor) body.appendChild(mk('div', 'xcap', '🚫 ' + d.notFor));
     el('x-status').className = 'status';
     el('x-status').textContent = fromCache ? '这条之前问过，直接给你（不重新生成）' : '点例句能听；选中「也能这么说」里的句子还能接着问；讲过的词已进生词本';
     if (el('explain-card').scrollIntoView) { try { el('explain-card').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* jsdom 没实现 */ } }
@@ -783,8 +803,10 @@
     if (d.structure) out.push('语法结构：' + d.structure);
     if (d.why) out.push('为什么这么说：' + d.why);
     (d.examples || []).forEach(function (e, i) { out.push('例句' + (i + 1) + '：' + e.en + (e.zh ? ' / ' + e.zh : '')); });
+    (d.contexts || []).forEach(function (c) { out.push('语境[' + (c.domain || '') + ']：' + (c.how || '') + '  ' + c.en + (c.zh ? ' / ' + c.zh : '')); });
     (d.similar || []).forEach(function (t) { out.push('也能这么说：' + t.en + (t.zh ? ' / ' + t.zh : '') + (t.note ? '（' + t.note + '）' : '')); });
     if (d.caution) out.push('要留意：' + d.caution);
+    if (d.notFor) out.push('不能形容：' + d.notFor);
     return out.join('\n');
   }
 
@@ -825,6 +847,8 @@
     entry.caution = d.caution || '';
     entry.examples = (d.examples || []).slice(0, 3);
     entry.similar = (d.similar || []).slice(0, 4);
+    entry.contexts = (d.contexts || []).slice(0, 4);
+    entry.notFor = d.notFor || '';
     entry.sentence = d.sentence || '';
     entry.scene = d.scene || '';
     entry.cat = d.category || entry.cat || guessCat(d.scene);
@@ -864,6 +888,29 @@
       row.appendChild(ex);
     }
     if (x.caution) row.appendChild(mk('span', 'note', '⚠ ' + x.caution));
+    if (x.notFor) row.appendChild(mk('span', 'note', '🚫 ' + x.notFor));
+    if (x.contexts && x.contexts.length) {
+      var cd = mk('details', 'sec');
+      var cs = mk('summary');
+      cs.appendChild(mk('span', null, '🧭 使用语境'));
+      cs.appendChild(mk('span', 'n', x.contexts.length + ' 个'));
+      cd.appendChild(cs);
+      x.contexts.forEach(function (c) {
+        var ex = mk('div', 'ex');
+        var h = mk('div', 'zh');
+        h.textContent = (c.domain || '') + (c.how ? ' —— ' + c.how : '');
+        ex.appendChild(h);
+        ex.appendChild(mk('div', 'en', c.en));
+        ex.addEventListener('click', function () {
+          var s0 = window.getSelection && String(window.getSelection());
+          if (s0 && s0.trim()) return;
+          speak(c.en);
+        });
+        ex.title = '点这里听发音';
+        cd.appendChild(ex);
+      });
+      row.appendChild(cd);
+    }
     if (x.similar && x.similar.length) {
       var sd = mk('details', 'sec');
       var ss = mk('summary');
@@ -976,8 +1023,10 @@
       all.filter(function (x) { return (x.cat || '其他') === c; }).forEach(function (x) {
         out.push('- ' + x.asUsed + (x.pattern && x.pattern !== x.asUsed ? '（' + x.pattern + '）' : '') + ' — ' + (x.meaning || ''));
         if (x.examples && x.examples[0]) out.push('    例句：' + x.examples[0].en + (x.examples[0].zh ? ' / ' + x.examples[0].zh : ''));
+        (x.contexts || []).forEach(function (c) { out.push('    语境[' + (c.domain || '') + ']：' + (c.how || '') + '  ' + c.en + (c.zh ? ' / ' + c.zh : '')); });
         (x.similar || []).forEach(function (t) { out.push('    也能说：' + t.en + (t.zh ? ' / ' + t.zh : '') + (t.note ? '（' + t.note + '）' : '')); });
         if (x.caution) out.push('    要留意：' + x.caution);
+        if (x.notFor) out.push('    不能形容：' + x.notFor);
         if (x.got) out.push('    [已掌握]');
       });
     });
@@ -989,11 +1038,12 @@
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
   function bookCsv() {
-    var head = ['分类', '词条', '用法结构', '本句意思', '语法', '为什么', '例句', '例句中文', '类似说法', '易错点', '场景', '已掌握', '收录时间'];
+    var head = ['分类', '词条', '用法结构', '本句意思', '语法', '为什么', '例句', '例句中文', '类似说法', '使用语境', '不能形容', '易错点', '场景', '已掌握', '收录时间'];
     var rows = loadBook().map(function (x) {
       var e0 = (x.examples && x.examples[0]) || {};
       var sim = (x.similar || []).map(function (t) { return t.en + (t.zh ? '（' + t.zh + '）' : ''); }).join(' | ');
-      return [x.cat || '其他', x.asUsed, x.pattern, x.meaning, x.structure, x.why, e0.en || '', e0.zh || '', sim, x.caution, x.scene, x.got ? '是' : '否', new Date(x.at || 0).toISOString().slice(0, 10)];
+      var ctx = (x.contexts || []).map(function (c) { return (c.domain || '') + ':' + c.en; }).join(' | ');
+      return [x.cat || '其他', x.asUsed, x.pattern, x.meaning, x.structure, x.why, e0.en || '', e0.zh || '', sim, ctx, x.notFor || '', x.caution, x.scene, x.got ? '是' : '否', new Date(x.at || 0).toISOString().slice(0, 10)];
     });
     return '\ufeff' + [head].concat(rows).map(function (r) { return r.map(csvCell).join(','); }).join('\n');
   }
@@ -1003,7 +1053,8 @@
       var e0 = (x.examples && x.examples[0]) || {};
       var front = (x.asUsed || '') + (e0.en ? '<br>' + e0.en : '');
       var sims = (x.similar || []).map(function (t) { return t.en; }).join(' / ');
-      var back = (x.meaning || '') + (x.pattern ? '<br>用法：' + x.pattern : '') + (x.structure ? '<br>结构：' + x.structure : '') + (sims ? '<br>也能说：' + sims : '') + (x.caution ? '<br>⚠ ' + x.caution : '');
+      var ctxs = (x.contexts || []).map(function (c) { return (c.domain || '') + '：' + c.en; }).join('<br>');
+      var back = (x.meaning || '') + (x.pattern ? '<br>用法：' + x.pattern : '') + (x.structure ? '<br>结构：' + x.structure : '') + (ctxs ? '<br>语境：<br>' + ctxs : '') + (sims ? '<br>也能说：' + sims : '') + (x.notFor ? '<br>🚫 ' + x.notFor : '') + (x.caution ? '<br>⚠ ' + x.caution : '');
       return front.replace(/\t/g, ' ') + '\t' + back.replace(/\t/g, ' ');
     }).join('\n');
   }

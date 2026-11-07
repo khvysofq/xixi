@@ -53,6 +53,11 @@ const EXPLAIN = {
     { en: 'I want to get that off my chest.', zh: '我想把这事说出来痛快痛快。', note: '更直接，没有拖了很久的意思' },
     { en: "It's been on my mind for weeks.", zh: '这事我心里憋了好几周了。', note: '近结构，语气更轻' },
   ],
+  contexts: [
+    { domain: '作品、创作', how: '隔多年重看依旧水准在线', en: 'I rewatched that show after ten years and it still holds up.', zh: '隔了十年重看那部剧，依然很能打。' },
+    { domain: '论断、证据', how: '经得起推敲，常用于否定', en: 'The evidence may not hold up in court.', zh: '这证据在法庭上可能站不住。' },
+  ],
+  notFor: '不能用来形容能力、才华、审美、品味',
   caution: '别写成 I am meaning to do',
   category: '职场闲聊',
   sentence: "Hey, you got a minute? I've been meaning to vent about work.",
@@ -325,7 +330,7 @@ test('选中对话里的词 →「讲解」按钮出现 → 点开给出本句�
   assert.match(doc.querySelector('#x-body .xp').textContent, /have been meaning to do sth/, '结构式做成醒目标签');
   assert.match(doc.getElementById('x-body').textContent, /现在完成进行时/, '语法结构');
   assert.match(doc.getElementById('x-body').textContent, /一直想做/, '在本句里的意思');
-  assert.equal(doc.querySelectorAll('#x-body .xex .ex').length, 4, '2 条例句 + 2 条类似表达（都在 .xex 里）');
+  assert.equal(doc.querySelectorAll('#x-body .xex .ex').length, 6, '2 例句 + 2 语境 + 2 类似表达（都在 .xex 里）');
   assert.equal(doc.querySelectorAll('#x-body mark').length, 1, '原句里要把选中的词标出来');
 
   const last = calls[calls.length - 1];
@@ -667,6 +672,43 @@ test('换场景/重新生成时自动停止播放并复位高亮', async () => {
   await wait(60);
   await generate(window, calls, '换个场景聊周末');
   assert.equal(window.sceneEnglish.playState().on, false, '新对话来了要停掉旧的连播');
+});
+
+test('讲解卡渲染「平时用来形容什么」：语境分组例句可点读，禁忌单独一行', async () => {
+  const { window, calls } = await boot();
+  await generate(window, calls, '跟同事吐槽工作');
+  await window.sceneEnglish.explain('been meaning', EXPLAIN.sentence, '');
+  await wait(40);
+  const doc = window.document;
+  const ctxBox = [...doc.querySelectorAll('#x-body .xex')].find((b) => /平时用来形容什么/.test(b.textContent));
+  assert.ok(ctxBox, '要有语境段');
+  assert.equal(ctxBox.querySelectorAll('.ex').length, 2, '两个语境');
+  assert.match(ctxBox.textContent, /作品、创作/, '语境名');
+  assert.match(ctxBox.textContent, /重看依旧水准在线/, '这个语境怎么用');
+  assert.match(ctxBox.textContent, /hold up in court/);
+  assert.match(doc.getElementById('x-body').textContent, /🚫 不能用来形容能力、才华/, '禁忌要显出来');
+  // 复制文本带着语境和禁忌
+  const t = window.sceneEnglish.explainText();
+  assert.match(t, /语境\[作品、创作\]/);
+  assert.match(t, /不能形容：不能用来形容能力、才华/);
+});
+
+test('语境随词进生词本，三种导出都不丢', async () => {
+  const { window } = await boot();
+  await generate(window, [], '跟同事吐槽工作');
+  await window.sceneEnglish.explain('been meaning', EXPLAIN.sentence, '');
+  await wait(40);
+  const x = window.sceneEnglish.loadBook()[0];
+  assert.equal(x.contexts.length, 2, '语境入本');
+  assert.equal(x.notFor, EXPLAIN.notFor, '禁忌入本');
+  assert.match(window.sceneEnglish.bookText(), /语境\[论断、证据\]/);
+  assert.match(window.sceneEnglish.bookText(), /不能形容：不能用来形容/);
+  const csv = window.sceneEnglish.bookCsv();
+  assert.match(csv.split('\n')[0], /使用语境,不能形容/, 'CSV 两列都在');
+  assert.match(csv, /作品、创作:I rewatched that show/);
+  const anki = window.sceneEnglish.bookAnki().split('\n')[0].split('\t')[1];
+  assert.match(anki, /语境：<br>作品、创作：/);
+  assert.match(anki, /🚫 不能用来形容/);
 });
 
 test('护眼配色上线：柔和绿 + 自动深色模式，旧砖红清除', () => {

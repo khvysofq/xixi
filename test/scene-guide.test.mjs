@@ -148,6 +148,33 @@ test('normalizeExplain：字段齐、例句最多 3 条，什么都没讲出来�
   assert.throws(() => sg.normalizeExplain({ examples: [] }, { phrase: 'x', sentence: 'y', scene: 'z' }), (e) => e.status === 502);
 });
 
+test('讲解提示词要「使用语境 × 形容对象 × 不能形容什么」（主人以 hold up 为标杆提的）', () => {
+  const p = sg.buildExplainPrompt({ scene: '聊电影', sentence: 'That film still holds up.', phrase: 'holds up' });
+  assert.match(p, /"contexts"/, '结构里要有 contexts');
+  assert.match(p, /3~4 个使用语境/, '数量写死');
+  assert.match(p, /惯常形容或修饰的对象种类/, '要说清这是「用来形容什么」');
+  assert.match(p, /各语境的对象必须不同/, '防止一个意思换四种说法凑数');
+  assert.match(p, /"not_for"/, '要有不能形容的对象');
+  assert.match(p, /hold up/, '拿 hold up 当示范案例教模型');
+});
+
+test('normalizeExplain 的 contexts/notFor：截 4 个、没例句的丢掉、禁忌可为空', () => {
+  const five = { meaning_zh: 'x', contexts: [
+    { domain: '作品', how: 'h1', en: 'e1', zh: 'z1' },
+    { domain: '证据', how: 'h2', en: 'e2' },
+    { domain: '耐用品', how: '', en: '' },
+    { domain: '关系', how: 'h4', en: 'e4' },
+    { domain: '食物', how: 'h5', en: 'e5' },
+  ], not_for: '不能形容能力、才华' };
+  const out = sg.normalizeExplain(five, { phrase: 'x', sentence: 'y', scene: 'z' });
+  assert.equal(out.contexts.length, 4, '最多 4 个语境');
+  assert.deepEqual(out.contexts.map((c) => c.domain), ['作品', '证据', '关系', '食物'], '缺例句的语境丢弃');
+  assert.equal(out.notFor, '不能形容能力、才华');
+  const bare = sg.normalizeExplain({ meaning_zh: 'x' }, { phrase: 'x', sentence: 'y', scene: 'z' });
+  assert.deepEqual(bare.contexts, []);
+  assert.equal(bare.notFor, '', '没有禁忌就空着，不硬编');
+});
+
 test('讲解提示词要「也能这么说」的类似表达（更多表达并进来的那部分）', () => {
   const p = sg.buildExplainPrompt({ scene: '吐槽工作', sentence: 'I have been meaning to vent.', phrase: 'meaning' });
   assert.match(p, /"similar"/, 'JSON 结构里要有 similar');

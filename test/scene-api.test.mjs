@@ -108,6 +108,9 @@ test('POST explain：选中句子中的一个词 → 回到本句用法（含补
     assert.match(d.pattern, /have been meaning to do/);
     assert.match(d.meaning, /想做/);
     assert.equal(d.similar.length, 3, '讲解要自带 3~4 条类似表达——原「更多表达」的功能并到这里了');
+    assert.equal(d.contexts.length, 3, '要带使用语境（形容什么对象）');
+    assert.ok(d.contexts.every((c) => c.en && c.domain), '每个语境都有对象名和例句');
+    assert.match(d.notFor, /不能用来形容/, '禁忌说明');
     assert.ok(d.similar.every((t) => t.en && t.zh), '类似表达每条都有英文和中文');
     assert.ok(d.similar[0].note, 'note 要说清跟主说法差在哪');
     assert.equal(d.examples.length, 3, '给 3 句能直接套的');
