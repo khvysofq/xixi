@@ -7,9 +7,11 @@
 <title>场景英语提示 · 说出场景就给你能开口的对话</title>
 <style>
   :root {
-    --bg: #f6f1e8; --ink: #25211d; --accent: #d84f2b; --line: #ddd3c4;
-    --card: #fffdf9; --muted: #7a6f61; --ok: #2f8f5b; --warn: #b6801b; --bad: #b02a1a;
-    --you: #fdece4; --other: #eef3ea;
+    --bg: #e9efe6; --ink: #2d3b31; --accent: #3f7d5c; --line: #cfdad0;
+    --card: #f8fbf5; --muted: #6b7a6d; --ok: #2f8f5b; --warn: #8a6d1f; --bad: #b0483a;
+    --you: #d8e8d3; --other: #e7edf2;
+    --ex-bg: #eef4ea; --accent-soft: #a8cbb2; --tips-bg: #f3f7e6; --tips-line: #d7e0bd;
+    --ok-bg: #e9f7ee; --bad-bg: #fbeae7;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
@@ -23,25 +25,25 @@
 
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
   label.cap { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; letter-spacing: .5px; }
-  textarea, input.txt { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: #fff;
+  textarea, input.txt { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--card);
     padding: 12px; font: inherit; color: var(--ink); resize: vertical; }
   textarea { min-height: 92px; }
-  textarea:focus, input.txt:focus { outline: 2px solid rgba(216,79,43,.35); border-color: var(--accent); }
+  textarea:focus, input.txt:focus { outline: 2px solid rgba(63,125,92,.35); border-color: var(--accent); }
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
   .row .grow { flex: 1 1 220px; }
-  button { font: inherit; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--ink);
+  button { font: inherit; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
     padding: 10px 14px; cursor: pointer; }
   button:hover:not(:disabled) { border-color: var(--accent); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
   button.ghost { background: transparent; }
   button:disabled { opacity: .5; cursor: not-allowed; }
   button.mini { padding: 4px 9px; font-size: 13px; border-radius: 8px; }
-  select { font: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fff; color: var(--ink); }
+  select { font: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--card); color: var(--ink); }
   select.mini { padding: 4px 6px; font-size: 13px; }
   .item.got .term { text-decoration: line-through; opacity: .55; }
   .item .acts { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-  .chip { border: 1px dashed var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
+  .chip { border: 1px dashed var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
   .chip:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }
   .hint { color: var(--muted); font-size: 13px; margin-top: 10px; }
   .hint b { color: var(--ink); }
@@ -64,7 +66,7 @@
   .turn.A .who { text-align: right; }
   .say { float: right; margin-left: 8px; font-size: 13px; color: var(--accent); }
   h2.scene-title { font-size: 18px; margin: 4px 0 14px; }
-  .tips { margin: 14px 0 0; padding: 12px 14px; background: #fff8e9; border: 1px solid #ecd9a6; border-radius: 12px; font-size: 14px; }
+  .tips { margin: 14px 0 0; padding: 12px 14px; background: var(--tips-bg); border: 1px solid var(--tips-line); border-radius: 12px; font-size: 14px; }
   .tips ul { margin: 6px 0 0; padding-left: 20px; }
 
   details.sec { border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-bottom: 10px; overflow: hidden; }
@@ -74,7 +76,7 @@
   .ih .term { font-size: 17px; font-weight: 600; }
   .ih .zh { font-size: 14px; color: var(--muted); }
   .ih .say { margin-left: auto; }
-  .ex { margin-top: 6px; padding: 8px 10px; background: #faf6f2; border-left: 3px solid var(--accent-soft, #e8b7a4); border-radius: 8px; cursor: pointer; }
+  .ex { margin-top: 6px; padding: 8px 10px; background: var(--ex-bg); border-left: 3px solid var(--accent-soft); border-radius: 8px; cursor: pointer; }
   .ex .en { font-size: 16px; }
   .ex .zh { font-size: 13px; margin-top: 3px; }
   .item .note { display: block; font-size: 12px; color: var(--muted); margin-top: 5px; }
@@ -84,7 +86,7 @@
     border-radius: 999px; padding: 8px 14px; font-size: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.22); max-width: 84vw; }
   #pick.show { display: block; }
   #pick .q { opacity: .75; margin-right: 6px; }
-  mark { background: #ffe6a3; color: inherit; padding: 0 2px; border-radius: 3px; }
+  mark { background: #f6e3a1; color: inherit; padding: 0 2px; border-radius: 3px; }
   .xp { display: inline-block; background: var(--you); border: 1px solid var(--line); border-radius: 8px;
     padding: 6px 10px; font-size: 16px; font-weight: 600; margin: 2px 0 10px; }
   .xrow { margin: 0 0 10px; font-size: 15px; line-height: 1.6; }
@@ -112,13 +114,25 @@
   }
 
   .q-sent { font-size: 17px; line-height: 1.75; margin: 4px 0 10px; }
-  .q-blank { color: #7c5cff; font-weight: 700; letter-spacing: 2px; padding: 0 4px; }
+  .q-blank { color: var(--accent); font-weight: 700; letter-spacing: 2px; padding: 0 4px; }
   .q-opt { display: block; width: 100%; text-align: left; margin: 6px 0; padding: 10px 12px;
-    border: 1px solid #d8d3c8; border-radius: 10px; background: #fff; font-size: 15px; cursor: pointer; }
-  .q-opt.right { border-color: #2e9e5b; background: #e9f7ee; font-weight: 600; }
-  .q-opt.wrongpick { border-color: #c0392b; background: #fdecec; }
+    border: 1px solid var(--line); border-radius: 10px; background: var(--card); font-size: 15px; cursor: pointer; }
+  .q-opt.right { border-color: var(--ok); background: var(--ok-bg); font-weight: 600; }
+  .q-opt.wrongpick { border-color: var(--bad); background: var(--bad-bg); }
   .status.ok { color: #1e7d43; }
   .g-done { font-size: 15px; line-height: 1.8; }
+  .turn.playing .bubble { outline: 2px solid var(--accent); box-shadow: 0 0 0 4px rgba(63,125,92,.16); }
+  #play-note { min-height: 0; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f2621; --ink: #dce5da; --accent: #7cbf98; --line: #3a453b;
+      --card: #272f28; --muted: #93a295; --ok: #79c496; --warn: #d9b45e; --bad: #e08a7a;
+      --you: #33443a; --other: #313c46; --ex-bg: #2d362d; --accent-soft: #4c6b56;
+      --tips-bg: #2c352a; --tips-line: #47523f; --ok-bg: #2c3d31; --bad-bg: #3f2b28;
+    }
+    mark { background: #59512a; }
+    #pick { box-shadow: 0 6px 18px rgba(0,0,0,.55); }
+  }
 </style>
 </head>
 <body>
@@ -152,6 +166,10 @@
   <section class="panel hidden" id="dialogue-card">
     <h2 class="scene-title" id="d-title"></h2>
     <p class="hint" id="d-scene"></p>
+    <div class="row" style="margin:0 0 12px">
+      <button id="play-all" class="mini">▶ 连续播放整段</button>
+      <span class="status" id="play-note"></span>
+    </div>
     <div class="talk" id="talk"></div>
     <p class="hint" id="pick-hint">💡 <b>选中句子里任何一个词或短语</b>（电脑上拖选，手机上长按），会出现「讲解」——告诉你它在这个句子里到底怎么说、为什么这么说，顺带几句<b>类似的说法</b>；选中讲解里的任何英文还能接着问。</p>
     <div class="tips hidden" id="tips-box">
@@ -222,15 +240,7 @@
   var LS = 'xixi.scene-english.v1';
   var EXAMPLES = [
     '和朋友闲聊，聊到怎么把肉煮得更入味',
-    '和同事吃工作餐，互相问周末去哪玩',
     '在咖啡店点单，想说少冰、换燕麦奶',
-    '机场值机，行李超重被查',
-    '健身房里请教别人怎么练背不伤腰',
-    '在美国同事家里做客，被问要不要加点辣',
-    '酒店前台投诉空调吵，要求换房',
-    '看医生，描述胃胀和睡眠不好',
-    '接机，第一次见外国笔友，路上闲聊',
-    '和朋友砍价，地摊上买手办',
   ];
 
   var el = function (id) { return document.getElementById(id); };
@@ -325,6 +335,8 @@
   /* ---------- 渲染对话 ---------- */
   function renderDialogue(d) {
     state.dialogue = d;
+    stopPlay();
+    PLAY.els = [];
     el('dialogue-card').classList.remove('hidden');
     el('d-title').textContent = d.title || '情景对话';
     el('d-scene').textContent = d.scene || '';
@@ -342,12 +354,13 @@
         // 正在选字的时候别抢着朗读
         var s = window.getSelection && String(window.getSelection());
         if (s && s.trim()) return;
-        speak(line.en);
+        playTap(line.en);
       });
       turn.appendChild(who);
       turn.appendChild(bubble);
       talk.appendChild(turn);
       if (i === 0) turn.setAttribute('id', 'first-turn');
+      PLAY.els[i] = turn;
     });
     var tips = (d.tips || []).filter(Boolean);
     el('tips-box').classList.toggle('hidden', !tips.length);
@@ -416,6 +429,82 @@
     window.speechSynthesis.speak(u);
   }
 
+  /* ---------- 整段连播：你来我往，像真在聊天 ---------- */
+  var PLAY = { on: false, i: 0, timer: 0, els: [] };
+  function pickVoices2() {
+    var vs = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+    var en = vs.filter(function (v) { return /^en/i.test(v.lang || ''); });
+    var pref = en.filter(function (v) { return /Google|Samantha|Daniel|Karen|Natural|Zira|David|Mark|Sophie|Aria/i.test(v.name); });
+    var src = pref.length > 1 ? pref : en;
+    var a = src[0] || null;
+    var b = null;
+    for (var i = 1; i < src.length; i++) { if (src[i] !== a) { b = src[i]; break; } }
+    return [a, b];
+  }
+  function stopPlay() {
+    PLAY.on = false; PLAY.i = 0;
+    clearTimeout(PLAY.timer);
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    PLAY.els.forEach(function (n) { if (n) n.classList.remove('playing'); });
+    var b = el('play-all');
+    if (b) b.textContent = '▶ 连续播放整段';
+  }
+  function playStep() {
+    if (!PLAY.on) return;
+    var lines = (state.dialogue && state.dialogue.lines) || [];
+    if (PLAY.i >= lines.length) {
+      stopPlay();
+      var note = el('play-note');
+      if (note) note.textContent = '播完了——跟着念一遍，比光听记得牢';
+      return;
+    }
+    var l = lines[PLAY.i];
+    var node = PLAY.els[PLAY.i];
+    PLAY.els.forEach(function (n) { if (n) n.classList.remove('playing'); });
+    if (node) {
+      node.classList.add('playing');
+      if (node.scrollIntoView) { try { node.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { /* jsdom */ } }
+    }
+    var pair = pickVoices2();
+    var mine = l.who === 'A';
+    var u = new SpeechSynthesisUtterance(String(l.en || ''));
+    u.lang = 'en-US';
+    u.rate = 0.97;
+    if (pair[0] && pair[1]) u.voice = mine ? pair[0] : pair[1];
+    else { var v0 = pickVoice(); if (v0) u.voice = v0; }
+    u.pitch = mine ? 0.9 : 1.18;
+    u.onend = function () {
+      if (!PLAY.on) return;
+      PLAY.timer = setTimeout(function () { PLAY.i += 1; playStep(); }, 320);
+    };
+    u.onerror = u.onend;
+    var note = el('play-note');
+    if (note) note.textContent = (mine ? '你说 → ' : '对方说 → ') + '第 ' + (PLAY.i + 1) + ' / ' + lines.length + ' 句';
+    if (window.speechSynthesis) window.speechSynthesis.speak(u);
+  }
+  function togglePlayAll() {
+    if (!('speechSynthesis' in window)) {
+      var n = el('play-note');
+      if (n) { n.className = 'status err'; n.textContent = '这个浏览器不支持朗读（微信内置常见）。用系统浏览器（Safari/Chrome）打开就能连着播。'; }
+      return;
+    }
+    if (PLAY.on) {
+      stopPlay();
+      var n2 = el('play-note');
+      if (n2) { n2.className = 'status'; n2.textContent = '已停'; }
+      return;
+    }
+    var lines = (state.dialogue && state.dialogue.lines) || [];
+    if (!lines.length) return;
+    PLAY.on = true; PLAY.i = 0;
+    el('play-all').textContent = '⏸ 停止';
+    playStep();
+  }
+  function playTap(text) {
+    if (PLAY.on) stopPlay();
+    speak(text);
+  }
+
   /* ---------- 语音输入 ---------- */
   function setupVoice() {
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -478,6 +567,7 @@
 
   /* ---------- 主流程 ---------- */
   async function generate(isRedo) {
+    stopPlay(); // 重新生成就先把上一段连播停掉
     var scene = el('scene').value.trim();
     if (scene.length < 2) {
       el('status').className = 'status err';
@@ -502,7 +592,7 @@
     try {
       var d = await callApi({ mode: 'dialogue', scene: scene, extra: state.extra, fresh: !!isRedo });
       renderDialogue(d);
-      stopBusy('对话好了，点句子能朗读；选中不认识的词，就地问用法。');
+      stopBusy('对话好了，点 ▶ 连着听整段；选中不认识的词，就地问用法。');
       saveItem({ key: keyOf(scene, state.extra), scene: scene, extra: state.extra, dialogue: d, at: Date.now() });
       renderHistory();
     } catch (e) {
@@ -1020,8 +1110,8 @@
     G.wrongKeys[x.key] = x.asUsed || x.phrase;
     if (!G.retry[x.key]) {
       G.retry[x.key] = 1;
-      var again = q.type === 'mc' ? (makeQ(x, loadBook(), 'mc') || q) : q;
-      G.q.push(again);
+      var again = q.type === 'mc' ? makeQ(x, loadBook(), 'mc') : q;
+      G.q.push(again || q);
     }
   }
   function answerCloze() {
@@ -1190,6 +1280,7 @@
     });
     el('book-q').addEventListener('input', renderBook);
     el('book-f').addEventListener('change', renderBook);
+    el('play-all').addEventListener('click', togglePlayAll);
     el('book-txt').addEventListener('click', function (ev) { copyText(bookText(), ev.currentTarget); });
     el('book-csv').addEventListener('click', function () { downloadText(bookCsv(), '生词本.csv'); });
     el('book-anki').addEventListener('click', function () { downloadText(bookAnki(), '生词本-anki.txt'); });
@@ -1221,6 +1312,7 @@
       explain: explain, renderExplain: renderExplain, onSelectionMaybe: onSelectionMaybe, explainText: explainText, loadExplains: loadExplains,
       loadBook: loadBook, addBookEntry: addBookEntry, renderBook: renderBook, bookText: bookText, bookCsv: bookCsv, bookAnki: bookAnki, guessCat: guessCat,
       startQuiz: startQuiz, quizState: function () { return G; }, qNorm: qNorm, clozeOk: clozeOk, makeQ: makeQ,
+      togglePlay: togglePlayAll, playState: function () { return PLAY; }, stopPlay: stopPlay,
     };
   }
 })();

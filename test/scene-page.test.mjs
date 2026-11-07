@@ -61,6 +61,7 @@ const EXPLAIN = {
 
 async function boot(opts = {}) {
   const calls = [];
+  const spk = { queue: [], canceled: 0 };
   const health = { hits: 0, ok: opts.healthOk !== false };
   const vc = new VirtualConsole();
   vc.on('jsdomError', () => {});
@@ -88,6 +89,16 @@ async function boot(opts = {}) {
       };
       window.URL.createObjectURL = () => 'blob:mock';
       window.URL.revokeObjectURL = () => {};
+      window.alert = () => {};
+      window.SpeechSynthesisUtterance = function (t) { this.text = t; };
+      window.speechSynthesis = {
+        speak(u) {
+          spk.queue.push(u);
+          setTimeout(() => { if (u.onend) u.onend(); }, 3);
+        },
+        cancel() { spk.canceled += 1; },
+        getVoices() { return []; },
+      };
     },
   });
   const { window } = dom;
@@ -99,7 +110,7 @@ async function boot(opts = {}) {
   if (!window.sceneEnglish || !window.document.querySelectorAll('#examples .chip').length) {
     throw new Error('页面没完成初始化（事件未绑定）');
   }
-  return { dom, window, calls, health };
+  return { dom, window, calls, health, spk };
 }
 
 const wait = (ms = 30) => new Promise((r) => setTimeout(r, ms));
@@ -111,11 +122,11 @@ async function generate(window, calls, scene) {
   return calls;
 }
 
-test('页面骨架：输入框、示例 chips、生成按钮都在，更多按钮初始隐藏', async () => {
+test('页面骨架：输入框、示例 chips（只留 2 个）、生成按钮都在', async () => {
   const { window } = await boot();
   const doc = window.document;
   assert.ok(doc.getElementById('scene'), '要有场景输入框');
-  assert.ok(doc.querySelectorAll('#examples .chip').length >= 5, '要有可直接点的场景示例');
+  assert.equal(doc.querySelectorAll('#examples .chip').length, 2, '推荐场景只留 2 个，界面别太乱');
   assert.equal(doc.getElementById('more'), null, '「更多表达」独立模块已按主人要求去掉');
   assert.equal(doc.getElementById('guide-card'), null, '语料面板也应该没了');
   assert.ok(doc.querySelector('footer.foot').textContent.includes('不要把运单'), '要写清楚别放业务数据');
@@ -613,4 +624,56 @@ test('判分宽容度：大小写、标点、空格都不算错', async () => {
   assert.equal(SE.qNorm("pat the steak's dry"), SE.qNorm('pat the steaks dry'), '撇号不算差异');
   assert.equal(SE.clozeOk({ sentence: 'Let it simmer for an hour.', phrase: 'simmer' }), true);
   assert.equal(SE.clozeOk({ sentence: 'Let it simmer for an hour.', phrase: '不存在' }), false, '句子对不上就不出填空题');
+});
+
+/* ---------- 连续播放整段对话 ---------- */
+
+test('▶ 连续播放整段对话：一句接一句、你说和对方说音高不同，播完自动停', async () => {
+  const { window, calls, spk } = await boot();
+  await generate(window, calls, '和朋友聊炖肉');
+  const doc = window.document;
+  doc.getElementById('play-all').click();
+  await wait(1300);
+  assert.equal(spk.queue.length, 3, '三句按顺序连着播');
+  assert.match(spk.queue[0].text, /braised beef/);
+  assert.match(spk.queue[1].text, /Pat it dry/);
+  const pA = spk.queue[0].pitch, pB = spk.queue[1].pitch;
+  assert.ok(pA !== pB && pA < 1 && pB > 1, '你说低、对方高，听起来是两个人');
+  assert.equal(window.sceneEnglish.playState().on, false, '播完要自动停');
+  assert.match(doc.getElementById('play-all').textContent, /▶/, '按钮回到可播状态');
+  assert.match(doc.getElementById('play-note').textContent, /播完了/);
+  assert.equal(doc.querySelectorAll('.turn.playing').length, 0, '高亮要清干净');
+});
+
+test('播放中途点停：立刻停住，不再往下播', async () => {
+  const { window, calls, spk } = await boot();
+  await generate(window, calls, '和朋友聊炖肉');
+  const doc = window.document;
+  doc.getElementById('play-all').click();
+  await wait(120);
+  doc.getElementById('play-all').click();
+  assert.equal(window.sceneEnglish.playState().on, false, '停了');
+  const n = spk.queue.length;
+  assert.ok(n >= 1, '至少播出了一句');
+  await wait(700);
+  assert.ok(spk.queue.length <= n + 1, '停住后不该继续一句一句往外播');
+  assert.match(doc.getElementById('play-note').textContent, /已停/);
+});
+
+test('换场景/重新生成时自动停止播放并复位高亮', async () => {
+  const { window, calls } = await boot();
+  await generate(window, calls, '和朋友聊炖肉');
+  window.document.getElementById('play-all').click();
+  await wait(60);
+  await generate(window, calls, '换个场景聊周末');
+  assert.equal(window.sceneEnglish.playState().on, false, '新对话来了要停掉旧的连播');
+});
+
+test('护眼配色上线：柔和绿 + 自动深色模式，旧砖红清除', () => {
+  const src = fs.readFileSync(PAGE, 'utf8');
+  assert.match(src, /--bg: #e9efe6/, '背景是淡护眼绿');
+  assert.match(src, /--accent: #3f7d5c/, '主色是沉稳绿');
+  assert.match(src, /prefers-color-scheme: dark/, '手机深色模式要自动跟随');
+  assert.ok(!src.includes('#d84f2b'), '旧砖红主色不能残留');
+  assert.ok(!src.includes('#7c5cff'), '填空的紫色也换进主色体系');
 });
