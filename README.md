@@ -49,25 +49,29 @@ journalctl -u xixi-tunnel -n 50  # 看隧道日志
 
 ## 工具箱首页
 
-站点首页（`/`）是**工具导航**：一张卡片一个工具，图标 + 名字 + 一句介绍。
+站点首页（`/`）是**工具导航**：按分类分区的卡片式布局，一张卡片一个工具，图标 + 名字 + 一句介绍。现代浅色/深色双主题（默认跟随系统，右上角可手动切换并记住选择），顶部搜索框支持按名字/介绍/标签/分类过滤（按 `/` 快捷聚焦），分类胶囊可单独查看某个分区。
 
 清单只看 `public/tools.json`，首页渲染时去读它：
 
 ```json
-{ "slug": "fee-calc", "name": "派费试算", "desc": "…",
-  "href": "/tools/fee-calc/", "icon": "i-scale", "tags": ["运费"] }
+{ "site": "希希的工具箱", "updated": "…",
+  "categories": [ { "id": "freight", "name": "运费与结算", "desc": "派费试算、分类统计、报价对比" } ],
+  "tools": [ { "slug": "fee-calc", "category": "freight", "name": "派费试算", "desc": "…",
+               "href": "/tools/fee-calc/", "icon": "i-scale", "tags": ["运费"] } ] }
 ```
 
 - 有 `href` → 普通卡片，可点
 - 占位（还没做）→ 写 `"state": "soon"` 且**不要写 href**，首页会渲染成虚线卡片 + 「待上线」，不可点（不会留死链）
-- `icon` 是首页内联图标精灵里的 id（`i-table` / `i-csv` / `i-scale` / `i-tag` / `i-box` / `i-wish`）；加新图标就在 `public/index.html` 的 `<defs>` 里添一个 `<g id="i-xxx">`
+- `category` 对应 `categories` 里的 `id`；**没填或填了不存在的 id 会归进末尾的「其他」分区，不会丢卡片**。分区顺序 = `categories` 数组顺序，分区内顺序 = `tools` 数组顺序。想新增分类就在 `categories` 里加一条（图标色按分区顺序自动分配，无需配置）
+- `icon` 是首页内联图标精灵里的 id（`i-table` / `i-csv` / `i-scale` / `i-tag` / `i-box` / `i-wish` / `i-chat`）；加新图标就在 `public/index.html` 的 `<defs>` 里添一个 `<g id="i-xxx">`
+- 旧的没有 `categories`/`category` 字段的 tools.json 也能渲染（全部进「其他」），向后兼容
 - `tools.json` 读不到时（比如把首页下下来本地打开）会用页面里的内置备份清单，并显示一行提示
 
 新增一个工具的步骤：
 
-1. 在 `tools.json` 里加一条记录（做完了就把 `state: soon` 去掉、补上 `href`）
+1. 在 `tools.json` 里加一条记录（做完了就把 `state: soon` 去掉、补上 `href`），顺手填 `category`
 2. 页面放 `public/tools/<slug>/index.html`（目录请求会自动回退到 index.html）
-3. 跑 `npm test`（有个用例专门检查“卡片不能指向不存在的页面、占位不能带 href”）
+3. 跑 `npm test`（有个用例专门检查“卡片不能指向不存在的页面、占位不能带 href、图标精灵齐全”）
 
 ## 工具页面：派费分类统计
 
@@ -180,8 +184,8 @@ server.js                              Node.js HTTP 服务（静态文件 + 目�
 scripts/deploy-tool.cjs                把工具产物拷进站点，并登记到 tools.json
 scripts/verify-live.cjs                上线后自检：页面字节一致 + 接口在 + 进程不是旧代码
 scripts/deps.cjs                       测试依赖解析
-public/index.html                      工具箱首页（卡片导航 + 搜索）
-public/tools.json                      工具清单（首页唯一数据源）
+public/index.html                      工具箱首页（分类分区卡片导航 + 搜索 + 深浅色）
+public/tools.json                      工具清单（首页唯一数据源，含 categories 分类定义）
 public/icon.png                        站点图标
 public/wish-pool/index.html            原来的「xixi的许愿池」那一页
 public/tools/classify-stats/index.html 派费分类统计工具（单文件构建产物）

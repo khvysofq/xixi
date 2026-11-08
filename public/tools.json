@@ -1,9 +1,32 @@
 {
   "site": "希希的工具箱",
-  "updated": "2026-11-05",
+  "updated": "2026-11-08",
+  "categories": [
+    {
+      "id": "freight",
+      "name": "运费与结算",
+      "desc": "派费试算、分类统计、报价对比"
+    },
+    {
+      "id": "data",
+      "name": "表格与数据",
+      "desc": "CSV / Excel 的体检与合并"
+    },
+    {
+      "id": "learn",
+      "name": "学习成长",
+      "desc": "英语口语小帮手"
+    },
+    {
+      "id": "site",
+      "name": "站点",
+      "desc": "关于希希"
+    }
+  ],
   "tools": [
     {
       "slug": "classify-stats",
+      "category": "freight",
       "name": "派费分类统计",
       "desc": "拖进结算模版和系统导出，按列名自动对齐、分类统计、三条交叉核对、出图，并回填一份保留原模板公式的结果文件。还能只拖数据、用一句句人话写规则（筛选/归类/分档/Top-N/交叉表/趋势），跑每次不一样的统计。",
       "href": "/tools/classify-stats/",
@@ -15,29 +38,8 @@
       ]
     },
     {
-      "slug": "csv-inspect",
-      "name": "CSV 体检",
-      "desc": "拖入 CSV/TSV，自动识别分隔符与编码，给出每列类型、数值列的合计/最值、文本列的高频值，并可导出 Excel 能直接打开的 UTF-8 CSV。",
-      "href": "/tools/csv-inspect/",
-      "icon": "i-csv",
-      "tags": [
-        "本地计算",
-        "几万行"
-      ]
-    },
-    {
-      "slug": "scene-english",
-      "name": "场景英语提示",
-      "desc": "说一句场景（打字或语音），先给一段真能开口的中英对照对话，可▶连播整段；选中词问用法：本句结构+平时用来形容什么（含语境例句和禁忌）+类似说法；讲过的词进生词本，填空/选择练一练。",
-      "href": "/tools/scene-english/",
-      "icon": "i-chat",
-      "tags": [
-        "口语",
-        "需要希希服务生成"
-      ]
-    },
-    {
       "slug": "fee-calc",
+      "category": "freight",
       "name": "派费试算",
       "desc": "输入计费重量与始发省区，按 40kg 分档试算单票派费，支持一次粘一批。",
       "state": "soon",
@@ -48,6 +50,7 @@
     },
     {
       "slug": "price-diff",
+      "category": "freight",
       "name": "单价对比",
       "desc": "贴两组报价表，按网点/重量段列出差异，直接看出走哪边更划算。",
       "state": "soon",
@@ -57,7 +60,20 @@
       ]
     },
     {
+      "slug": "csv-inspect",
+      "category": "data",
+      "name": "CSV 体检",
+      "desc": "拖入 CSV/TSV，自动识别分隔符与编码，给出每列类型、数值列的合计/最值、文本列的高频值，并可导出 Excel 能直接打开的 UTF-8 CSV。",
+      "href": "/tools/csv-inspect/",
+      "icon": "i-csv",
+      "tags": [
+        "本地计算",
+        "几万行"
+      ]
+    },
+    {
       "slug": "sheet-merge",
+      "category": "data",
       "name": "多表合并",
       "desc": "把几份同结构的导出合成一张表，按指定列去重并报告重复项。",
       "state": "soon",
@@ -67,7 +83,20 @@
       ]
     },
     {
+      "slug": "scene-english",
+      "category": "learn",
+      "name": "场景英语提示",
+      "desc": "说一句场景（打字或语音），先给一段真的能开口的中英对照对话，可▶连播整段；选中句子里任何一个词问用法：本句结构 + 使用语境 + 禁忌 + 类似说法；讲过的词自动进生词本，填空/选择练一练。",
+      "href": "/tools/scene-english/",
+      "icon": "i-chat",
+      "tags": [
+        "口语",
+        "需要希希服务生成"
+      ]
+    },
+    {
       "slug": "wish-pool",
+      "category": "site",
       "name": "许愿池",
       "desc": "这个站点最早的那一页，留着当纪念。",
       "href": "/wish-pool/",

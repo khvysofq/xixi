@@ -5,77 +5,195 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>希希的工具箱</title>
 <meta name="description" content="希希的工具箱：一组在浏览器本地跑的小工具，数据不上传。">
+<meta name="color-scheme" content="light dark">
 <link rel="icon" href="/icon.png" type="image/png">
 <style>
   :root {
-    --ink: #25211d;
-    --paper: #f6f1e8;
-    --card: #fffdf9;
-    --accent: #d84f2b;
-    --gold: #f5c542;
-    --green: #2f8f5b;
-    --muted: #7a6f61;
-    --line: #ddd3c4;
+    --bg: #f4f6fb;
+    --bg-tint-1: rgba(99, 102, 241, 0.10);
+    --bg-tint-2: rgba(192, 38, 211, 0.07);
+    --card: #ffffff;
+    --card-soft: #fbfcfe;
+    --ink: #131a29;
+    --muted: #67718a;
+    --line: #e5e8f0;
+    --line-strong: #d7dbe8;
+    --field: #ffffff;
+    --chip-on-bg: #131a29;
+    --chip-on-ink: #ffffff;
+    --tag-bg: #f2f4f8;
+    --tag-ink: #5b6580;
+    --local-bg: #ecfaf1;
+    --local-line: #c9efd8;
+    --local-ink: #16935a;
+    --soon-bg: #fff8e9;
+    --soon-line: #f6dfae;
+    --soon-ink: #a5660a;
+    --note-bg: #fdf6e7;
+    --note-line: #efe0bd;
+    --shadow: 0 1px 2px rgba(19, 26, 41, .05);
+    --shadow-hover: 0 14px 30px -14px rgba(19, 26, 41, .28);
+    --focus: rgba(99, 102, 241, .35);
+    --grad-1: #4f46e5;
+    --grad-2: #7c3aed;
+    --grad-3: #c026d3;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1020;
+    --bg-tint-1: rgba(129, 140, 248, 0.13);
+    --bg-tint-2: rgba(217, 70, 239, 0.10);
+    --card: #141b2e;
+    --card-soft: #111828;
+    --ink: #e8edf8;
+    --muted: #97a2bd;
+    --line: #242e49;
+    --line-strong: #313d5e;
+    --field: #0f1626;
+    --chip-on-bg: #e8edf8;
+    --chip-on-ink: #0b1020;
+    --tag-bg: #1b2338;
+    --tag-ink: #aab4cd;
+    --local-bg: #10301f;
+    --local-line: #1f5c3a;
+    --local-ink: #6fe3a5;
+    --soon-bg: #33270c;
+    --soon-line: #6b5316;
+    --soon-ink: #f0c968;
+    --note-bg: #2b2413;
+    --note-line: #5a4a22;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-hover: 0 16px 34px -14px rgba(0, 0, 0, .6);
+    --grad-1: #818cf8;
+    --grad-2: #a78bfa;
+    --grad-3: #e879f9;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background:
-      radial-gradient(circle at 15% 12%, rgba(245, 197, 66, 0.32), transparent 32%),
-      radial-gradient(circle at 85% 8%, rgba(216, 79, 43, 0.16), transparent 30%),
-      var(--paper);
+      radial-gradient(900px 380px at 12% -60px, var(--bg-tint-1), transparent 70%),
+      radial-gradient(800px 360px at 92% -80px, var(--bg-tint-2), transparent 70%),
+      var(--bg);
     color: var(--ink);
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
-    line-height: 1.5;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.55;
   }
-  .wrap { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: clamp(22px, 4vw, 44px) 0 60px; }
-
-  header.top { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-  .logo {
-    display: inline-flex; padding: 8px; border: 3px solid var(--ink); border-radius: 22px;
-    background: var(--card); box-shadow: 5px 6px 0 rgba(37,33,29,.12);
-  }
-  .logo img { display: block; width: 72px; height: 72px; object-fit: cover; border-radius: 14px; }
-  h1 { margin: 0; font-size: clamp(2rem, 5.4vw, 3.4rem); line-height: 1.1; }
-  .sub { margin: 4px 0 0; color: var(--muted); font-size: 1rem; }
-  .rule { height: 8px; width: 130px; border-radius: 999px; margin-top: 10px;
-    background: linear-gradient(90deg, var(--accent), var(--gold), var(--green)); }
-
-  .toolbar { display: flex; gap: 12px; align-items: center; margin: 26px 0 6px; flex-wrap: wrap; }
-  .search { flex: 1 1 240px; display: flex; align-items: center; gap: 8px; }
-  .search input {
-    flex: 1; padding: 11px 14px; font: inherit; color: inherit;
-    border: 2.5px solid var(--ink); border-radius: 14px; background: var(--card);
-  }
-  .search input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
-  .count { color: var(--muted); font-size: .92rem; white-space: nowrap; }
-
-  .grid { display: grid; gap: 16px; margin-top: 18px; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); }
-  .card {
-    display: flex; flex-direction: column; gap: 10px; min-height: 190px;
-    padding: 18px; border: 3px solid var(--ink); border-radius: 22px;
-    background: var(--card); box-shadow: 6px 7px 0 rgba(37,33,29,.12);
-    color: inherit; text-decoration: none; position: relative;
-  }
-  a.card:hover { transform: translate(-1px,-1px); box-shadow: 8px 9px 0 rgba(37,33,29,.18); background: #fdf6e7; }
-  a.card:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
-  .card[data-state="soon"] { background: rgba(255,253,249,.62); box-shadow: none; border-style: dashed; color: rgba(37,33,29,.66); }
-  .ic { width: 46px; height: 46px; display: grid; place-items: center; border: 2.5px solid var(--ink); border-radius: 14px; background: #fff8ea; }
-  .ic svg { width: 26px; height: 26px; }
-  .card[data-state="soon"] .ic { border-color: rgba(37,33,29,.4); background: #f2ece2; }
-  .name { font-weight: 800; font-size: 1.12rem; }
-  .desc { margin: 0; font-size: .93rem; color: rgba(37,33,29,.72); }
-  .tags { margin-top: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-  .tag { font-size: .76rem; padding: 3px 9px; border-radius: 999px; background: rgba(47,143,91,.14); color: #215f3d; border: 1.5px solid rgba(33,95,61,.28); }
-  .tag.local { background: rgba(216,79,43,.12); color: #9c3517; border-color: rgba(156,53,23,.28); }
-  .soon { font-size: .78rem; font-weight: 700; color: var(--muted); }
-  .empty { display: none; margin-top: 26px; padding: 18px; border: 2.5px dashed var(--line); border-radius: 18px; color: var(--muted); text-align: center; }
-  .note { margin-top: 30px; padding: 16px 18px; border-radius: 18px; background: rgba(255,253,249,.8);
-    border: 2px solid var(--line); color: var(--muted); font-size: .92rem; }
-  .note b { color: var(--ink); }
-  footer.site { margin-top: 26px; color: var(--muted); font-size: .88rem; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  footer.site a { color: var(--accent); font-weight: 700; }
+  .wrap { width: min(1120px, calc(100% - 36px)); margin: 0 auto; }
   [hidden] { display: none !important; }
+
+  /* 顶栏 */
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
+  .logo img { display: block; width: 38px; height: 38px; border-radius: 11px; box-shadow: var(--shadow); }
+  .brand { font-weight: 700; font-size: 1rem; letter-spacing: .2px; }
+  .spacer { flex: 1; }
+  .theme {
+    border: 1px solid var(--line-strong); background: var(--card); color: var(--muted);
+    border-radius: 999px; padding: 6px 13px; font: inherit; font-size: .84rem; cursor: pointer;
+  }
+  .theme:hover { color: var(--ink); }
+
+  /* 主区 */
+  main { padding: 30px 0 60px; }
+  .hero h1 { margin: 0; font-size: clamp(1.9rem, 4.6vw, 2.8rem); font-weight: 800; letter-spacing: .5px; }
+  .hero h1 em {
+    font-style: normal;
+    background: linear-gradient(92deg, var(--grad-1), var(--grad-2) 45%, var(--grad-3));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .sub { margin: 8px 0 0; color: var(--muted); max-width: 56ch; }
+  .search {
+    display: flex; align-items: center; gap: 10px; margin-top: 20px;
+    max-width: 560px; padding: 11px 16px;
+    background: var(--field); border: 1px solid var(--line-strong); border-radius: 999px;
+    box-shadow: var(--shadow); transition: border-color .15s, box-shadow .15s;
+  }
+  .search:focus-within { border-color: var(--grad-2); box-shadow: 0 0 0 4px var(--focus); }
+  .search svg { width: 17px; height: 17px; flex: none; color: var(--muted); }
+  .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; color: inherit; }
+  .search input::placeholder { color: var(--muted); opacity: .8; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+    border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px;
+    background: var(--card); color: var(--muted); font: inherit; font-size: .86rem;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--grad-2); }
+  .chip.active { background: var(--chip-on-bg); border-color: var(--chip-on-bg); color: var(--chip-on-ink); font-weight: 600; }
+  .chip-n { font-size: .76rem; opacity: .75; }
+  .count { margin: 16px 0 0; color: var(--muted); font-size: .86rem; }
+
+  /* 分类与卡片 */
+  .cat { margin-top: 30px; }
+  .cat-head { display: flex; align-items: baseline; gap: 10px; margin: 0 2px 13px; }
+  .cat-dot { flex: none; align-self: center; width: 9px; height: 9px; border-radius: 3px; background: hsl(var(--hue, 225), 75%, 55%); }
+  .cat-name { margin: 0; font-size: 1.08rem; font-weight: 750; }
+  .cat-desc { color: var(--muted); font-size: .84rem; }
+  .cat-count { margin-left: auto; color: var(--muted); font-size: .8rem; white-space: nowrap; }
+
+  .grid-row { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); }
+  .card {
+    position: relative; display: flex; flex-direction: column; gap: 10px; min-height: 178px;
+    padding: 18px; border-radius: 18px; text-decoration: none; color: inherit;
+    background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+  }
+  .card::after {
+    content: ""; position: absolute; left: 18px; right: 18px; top: 0; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, hsl(var(--hue, 225), 80%, 58%), transparent 80%);
+    opacity: 0; transition: opacity .16s ease;
+  }
+  a.card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); border-color: hsla(var(--hue, 225), 70%, 60%, .55); }
+  a.card:hover::after { opacity: 1; }
+  a.card:focus-visible, .chip:focus-visible, .theme:focus-visible, .search input:focus-visible {
+    outline: 3px solid var(--focus); outline-offset: 2px;
+  }
+  .card[data-state="soon"] {
+    border-style: dashed; background: var(--card-soft); box-shadow: none; opacity: .8;
+  }
+  .ic {
+    width: 44px; height: 44px; display: grid; place-items: center; border-radius: 13px;
+    background: hsla(var(--hue, 225), 80%, 60%, .13); color: hsl(var(--hue, 225), 70%, 46%);
+  }
+  :root[data-theme="dark"] .ic { color: hsl(var(--hue, 225), 75%, 70%); background: hsla(var(--hue, 225), 80%, 65%, .16); }
+  .ic svg { width: 23px; height: 23px; }
+  .card[data-state="soon"] .ic { background: var(--tag-bg); color: var(--muted); }
+  .name { font-weight: 700; font-size: 1.04rem; }
+  .desc {
+    margin: 0; font-size: .89rem; color: var(--muted);
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .tags { margin-top: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .tag {
+    font-size: .74rem; padding: 3px 10px; border-radius: 999px;
+    background: var(--tag-bg); color: var(--tag-ink); border: 1px solid var(--line);
+  }
+  .tag.local { background: var(--local-bg); border-color: var(--local-line); color: var(--local-ink); }
+  .soon {
+    font-size: .74rem; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+    background: var(--soon-bg); border: 1px solid var(--soon-line); color: var(--soon-ink);
+  }
+
+  .empty { display: none; margin-top: 30px; padding: 26px; border: 1.5px dashed var(--line-strong); border-radius: 16px; color: var(--muted); text-align: center; }
+  .empty[hidden] { display: none !important; }
+  .empty:not([hidden]) { display: block; }
+  .note { margin-top: 24px; padding: 13px 16px; border-radius: 14px; background: var(--note-bg); border: 1px solid var(--note-line); color: var(--muted); font-size: .88rem; }
+
+  footer.site { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  footer.site a { color: var(--grad-2); font-weight: 600; }
+
+  @media (max-width: 640px) {
+    .grid-row { grid-template-columns: 1fr; }
+    .cat-desc { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -89,28 +207,33 @@
     <g id="i-box"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 8.5 12 13l8-4.5M12 13v7"/></g>
     <g id="i-wish"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 16V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5V13a2.5 2.5 0 0 1-2.5 2.5H9l-5 4.5z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M9 9h6"/></g>
     <g id="i-chat"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 6.5A2.5 2.5 0 0 1 6.5 4h8A2.5 2.5 0 0 1 17 6.5v4A2.5 2.5 0 0 1 14.5 13H9l-5 4z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 16.5h4.5L21 20v-4.5A2.5 2.5 0 0 0 18.5 13"/></g>
+    <g id="i-search"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="m16 16 4.5 4.5"/></g>
   </defs>
 </svg>
 
-<div class="wrap">
-  <header class="top">
-    <span class="logo"><img src="/icon.png" alt="希希图标"></span>
-    <div>
-      <h1>希希的工具箱</h1>
-      <p class="sub">一组小工具 —— 表格类全部在浏览器本地算，文件不上传；要生成句子的会走希希自己的服务。</p>
-      <div class="rule" aria-hidden="true"></div>
-    </div>
-  </header>
-
-  <div class="toolbar">
-    <label class="search">
-      <input id="q" type="search" placeholder="搜工具：派费 / 表格 / 重量 / 单价…" aria-label="搜索工具" autocomplete="off">
-    </label>
-    <span class="count" id="count" aria-live="polite"></span>
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="logo" href="/" aria-label="希希的工具箱首页"><img src="/icon.png" alt=""></a>
+    <a class="brand" href="/" style="color:inherit;text-decoration:none">希希的工具箱</a>
+    <span class="spacer"></span>
+    <button id="theme" class="theme" type="button">🌙 深色</button>
   </div>
+</header>
 
+<div class="wrap">
   <main>
-    <div class="grid" id="grid" role="list"></div>
+    <section class="hero">
+      <h1>希希的<em>工具箱</em></h1>
+      <p class="sub">小工具都在浏览器本地跑 —— 表格文件不上传，算完即走；要生成句子的会走希希自己的服务。</p>
+      <label class="search">
+        <svg aria-hidden="true"><use href="#i-search"></use></svg>
+        <input id="q" type="search" placeholder="搜工具：派费 / 表格 / 重量 / 单价…（按 / 直达）" aria-label="搜索工具" autocomplete="off">
+      </label>
+      <div class="chips" id="chips"></div>
+      <p class="count" id="count" aria-live="polite"></p>
+    </section>
+
+    <div id="sections"></div>
     <p class="empty" id="empty">没找到匹配的工具，换个词试试。</p>
     <div class="note" id="note" hidden></div>
   </main>
@@ -124,22 +247,36 @@
 <script>
 (function () {
   'use strict';
+
   // 兜底清单：/tools.json 读不到时（比如离线打开这个文件）用它
+  var FALLBACK_CATEGORIES = [
+    { id: 'freight', name: '运费与结算', desc: '派费试算、分类统计、报价对比' },
+    { id: 'data', name: '表格与数据', desc: 'CSV / Excel 的体检与合并' },
+    { id: 'learn', name: '学习成长', desc: '英语口语小帮手' },
+    { id: 'site', name: '站点', desc: '关于希希' }
+  ];
   var FALLBACK = [
-    { slug: 'classify-stats', name: '派费分类统计', desc: '拖进结算模版和系统导出，按列名自动对齐、分类统计、交叉核对、出图，并回填一份保留原公式的结果文件。', href: '/tools/classify-stats/', icon: 'i-table', tags: ['本地计算', 'Excel'] },
-    { slug: 'csv-inspect', name: 'CSV 体检', desc: '拖入 CSV/TSV，自动认分隔符和编码，给出每列类型、数值列的合计/最值与文本列的高频值。', href: '/tools/csv-inspect/', icon: 'i-csv', tags: ['本地计算', '几万行'] },
-    { slug: 'scene-english', name: '场景英语提示', desc: '说一句场景（打字或语音），先给一段能开口的中英对照对话，可▶连播整段；选中词问用法（本句结构+使用语境+禁忌）并进生词本，还能练一练。', href: '/tools/scene-english/', icon: 'i-chat', tags: ['口语', '需要希希服务生成'] },
-    { slug: 'fee-calc', name: '派费试算', desc: '输入重量、始发省区，按 40kg 分档试算单票派费。', state: 'soon', icon: 'i-scale', tags: ['运费'] },
-    { slug: 'price-diff', name: '单价对比', desc: '贴两组报价，按网点/重量段列出差异，找出哪边更划算。', state: 'soon', icon: 'i-tag', tags: ['运费'] }
+    { slug: 'classify-stats', category: 'freight', name: '派费分类统计', desc: '拖进结算模版和系统导出，按列名自动对齐、分类统计、交叉核对、出图，并回填一份保留原公式的结果文件。', href: '/tools/classify-stats/', icon: 'i-table', tags: ['本地计算', 'Excel'] },
+    { slug: 'fee-calc', category: 'freight', name: '派费试算', desc: '输入重量、始发省区，按 40kg 分档试算单票派费。', state: 'soon', icon: 'i-scale', tags: ['运费'] },
+    { slug: 'price-diff', category: 'freight', name: '单价对比', desc: '贴两组报价，按网点/重量段列出差异，找出哪边更划算。', state: 'soon', icon: 'i-tag', tags: ['运费'] },
+    { slug: 'csv-inspect', category: 'data', name: 'CSV 体检', desc: '拖入 CSV/TSV，自动认分隔符和编码，给出每列类型、数值列的合计/最值与文本列的高频值。', href: '/tools/csv-inspect/', icon: 'i-csv', tags: ['本地计算', '几万行'] },
+    { slug: 'sheet-merge', category: 'data', name: '多表合并', desc: '把几份同结构的导出合成一张表，按指定列去重并报告重复项。', state: 'soon', icon: 'i-box', tags: ['Excel'] },
+    { slug: 'scene-english', category: 'learn', name: '场景英语提示', desc: '说一句场景（打字或语音），先给一段能开口的中英对照对话，可▶连播整段；选中词问用法并进生词本，还能练一练。', href: '/tools/scene-english/', icon: 'i-chat', tags: ['口语', '需要希希服务生成'] },
+    { slug: 'wish-pool', category: 'site', name: '许愿池', desc: '这个站点最早的那一页，留着当纪念。', href: '/wish-pool/', icon: 'i-wish', tags: ['站点'] }
   ];
   var DEFAULT_ICON = 'i-box';
 
-  var grid = document.getElementById('grid');
-  var count = document.getElementById('count');
-  var empty = document.getElementById('empty');
-  var note = document.getElementById('note');
-  var q = document.getElementById('q');
+  var sectionsEl = document.getElementById('sections');
+  var chipsEl = document.getElementById('chips');
+  var countEl = document.getElementById('count');
+  var emptyEl = document.getElementById('empty');
+  var noteEl = document.getElementById('note');
+  var qEl = document.getElementById('q');
+
   var tools = [];
+  var categories = [];
+  var word = '';
+  var cat = 'all';
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -148,11 +285,43 @@
     return n;
   }
 
-  function card(t) {
+  function hueOf(id) {
+    for (var i = 0; i < categories.length; i++) {
+      if (categories[i].id === id) return (i * 47 + 225) % 360;
+    }
+    return 225;
+  }
+
+  function bucketize() {
+    var buckets = [];
+    var byId = {};
+    categories.forEach(function (c) {
+      var b = { id: c.id, name: c.name || c.id, desc: c.desc || '', items: [] };
+      byId[c.id] = b;
+      buckets.push(b);
+    });
+    var other = { id: '~other', name: '其他', desc: '', items: [], loose: true };
+    tools.forEach(function (t) {
+      var b = Object.prototype.hasOwnProperty.call(byId, t.category) ? byId[t.category] : null;
+      (b || other).items.push(t);
+    });
+    if (other.items.length) buckets.push(other);
+    return { buckets: buckets, byId: byId };
+  }
+
+  function matches(t, k, byId, otherName) {
+    if (!k) return true;
+    var catName = byId[t.category] ? byId[t.category].name : otherName;
+    return [t.name, t.desc, (t.tags || []).join(' '), t.slug, catName].join(' ').toLowerCase().indexOf(k) >= 0;
+  }
+
+  function card(t, hue) {
     var soon = t.state === 'soon' || !t.href;
     var node = el(soon ? 'div' : 'a', 'card');
-    if (soon) { node.setAttribute('role', 'listitem'); node.setAttribute('data-state', 'soon'); node.setAttribute('aria-disabled', 'true'); }
-    else { node.href = t.href; node.setAttribute('role', 'listitem'); }
+    if (soon) node.setAttribute('data-state', 'soon');
+    else node.href = t.href;
+
+    node.style.setProperty('--hue', String(hue));
 
     var ic = el('span', 'ic');
     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -173,29 +342,101 @@
     return node;
   }
 
-  function render(word) {
-    var k = (word || '').trim().toLowerCase();
-    grid.textContent = '';
-    var shown = tools.filter(function (t) {
-      if (!k) return true;
-      return [t.name, t.desc, (t.tags || []).join(' '), t.slug].join(' ').toLowerCase().indexOf(k) >= 0;
+  function render() {
+    var k = word.trim().toLowerCase();
+    var group = bucketize();
+    var buckets = group.buckets, byId = group.byId;
+
+    function keep(t) { return matches(t, k, byId, '其他'); }
+
+    // 分类胶囊（含全部）：数字跟随当前搜索
+    chipsEl.textContent = '';
+    var shownTotal = 0;
+    buckets.forEach(function (b) { b.visible = b.items.filter(keep); shownTotal += b.visible.length; });
+    function chip(id, label, n) {
+      var b = el('button', 'chip' + (cat === id ? ' active' : ''), label);
+      b.type = 'button';
+      b.setAttribute('data-cat', id);
+      if (n != null) b.appendChild(el('span', 'chip-n', String(n)));
+      chipsEl.appendChild(b);
+    }
+    chip('all', '全部', shownTotal);
+    buckets.forEach(function (b) { if (b.visible.length) chip(b.id, b.name, b.visible.length); });
+
+    var visible = buckets.filter(function (b) { return b.visible.length > 0; });
+    if (cat !== 'all') visible = visible.filter(function (b) { return b.id === cat; });
+
+    sectionsEl.textContent = '';
+    var shownNow = 0;
+    visible.forEach(function (b) {
+      shownNow += b.visible.length;
+      var sec = el('section', 'cat');
+      if (!(visible.length === 1 && b.loose)) {
+        var head = el('div', 'cat-head');
+        head.style.setProperty('--hue', String(hueOf(b.id)));
+        head.appendChild(el('span', 'cat-dot'));
+        head.appendChild(el('h2', 'cat-name', b.name));
+        if (b.desc) head.appendChild(el('span', 'cat-desc', b.desc));
+        head.appendChild(el('span', 'cat-count', b.visible.length + ' 个'));
+        sec.appendChild(head);
+      }
+      var row = el('div', 'grid-row');
+      row.setAttribute('role', 'list');
+      var hue = hueOf(b.id);
+      b.visible.forEach(function (t) { row.appendChild(card(t, hue)); });
+      sec.appendChild(row);
+      sectionsEl.appendChild(sec);
     });
-    shown.forEach(function (t) { grid.appendChild(card(t)); });
-    empty.hidden = shown.length > 0;
-    count.textContent = '共 ' + tools.length + ' 个 · 显示 ' + shown.length + ' 个';
+
+    emptyEl.hidden = shownNow > 0;
+    countEl.textContent = '共 ' + tools.length + ' 个 · 显示 ' + shownNow + ' 个';
   }
 
-  function load(list, warning) {
+  function load(list, cats, warning) {
     tools = list;
-    render(q.value);
-    if (warning) { note.hidden = false; note.textContent = warning; }
+    categories = Array.isArray(cats) ? cats : [];
+    if (cat !== 'all' && !categories.some(function (c) { return c.id === cat; })) cat = 'all';
+    render();
+    if (warning) { noteEl.hidden = false; noteEl.textContent = warning; }
   }
 
-  q.addEventListener('input', function () { render(q.value); });
+  qEl.addEventListener('input', function () { word = qEl.value; render(); });
+
+  chipsEl.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.chip') : null;
+    if (!b) return;
+    cat = b.getAttribute('data-cat');
+    render();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '/' && document.activeElement !== qEl && !/^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName || '')) {
+      e.preventDefault();
+      qEl.focus();
+    }
+  });
+
+  // 深浅色：默认跟随系统，可手动切换并记住选择
+  var themeBtn = document.getElementById('theme');
+  var saved = null;
+  try { saved = localStorage.getItem('xixi-theme'); } catch (err) {}
+  var mode = (saved === 'light' || saved === 'dark')
+    ? saved
+    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  function applyTheme() {
+    document.documentElement.setAttribute('data-theme', mode);
+    themeBtn.textContent = mode === 'dark' ? '☀️ 浅色' : '🌙 深色';
+  }
+  themeBtn.addEventListener('click', function () {
+    mode = mode === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('xixi-theme', mode); } catch (err) {}
+    applyTheme();
+  });
+  applyTheme();
 
   // 没有 fetch（比如把这个文件下载后双击打开）或拉取失败时，用内置备份清单
   if (typeof fetch !== 'function') {
-    load(FALLBACK, '这个页面是离线打开的，用的是内置工具清单。');
+    load(FALLBACK, FALLBACK_CATEGORIES, '这个页面是离线打开的，用的是内置工具清单。');
     return;
   }
 
@@ -204,10 +445,10 @@
     .then(function (data) {
       var list = Array.isArray(data) ? data : (data && data.tools);
       if (!Array.isArray(list) || !list.length) throw new Error('清单为空');
-      load(list);
+      load(list, data && data.categories);
     })
     .catch(function (e) {
-      load(FALLBACK, '工具清单走的是内置备份（读 /tools.json 失败：' + e.message + '），内容可能不是最新。');
+      load(FALLBACK, FALLBACK_CATEGORIES, '工具清单走的是内置备份（读 /tools.json 失败：' + e.message + '），内容可能不是最新。');
     });
 })();
 </script>
