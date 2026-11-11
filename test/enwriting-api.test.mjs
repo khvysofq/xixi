@@ -215,6 +215,42 @@ test('模型 JSON 崩一次：服务端自动带警示重跑，用户仍拿到 2
   } finally { stop(s); try { require('node:fs').unlinkSync(tick); } catch { /* ok */ } }
 });
 
+test('POST ask：拿着那条修改意见追问，答得透彻且带对照例句', async () => {
+  const s = await startServer();
+  try {
+    const r = await s.post('/api/en-writing', {
+      mode: 'ask',
+      topic: 'Describe a decision at work.',
+      quote: 'needed fully considersation',
+      fix: 'that needs careful consideration',
+      why: '定语从句缺关系词，consideration 也拼错',
+      kind: '语法',
+      question: '我觉得原句能看懂啊，为什么要加 that？',
+      essay: 'The plan needed fully considersation by the board.',
+    });
+    assert.equal(r.status, 200);
+    const d = r.json.data;
+    assert.equal(d.kind, 'ask');
+    assert.match(d.answer, /关系词|that/);
+    assert.equal(d.verdict, 'confirmed');
+    assert.equal(d.revisedFix, '');
+    assert.equal(d.examples.length, 2, '对照例句帮学生自己验证');
+  } finally { stop(s); }
+});
+
+test('POST ask：问题或改法上下文缺失给 400，不烧模型钱', async () => {
+  const s = await startServer();
+  try {
+    const noQ = await s.post('/api/en-writing', { mode: 'ask', topic: 'A decision at work', quote: 'q', fix: 'f' });
+    assert.equal(noQ.status, 400);
+    assert.match(noQ.json.error, /疑问/);
+    const noQuote = await s.post('/api/en-writing', { mode: 'ask', topic: 'A decision at work', quote: '', fix: 'f', question: '为什么这么改？理由够长了吧' });
+    assert.equal(noQuote.status, 400);
+    const h = await s.get('/api/en-writing/health');
+    assert.equal(h.json.todayWritingUsed, 0);
+  } finally { stop(s); }
+});
+
 test('静态页面可访问：/tools/en-writing/ 出极简写作页（回归）', async () => {
   const s = await startServer();
   try {

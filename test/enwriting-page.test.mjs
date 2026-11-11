@@ -57,6 +57,14 @@ const PROFILE = {
   nextFocus: '下次写满 5 句再点批改，先只练过去时',
 };
 
+const ASK = {
+  kind: 'ask',
+  answer: 'fully 是副词，修饰不了名词 consideration；名词要用形容词 careful。再加上这个修饰语得挂在名词上，要用 that 引出从句。',
+  verdict: 'confirmed',
+  revisedFix: '',
+  examples: [{ en: 'The proposal that needs careful consideration came from the intern.', zh: '带 that 的从句稳稳挂住名词。' }],
+};
+
 const ESSAY = 'Last Friday my coworker and I tried the new noodle place downstairs. I very like the meal, especially the beef noodles. After I finished ate, I ordered another bowl to go.';
 
 async function boot(opts = {}) {
@@ -84,7 +92,7 @@ async function boot(opts = {}) {
         const body = init && init.body ? JSON.parse(init.body) : {};
         calls.push({ url, body });
         if (opts.fail) return Promise.resolve({ ok: false, status: 502, json: async () => ({ ok: false, error: '生成超时了，点重试再试一次' }) });
-        const data = body.mode === 'topic' ? TOPIC : body.mode === 'tips' ? TIPS : body.mode === 'profile' ? PROFILE : CORRECT;
+        const data = body.mode === 'topic' ? TOPIC : body.mode === 'tips' ? TIPS : body.mode === 'profile' ? PROFILE : body.mode === 'ask' ? ASK : CORRECT;
         return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, data }) });
       };
       window.alert = () => {};
@@ -330,4 +338,95 @@ test('画像接口挂了：中文报错 + 台账还在（下次能重来）', as
   await waitFor(() => calls.length === 2);
   await waitFor(() => doc.getElementById('status').textContent.includes('超时'));
   assert.equal(window.enWriting.logRead().length, 3, '失败不能把台账弄丢');
+});
+
+
+/* ---------- 对某条修改意见的追问 ---------- */
+
+async function openAsk() {
+  const b = await boot();
+  await waitFor(() => b.doc.getElementById('t-en').textContent === TOPIC.en);
+  typeEssay(b.window, ESSAY);
+  b.doc.getElementById('fix-btn').click();
+  await waitFor(() => b.calls.length === 2);
+  await waitFor(() => b.doc.querySelectorAll('#fb-errors .err-item').length === 2);
+  return b;
+}
+
+test('每条修改意见旁有「❓ 这条为什么」，点开展开提问面板', async () => {
+  const { doc } = await openAsk();
+  const first = doc.querySelector('#fb-errors .err-item');
+  const qbtn = first.querySelector('button');
+  assert.ok(qbtn.textContent.includes('这条为什么'));
+  qbtn.click();
+  const box = first.querySelector('.ask-box');
+  assert.equal(box.style.display, 'block');
+  assert.equal(box.querySelectorAll('.qrow button').length, 2, '两个预设问题：再讲讲 / 不服');
+  assert.ok(box.querySelector('input'));
+});
+
+test('提问送模型：带上这条改法和上下文；答案与例句渲染出来', async () => {
+  const { window, doc, calls } = await openAsk();
+  const item = doc.querySelector('#fb-errors .err-item');
+  item.querySelector('button').click();               // 展开 ❓ 面板
+  const box = item.querySelector('.ask-box');
+  box.querySelector('.ask-go').click();               // 空输入提交应无动作
+  await new Promise((r) => setTimeout(r, 30));
+  assert.ok(!box.textContent.includes('fully'), '没填问题不该提交');
+  box.querySelector('input').value = '为什么加 that';
+  box.querySelector('.ask-go').click();
+  await waitFor(() => calls.length === 3);
+  const req = calls[2].body;
+  assert.equal(req.mode, 'ask');
+  assert.equal(req.quote, 'I very like the meal');
+  assert.equal(req.fix, 'I really liked the meal');
+  assert.equal(req.question, '为什么加 that');
+  assert.ok(req.essay.includes('noodle place'), '整篇上下文带上');
+  await waitFor(() => box.textContent.includes('fully 是副词'));
+  assert.ok(box.textContent.includes('came from the intern'), '对照例句');
+  assert.ok(!box.textContent.includes('教练认账'), 'confirmed 不出认账章');
+});
+
+test('预设「我觉得原句可以这么写」一键就问，答案缓存：同问题不再花钱', async () => {
+  const { window, doc, calls } = await openAsk();
+  const item = doc.querySelector('#fb-errors .err-item');
+  item.querySelector('button').click();
+  const box = item.querySelector('.ask-box');
+  box.querySelectorAll('.qrow button')[1].click();   // 预设：不服
+  await waitFor(() => calls.length === 3);
+  assert.match(calls[2].body.question, /原句可以这么写/);
+  await waitFor(() => box.textContent.includes('fully 是副词'));
+  box.querySelector('input').value = '';
+  box.querySelectorAll('.qrow button')[1].click();   // 再点一次同问题
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(calls.length, 3, '缓存命中不该再打接口');
+  assert.equal(window.enWriting.logRead().length, 1, '只有批改那 1 条，追问不添台账');
+});
+
+test('教练认账时盖绿章并显示调整后的意见', async () => {
+  const { doc } = await openAsk();
+  const box = doc.querySelector('#fb-errors .err-item .ask-box');
+  window_enWritingRenderAsk(doc, box);
+  function window_enWritingRenderAsk(d, b) {
+    d.defaultView.enWriting.renderAsk(b, { kind: 'ask', answer: '你说得对，这句其实成立。', verdict: 'revised', revisedFix: '原句可保留', examples: [] });
+  }
+  assert.ok(box.textContent.includes('教练认账'));
+  assert.ok(box.textContent.includes('原句可保留'));
+});
+
+test('追问失败：说明白「没答上」，面板不吞错误', async () => {
+  const { window, doc } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  typeEssay(window, ESSAY);
+  doc.getElementById('fix-btn').click();
+  await waitFor(() => doc.querySelectorAll('#fb-errors .err-item').length === 2);
+  // 让后续请求都失败
+  window.fetch = () => Promise.resolve({ ok: false, status: 502, json: async () => ({ ok: false, error: '模型那边挂了' }) });
+  const item = doc.querySelector('#fb-errors .err-item');
+  item.querySelector('button').click();
+  const box = item.querySelector('.ask-box');
+  box.querySelector('input').value = '这条到底为什么？理由充分吗';
+  box.querySelector('.ask-go').click();
+  await waitFor(() => box.textContent.includes('没答上'));
+  assert.ok(box.textContent.includes('模型那边挂了'));
 });

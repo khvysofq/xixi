@@ -22,6 +22,7 @@ if (process.env.FAKE_OPENCLAW_THIN === '1' && isGuidePrompt(prompt)) {
 function isGuidePrompt(text) { return text.includes('"sections"'); }
 
 const isExplain = prompt.includes('"as_used"');
+const isAsk = prompt.includes('"verdict"');
 const isProfile = prompt.includes('"weaknesses"');
 const isTips = prompt.includes('"tenses"');
 const isCorrect = prompt.includes('"errors"');
@@ -31,6 +32,8 @@ if (thin) {
   text = '{"sections":[{"title":"点单常用","items":[{"zh":"来一杯","en":"I\'ll have a latte","example":{"en":"I\'ll have a latte.","zh":"来个拿铁。"}}]}],"patterns":[]}';
 } else if (isExplain) {
   text = '{"phrase":"been meaning","as_used":"have been meaning to do sth","pattern":"have been meaning to do sth","meaning_zh":"一直想做但还没做成","structure_zh":"现在完成进行时：have been + doing，表示从之前持续到现在","why_zh":"不是打算做，是早就想做、一直没腾出手","examples":[{"en":"I\u0027ve been meaning to call him back.","zh":"我一直想给他回电话。"},{"en":"She\u0027s been meaning to try that place.","zh":"她一直想去试试那家店。"},{"en":"We\u0027ve been meaning to fix this for weeks.","zh":"这事我们一直想修，拖了好几周。"}],"contexts":[{"domain":"作品、创作","how":"隔多年重看重听，水准依旧在线","en":"I rewatched that show after ten years and it still holds up.","zh":"隔了十年重看那部剧，依然很能打。"},{"domain":"论断、证据","how":"经得起推敲，常用于否定句","en":"The evidence may not hold up in court.","zh":"这证据在法庭上可能站不住。"},{"domain":"耐用品","how":"鞋、电池、车子等用得久不坏","en":"The boots have held up well through three winters.","zh":"这靴子穿了三个冬天还很结实。"}],"not_for":"不能用来形容能力、才华、审美、品味","similar":[{"en":"I want to get that off my chest.","zh":"我想把这事说出来痛快痛快。","note":"更直接，没有拖了很久的意思"},{"en":"It\u0027s been on my mind for weeks.","zh":"这事我心里憋了好几周了。","note":"近结构：been + 名词，语气更轻"},{"en":"I keep meaning to get around to it.","zh":"我总说回头就做，一直没腾出手。","note":"keep doing 更口语、更自嘲"}],"caution":"别写成 I am meaning to do","category":"职场闲聊"}';
+} else if (isAsk) {
+  text = '{"answer":"你原来写 needed fully considersation，问题有两层：一是这个表达想把「需要被慎重考虑」挂到前面的名词上，得用关系词 that 引出从句，裸贴上去句子会散架；二是 consideration 拼错，而且 fully 不能修饰名词，要换成 careful。that needs careful consideration 就是把这两处一起扶正。","verdict":"confirmed","revisedFix":"","examples":[{"en":"The proposal that needs careful consideration came from the intern.","zh":"带 that 的从句稳稳挂住名词。"},{"en":"This is a fully consideration of the issue.","zh":"这句是错的——fully 修饰不了名词，得说 full consideration。"}]}';
 } else if (isProfile) {
   text = '{"portrait":"你叙事时基本全靠一般现在时，句子常年 8 词上下——语法小毛病不多，但读起来像清单不像讲述。","weaknesses":[{"name":"时态单一：只会用现在时","evidence":"6 篇里 5 篇通篇一般现在时，tense 类错误合计 9 次","how":"先只练叙事三件套：一般过去时、过去进行时、现在完成时"},{"name":"句型单一：几乎全简单句","evidence":"平均每句 7.8 词，82% 是简单句","how":"从合并相邻短句练起"}],"lessons":[{"title":"动词改成过去式再讲故事","stage":"第 1 步","teach":"主干动词一律过去式","examples":[{"wrong":"Last winter I go to a shop.","right":"Last winter I went to a shop."}],"drill":"把 I walk home and I feel tired. 改成过去时"},{"title":"两个短句拼一个 because 从句","stage":"第 2 步","teach":"有因果就合并","examples":[{"wrong":"I liked it. The soup was hot.","right":"I liked it because the soup was hot."}],"drill":"合并：He opened the door. It was very cold."}],"next_focus":"下次写满 5 句再点批改，先只练过去时"}';
 } else if (isTips) {

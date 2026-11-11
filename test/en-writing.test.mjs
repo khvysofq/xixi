@@ -148,3 +148,39 @@ test('normalizeProfile：weak 截 4 且没证据的丢、lesson 截 4、全空�
   assert.equal(out.nextFocus, 'focus');
   assert.throws(() => ew.normalizeProfile({}), /没诊断出名堂/);
 });
+
+test('ask 校验：改法上下文与疑问都得带上，长度封顶', () => {
+  const base = { mode: 'ask', topic: 'Describe a decision at work.', quote: 'needed fully considersation', fix: 'that needs careful consideration' };
+  assert.equal(ew.validateInput(base).ok, false, '没问题不问');
+  assert.match(ew.validateInput(base).error, /疑问/);
+  assert.equal(ew.validateInput({ ...base, question: '为什么' , quote: '' }).ok, false, '不指明哪条不给问');
+  const ok = ew.validateInput({ ...base, question: '我原句哪里散架了？consideration 不就是考虑吗', why: '定语从句缺关系词', kind: '语法', essay: 'x'.repeat(5000) });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.input.essay.length, 2000, '上下文截 2000');
+});
+
+test('ask 提示词：正面回应质疑、允许承认改错了、不许复读', () => {
+  const p = ew.buildAskPrompt({ quote: 'needed fully considersation', fix: 'that needs careful consideration', why: '定语从句缺关系词，consideration 也拼错', kind: '语法', question: '我觉得原句能看懂啊？', essay: 'The plan needed fully considersation by the board.', topic: 'T' });
+  assert.match(p, /没看懂、或者不服/);
+  assert.match(p, /verdict/, 'confirmed/revised 二选一');
+  assert.match(p, /嘴硬|承认/, '判重了要认');
+  assert.match(p, /换个角度再讲/, '不许复读结论');
+  assert.match(p, /术语出现就顺手翻译成人话/);
+  assert.match(p, /The plan needed fully considersation/, '上下文进素材块');
+});
+
+test('normalizeAsk：answer 必填、只有 revised 才留修订意见、例句截 2', () => {
+  const out = ew.normalizeAsk({
+    answer: '因为 fully 修饰不了名词。',
+    verdict: 'revised',
+    revisedFix: '原句可保留，但拼写改成 consideration',
+    examples: [{ en: 'a', zh: '甲' }, { en: 'b', zh: '乙' }, { en: 'c', zh: '丙' }],
+  });
+  assert.equal(out.verdict, 'revised');
+  assert.ok(out.revisedFix.includes('拼写'));
+  assert.equal(out.examples.length, 2);
+  const keep = ew.normalizeAsk({ answer: 'x', verdict: 'confirmed', revisedFix: '不该出现', examples: [] });
+  assert.equal(keep.verdict, 'confirmed');
+  assert.equal(keep.revisedFix, '', '确认时不留修订');
+  assert.throws(() => ew.normalizeAsk({ verdict: 'confirmed' }), /没答上话/);
+});

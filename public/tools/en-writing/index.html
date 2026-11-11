@@ -61,6 +61,12 @@
   .err-item .f { font-weight: 650; }
   .err-item .w { color: var(--muted); font-size: 13px; margin-top: 3px; }
   .err-item .k { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+  .ask-box { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .ask-box .qrow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .ask-box input { flex: 1 1 180px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); padding: 6px 10px; }
+  .ask-a { font-size: 14px; margin-top: 6px; }
+  .ask-a .eg { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .ask-adj { display: inline-block; font-size: 12px; color: #fff; background: var(--ok); border-radius: 6px; padding: 1px 8px; margin-bottom: 4px; }
   .hl { font-size: 14px; margin: 4px 0; }
   .comment { font-size: 14px; background: var(--chip); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
   pre.rewrite { white-space: pre-wrap; word-break: break-word; font: 15px/1.7 inherit; margin: 8px 0 0; }
@@ -154,7 +160,8 @@
   var LS = 'xixi.en-writing.draft.v1';
   var LSL = 'xixi.en-writing.log.v1';   // 批改台账：跨篇诊断的原料，只在本机
   var LSP = 'xixi.en-writing.profile.v1'; // 最近一次画像，点开不重新花钱
-  var state = { topic: null, tips: null, feedback: null, profile: null, busy: false, lastAction: null };
+  var LSA = 'xixi.en-writing.ask.v1';   // 追问问答缓存：同一问题不重复花钱
+  var state = { topic: null, tips: null, feedback: null, profile: null, busy: false, lastAction: null, askBusy: false };
 
   function el(id) { return document.getElementById(id); }
   function mk(tag, cls, text) {
@@ -324,6 +331,27 @@
       if (x.kind) line.appendChild(mk('span', 'k', x.kind));
       item.appendChild(line);
       if (x.why) item.appendChild(mk('div', 'w', x.why));
+      var qbtn = mk('button', 'mini', '❓ 这条为什么？');
+      qbtn.style.marginTop = '8px';
+      var box = mk('div', 'ask-box'); box.style.display = 'none';
+      var qrow = mk('div', 'qrow');
+      ['没看懂，再讲讲', '我觉得原句可以这么写'].forEach(function (preset) {
+        var p = mk('button', 'mini', preset);
+        p.addEventListener('click', function () { box.querySelector('input').value = preset; askAbout(x, box); });
+        qrow.appendChild(p);
+      });
+      var gin = mk('input'); gin.placeholder = '或自己问：如 fully 为什么不能修饰名词？';
+      gin.maxLength = 120;
+      var go = mk('button', 'primary mini ask-go', '提问');
+      go.addEventListener('click', function () { askAbout(x, box); });
+      gin.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') askAbout(x, box); });
+      box.appendChild(qrow); box.appendChild(gin); box.appendChild(go);
+      qbtn.addEventListener('click', function () {
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+        if (box.style.display === 'block') gin.focus();
+      });
+      var foot = mk('div'); foot.appendChild(qbtn); foot.appendChild(box);
+      item.appendChild(foot);
       errs.appendChild(item);
     });
     var hl = el('fb-highlights');
@@ -377,6 +405,56 @@
     } catch (e) {
       setStatus(e.message, true);
     }
+  }
+
+  /* ---------- 对某条修改意见的追问 ---------- */
+  function askRead() {
+    try { var a = JSON.parse(localStorage.getItem(LSA) || '{}'); return a && typeof a === 'object' ? a : {}; } catch (e) { return {}; }
+  }
+  function askKey(q, e, question) {
+    return [q, e.quote, e.fix, question].join('|').toLowerCase().replace(/\s+/g, ' ');
+  }
+  function askSave(key, d) {
+    var map = askRead(); map[key] = d;
+    var ks = Object.keys(map);
+    while (ks.length > 60) { delete map[ks.shift()]; }   // FIFO 60 条
+    try { localStorage.setItem(LSA, JSON.stringify(map)); } catch (e) { /* 存不下就算了 */ }
+  }
+  function renderAsk(box, d) {
+    var old = box.querySelector('.ask-a'); if (old) old.remove();
+    var wrap = mk('div', 'ask-a');
+    if (d.verdict === 'revised') {
+      wrap.appendChild(mk('span', 'ask-adj', '教练认账：这条调整了'));
+      if (d.revisedFix) wrap.appendChild(mk('div', null, '调整后的意见：' + d.revisedFix));
+    }
+    wrap.appendChild(mk('div', null, d.answer));
+    (d.examples || []).forEach(function (x) {
+      wrap.appendChild(mk('div', 'eg', x.en + (x.zh ? ' ｜ ' + x.zh : '')));
+    });
+    box.appendChild(wrap);
+  }
+  function askAbout(err, box) {
+    var text = String(box.querySelector('input').value || '').trim();
+    if (text.length < 4) { box.querySelector('input').focus(); return; }
+    var key = askKey(state.topic && state.topic.en, err, text);
+    var hit = askRead()[key];
+    if (hit) { renderAsk(box, hit); return; }
+    if (state.askBusy) return;
+    state.askBusy = true;
+    var btn = box.querySelector('.ask-go');
+    btn.disabled = true; btn.textContent = '想一下（5~15 秒）…';
+    callApi({
+      mode: 'ask', topic: state.topic && state.topic.en, quote: err.quote, fix: err.fix,
+      why: err.why, kind: err.kind, question: text, essay: String(el('essay').value || '').slice(0, 1500),
+    }).then(function (d) {
+      askSave(key, d);
+      renderAsk(box, d);
+    }).catch(function (e) {
+      var old = box.querySelector('.ask-a'); if (old) old.remove();
+      box.appendChild(mk('div', 'ask-a', '没答上：' + e.message));
+    }).then(function () {
+      state.askBusy = false; btn.disabled = false; btn.textContent = '提问';
+    });
   }
 
   /* ---------- 批改台账（本机）与学习画像 ---------- */
@@ -567,7 +645,8 @@
     window.enWriting = {
       state: state, callApi: callApi, renderTopic: renderTopic, newTopic: newTopic,
       logRead: logRead, logPush: logPush, analyze: analyze, askProfile: askProfile, renderProfile: renderProfile, profileText: profileText,
-      renderTips: renderTips, getTips: getTips, renderFeedback: renderFeedback, correct: correct,
+      renderTips: renderTips, getTips: getTips, renderFeedback: renderFeedback,
+      renderAsk: renderAsk, askRead: askRead, correct: correct,
       feedbackText: feedbackText, wordCount: wordCount, saveDraft: saveDraft, loadDraft: loadDraft,
     };
   }
