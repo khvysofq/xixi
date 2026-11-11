@@ -168,6 +168,53 @@ test('模型侧失败 → 5xx 中文错误，服务不崩', async () => {
   } finally { stop(s); }
 });
 
+test('POST profile：拿本地台账统计出画像与台阶练习', async () => {
+  const s = await startServer();
+  try {
+    const r = await s.post('/api/en-writing', {
+      mode: 'profile',
+      stats: { n: 6, span: '近 3 周', kindTotals: { 时态: 9, 语法: 4 }, avgSentenceWords: 7.8, simpleRate: 0.82, connectiveRate: 0.1, tenses: '一般现在时', topQuotes: ['I very like it'], samples: ['Last winter I go to a small shop. It is cold.'] },
+    });
+    assert.equal(r.status, 200);
+    const d = r.json.data;
+    assert.equal(d.kind, 'profile');
+    assert.ok(d.portrait && d.weaknesses.length >= 2, '画像至少点出两个薄弱点');
+    assert.ok(d.weaknesses.every((w) => w.evidence), '薄弱点必须带证据');
+    assert.equal(d.lessons.length, 2);
+    assert.match(d.lessons[1].stage, /2/, '台阶感保留');
+    assert.ok(d.nextFocus, '收尾给下一步');
+    const h = await s.get('/api/en-writing/health');
+    assert.ok(h.json.todayWritingUsed >= 1, '画像记进写作额度');
+  } finally { stop(s); }
+});
+
+test('POST profile：台账不足 3 篇不花钱、给中文解释', async () => {
+  const s = await startServer();
+  try {
+    const r = await s.post('/api/en-writing', { mode: 'profile', stats: { n: 2, samples: ['a'] } });
+    assert.equal(r.status, 400);
+    assert.match(r.json.error, /3 篇/);
+    const h = await s.get('/api/en-writing/health');
+    assert.equal(h.json.todayWritingUsed, 0, '被拒的请求不该烧额度');
+  } finally { stop(s); }
+});
+
+test('模型 JSON 崩一次：服务端自动带警示重跑，用户仍拿到 200', async () => {
+  const tick = '/tmp/fake-badjson-' + process.pid + '-' + Math.random().toString(36).slice(2);
+  try { require('node:fs').unlinkSync(tick); } catch { /* 干净起步 */ }
+  const s = await startServer({ FAKE_BADJSON: '1', FAKE_OPENCLAW_TICK: tick });
+  try {
+    const r = await s.post('/api/en-writing', {
+      mode: 'profile',
+      stats: { n: 4, kindTotals: { 时态: 7 }, samples: ['I go to a park. The sun is bright.'], avgSentenceWords: 7.5 },
+    });
+    assert.equal(r.status, 200, '第一次崩了不该把用户晾着');
+    assert.ok(r.json.data.weaknesses.length >= 1);
+    const h = await s.get('/api/en-writing/health');
+    assert.equal(h.json.todayWritingUsed, 1, '重跑两次 CLI 也只算一次请求');
+  } finally { stop(s); try { require('node:fs').unlinkSync(tick); } catch { /* ok */ } }
+});
+
 test('静态页面可访问：/tools/en-writing/ 出极简写作页（回归）', async () => {
   const s = await startServer();
   try {

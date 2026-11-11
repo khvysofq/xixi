@@ -43,6 +43,20 @@ const CORRECT = {
   wordCount: 35,
 };
 
+const PROFILE = {
+  kind: 'profile',
+  portrait: '你叙事基本全靠一般现在时，句子常年 8 词上下。',
+  weaknesses: [
+    { name: '时态单一：只会用现在时', evidence: '3 篇里 2 篇通篇现在时，时态错误 5 次', how: '先练叙事三件套' },
+    { name: '句型单一：几乎全简单句', evidence: '平均每句 7.8 词，简单句 82%', how: '从合并短句练起' },
+  ],
+  lessons: [
+    { title: '动词改成过去式再讲故事', stage: '第 1 步', teach: '叙述发生过的事，主干动词一律过去式', examples: [{ wrong: 'Last winter I go to a shop.', right: 'Last winter I went to a shop.' }], drill: '把 I walk home and I feel tired. 改成过去时' },
+    { title: '两个短句拼一个 because 从句', stage: '第 2 步', teach: '有因果就合并，句子有长短节奏', examples: [{ wrong: 'I liked it. The soup was hot.', right: 'I liked it because the soup was hot.' }], drill: '合并 He opened the door. It was cold.' },
+  ],
+  nextFocus: '下次写满 5 句再点批改，先只练过去时',
+};
+
 const ESSAY = 'Last Friday my coworker and I tried the new noodle place downstairs. I very like the meal, especially the beef noodles. After I finished ate, I ordered another bowl to go.';
 
 async function boot(opts = {}) {
@@ -58,6 +72,9 @@ async function boot(opts = {}) {
     virtualConsole: vc,
     beforeParse(window) {
       if (opts.seed) window.localStorage.setItem('xixi.en-writing.draft.v1', JSON.stringify(opts.seed));
+      if (opts.seedLog) window.localStorage.setItem('xixi.en-writing.log.v1', JSON.stringify(opts.seedLog));
+      if (opts.seedProfile) window.localStorage.setItem('xixi.en-writing.profile.v1', JSON.stringify(opts.seedProfile));
+      window.confirm = () => true;
       window.fetch = (url, init) => {
         if (!init) {
           health.hits += 1;
@@ -67,7 +84,7 @@ async function boot(opts = {}) {
         const body = init && init.body ? JSON.parse(init.body) : {};
         calls.push({ url, body });
         if (opts.fail) return Promise.resolve({ ok: false, status: 502, json: async () => ({ ok: false, error: '生成超时了，点重试再试一次' }) });
-        const data = body.mode === 'topic' ? TOPIC : body.mode === 'tips' ? TIPS : CORRECT;
+        const data = body.mode === 'topic' ? TOPIC : body.mode === 'tips' ? TIPS : body.mode === 'profile' ? PROFILE : CORRECT;
         return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, data }) });
       };
       window.alert = () => {};
@@ -230,4 +247,87 @@ test('视觉红线：极简、和场景英语同一套柔绿；无填空紫/砖�
   assert.doesNotMatch(html, /#7c5cff|#d84f2b/i);
   assert.doesNotMatch(html, /backdrop-filter|linear-gradient/);
   assert.match(html, /prefers-color-scheme: dark/);
+});
+
+
+/* ---------- 学习画像（跨篇台账） ---------- */
+
+const logEntry = (text, kinds, quotes) => ({ at: Date.now() - Math.random() * 86400000 * 20, topic: 'T', wordCount: 30, kinds, quotes: quotes || [], text });
+
+test('每次批改自动落台账：错误类型计数、高频原句、节选截 400 字', async () => {
+  const { window, doc, calls } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  typeEssay(window, (ESSAY + ' ').repeat(8));   // 超 400 字部分不该整个存
+  doc.getElementById('fix-btn').click();
+  await waitFor(() => calls.length === 2);
+  await waitFor(() => window.enWriting.logRead().length === 1);
+  const e = window.enWriting.logRead()[0];
+  assert.deepEqual({ ...e.kinds }, { '中式英语': 1, '语法': 1 });  // 页面 realm 的对象要先转回宿主再 deep 比
+  assert.equal(e.text.length, 400, '节选截 400');
+  assert.ok(e.quotes.length === 2 && e.at > 0);
+});
+
+test('台账不足 3 篇：点画像只提醒，不打接口不花钱', async () => {
+  const { window, doc, calls } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  window.enWriting.logPush({ wordCount: 10, errors: [{ quote: 'a', fix: 'b', kind: '语法' }] });
+  doc.getElementById('pro-btn').click();
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(calls.length, 1, '只有自动抽题那一次');
+  assert.match(doc.getElementById('status').textContent, /只有 1 篇|3 篇/);
+});
+
+test('攒满 3 篇后：本地算出句长/简单句率再交给模型，画像渲染出薄弱环节与台阶', async () => {
+  const { window, doc, calls } = await boot({
+    seedLog: [
+      logEntry('I go to school. I like it. The class is fun. I am happy.', { 时态: 2, 语法: 1 }),
+      logEntry('He open door. It rain today. We play ball. He is my friend.', { 时态: 3, 拼写: 1 }),
+      logEntry('I very like the food. It is good. I eat it fast. My heart filled with joy.', { 中式英语: 1, 表达生硬: 2, 时态: 1 }),
+    ],
+  });
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  doc.getElementById('pro-btn').click();
+  await waitFor(() => calls.length === 2);
+  assert.equal(calls[1].body.mode, 'profile');
+  const st = calls[1].body.stats;
+  assert.equal(st.n, 3);
+  assert.equal(st.kindTotals['时态'], 6, '跨篇累计');
+  assert.ok(st.avgSentenceWords > 0 && st.avgSentenceWords < 12, '短句为主要算出来');
+  assert.ok(st.simpleRate > 0.5, '简单句率高');
+  assert.equal(st.samples.length, 3);
+  await waitFor(() => !doc.getElementById('pro-card').classList.contains('hidden'));
+  const html = doc.getElementById('pro-body').innerHTML;
+  assert.ok(html.includes('时态单一') && html.includes('证据：3 篇里 2 篇'), '薄弱点+数字证据');
+  assert.ok(html.includes('第 1 步') && html.includes('第 2 步'), '台阶感');
+  assert.ok(html.includes('I walked home') === false && html.includes('练一句'), 'drill 留白给学生');
+  assert.ok(doc.getElementById('pro-body').textContent.includes('下次只练这一件'));
+  assert.ok(doc.getElementById('pro-body').textContent.includes('全文没离开这台设备'), '隐私说明要在');
+});
+
+test('画像会存一份：重开页面直接看上次诊断，不用重新花钱', async () => {
+  const { window, doc } = await boot({ seedProfile: PROFILE });
+  await waitFor(() => !doc.getElementById('pro-card').classList.contains('hidden'));
+  assert.ok(doc.getElementById('pro-body').textContent.includes('叙事基本全靠一般现在时'));
+});
+
+test('清空台账：画像卡收起，提示重新攒', async () => {
+  const { window, doc, calls } = await boot({ seedLog: [logEntry('a b c.', { 语法: 1 }), logEntry('d e f.', { 语法: 1 }), logEntry('g h i.', { 语法: 1 })] });
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  doc.getElementById('pro-btn').click();
+  await waitFor(() => calls.length === 2);
+  await waitFor(() => !doc.getElementById('pro-card').classList.contains('hidden'));
+  doc.getElementById('pro-clear').click();
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(window.localStorage.getItem('xixi.en-writing.log.v1'), null);
+  assert.ok(doc.getElementById('pro-card').classList.contains('hidden'));
+  assert.match(doc.getElementById('status').textContent, /清空|三篇/);
+});
+
+test('画像接口挂了：中文报错 + 台账还在（下次能重来）', async () => {
+  const { window, doc, calls } = await boot({ fail: true, seedLog: [logEntry('a b c.', { 语法: 1 }), logEntry('d e f.', { 语法: 1 }), logEntry('g h i.', { 语法: 1 })] });
+  for (let i = 0; i < 200; i++) { if (calls.length >= 1) break; await new Promise((r) => setTimeout(r, 10)); }
+  doc.getElementById('pro-btn').click();
+  await waitFor(() => calls.length === 2);
+  await waitFor(() => doc.getElementById('status').textContent.includes('超时'));
+  assert.equal(window.enWriting.logRead().length, 3, '失败不能把台账弄丢');
 });

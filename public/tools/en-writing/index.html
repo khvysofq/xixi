@@ -64,6 +64,17 @@
   .hl { font-size: 14px; margin: 4px 0; }
   .comment { font-size: 14px; background: var(--chip); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
   pre.rewrite { white-space: pre-wrap; word-break: break-word; font: 15px/1.7 inherit; margin: 8px 0 0; }
+  .wk { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; }
+  .wk b { font-weight: 650; }
+  .wk .ev { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .wk .how { font-size: 14px; margin-top: 3px; }
+  .step { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: var(--fix-bg); }
+  .step .tag { display: inline-block; font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 8px; margin-bottom: 6px; }
+  .step h3 { margin: 0 0 4px; font-size: 15px; }
+  .step .ex { font-size: 14px; margin-top: 6px; }
+  .step .ex .no { color: var(--bad); text-decoration: line-through; margin-right: 8px; }
+  .step .drill { font-size: 14px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .focus { font-size: 14px; background: var(--chip); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
   footer { color: var(--muted); font-size: 12px; line-height: 1.7; margin-top: 8px; }
 </style>
 </head>
@@ -93,6 +104,7 @@
     <div class="row">
       <button id="tips-btn">🧠 表达帮助</button>
       <button class="primary" id="fix-btn">✍️ 批改这篇</button>
+      <button id="pro-btn">🧭 学习画像</button>
     </div>
     <div class="status" id="status"></div>
   </section>
@@ -100,6 +112,16 @@
   <section class="card hidden" id="tips-card">
     <h2>这个主题常用的表达</h2>
     <div id="tips-body"></div>
+  </section>
+
+  <section class="card hidden" id="pro-card">
+    <h2>学习画像 <span style="font-weight:400;color:var(--muted);font-size:13px">按你攒的批改台账诊断</span></h2>
+    <div id="pro-body"></div>
+    <div class="row">
+      <button class="mini" id="pro-copy">复制画像</button>
+      <span class="grow"></span>
+      <button class="mini" id="pro-clear">清空台账</button>
+    </div>
   </section>
 
   <section class="card hidden" id="fb-card">
@@ -130,7 +152,9 @@
 'use strict';
   var API = '/api/en-writing';
   var LS = 'xixi.en-writing.draft.v1';
-  var state = { topic: null, tips: null, feedback: null, busy: false, lastAction: null };
+  var LSL = 'xixi.en-writing.log.v1';   // 批改台账：跨篇诊断的原料，只在本机
+  var LSP = 'xixi.en-writing.profile.v1'; // 最近一次画像，点开不重新花钱
+  var state = { topic: null, tips: null, feedback: null, profile: null, busy: false, lastAction: null };
 
   function el(id) { return document.getElementById(id); }
   function mk(tag, cls, text) {
@@ -317,6 +341,7 @@
     rw.hidden = !d.rewrite;
     el('fb-rewrite').textContent = d.rewrite || '';
     el('fb-title').textContent = '批改结果 · ' + (d.wordCount || 0) + ' 词';
+    logPush(d);
     el('fb-card').classList.remove('hidden');
   }
   function feedbackText() {
@@ -347,6 +372,132 @@
     try {
       var d = await callApi({ mode: 'correct', topic: state.topic.en, topicZh: state.topic.zh, text: text });
       renderFeedback(d);
+      setStatus('');
+      state.lastAction = null;
+    } catch (e) {
+      setStatus(e.message, true);
+    }
+  }
+
+  /* ---------- 批改台账（本机）与学习画像 ---------- */
+  function logRead() {
+    try { var a = JSON.parse(localStorage.getItem(LSL) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+  }
+  function logPush(d) {
+    var list = logRead();
+    var kinds = {};
+    (d.errors || []).forEach(function (x) { var k = x.kind || '其他'; kinds[k] = (kinds[k] || 0) + 1; });
+    list.push({
+      at: Date.now(),
+      topic: (state.topic && state.topic.en) || '',
+      wordCount: d.wordCount || 0,
+      kinds: kinds,
+      quotes: (d.errors || []).slice(0, 12).map(function (x) { return String(x.quote || '').slice(0, 60); }),
+      text: String(el('essay').value || '').slice(0, 400),
+    });
+    while (list.length > 30) list.shift();   // 留最近 30 篇，太久远的规律早变了
+    try { localStorage.setItem(LSL, JSON.stringify(list)); } catch (e) { /* 存不下算了 */ }
+  }
+
+  // 只统计不花钱的部分：句长、从句率、错误类型累计，都在本机算好再交给模型看规律
+  function analyze(list) {
+    var kindTotals = {}, quotes = {}, sents = [], tenseErrs = 0;
+    list.forEach(function (e) {
+      Object.keys(e.kinds || {}).forEach(function (k) {
+        kindTotals[k] = (kindTotals[k] || 0) + e.kinds[k];
+        if (/时态/.test(k)) tenseErrs += e.kinds[k];
+      });
+      (e.quotes || []).forEach(function (q) { if (q) quotes[q] = (quotes[q] || 0) + 1; });
+      String(e.text || '').split(/(?<=[.!?])\s+/).forEach(function (x) { if (x.trim()) sents.push(x.trim()); });
+    });
+    var SUB = /\b(because|which|who|whom|whose|although|though|unless|while|after|before|since|when|where|that|so that|if)\b/i;
+    var NONFIN = /(^|,)\s*(-ing|\w*ing)|\bto\s+\w+/i; // 粗算：句首/逗号后 -ing 或 to do
+    var complex = 0, words = 0;
+    sents.forEach(function (x) {
+      words += x.split(/\s+/).length;
+      if (SUB.test(x) || NONFIN.test(x)) complex++;
+    });
+    var top = Object.keys(quotes).sort(function (a, b) { return quotes[b] - quotes[a]; }).slice(0, 8);
+    var times = list.map(function (e) { return e.at; }).sort(function (a, b) { return a - b; });
+    var dayMs = 86400000;
+    return {
+      n: list.length,
+      span: times.length > 1 ? Math.max(1, Math.round((times[times.length - 1] - times[0]) / dayMs)) + ' 天内 ' + list.length + ' 篇' : '刚开始攒',
+      kindTotals: kindTotals,
+      tenseErrs: tenseErrs,
+      avgSentenceWords: sents.length ? +(words / sents.length).toFixed(1) : 0,
+      simpleRate: sents.length ? +(1 - complex / sents.length).toFixed(2) : 0,
+      connectiveRate: sents.length ? +(complex / sents.length).toFixed(2) : 0,
+      sentenceCount: sents.length,
+      topQuotes: top,
+      samples: list.slice(-6).map(function (e) { return e.text; }).filter(Boolean),
+    };
+  }
+
+  function renderProfile(d) {
+    state.profile = d;
+    try { localStorage.setItem(LSP, JSON.stringify(d)); } catch (e) { /* ok */ }
+    var body = el('pro-body');
+    body.innerHTML = '';
+    if (d.portrait) body.appendChild(mk('p', 'count', d.portrait));
+    (d.weaknesses || []).forEach(function (w) {
+      var box = mk('div', 'wk');
+      box.appendChild(mk('b', null, '🎯 ' + w.name));
+      if (w.evidence) box.appendChild(mk('div', 'ev', '证据：' + w.evidence));
+      if (w.how) box.appendChild(mk('div', 'how', '怎么补：' + w.how));
+      body.appendChild(box);
+    });
+    (d.lessons || []).forEach(function (l, i) {
+      var st = mk('div', 'step');
+      st.appendChild(mk('span', 'tag', l.stage || ('第 ' + (i + 1) + ' 步')));
+      st.appendChild(mk('h3', null, l.title));
+      if (l.teach) st.appendChild(mk('div', null, l.teach));
+      (l.examples || []).forEach(function (x) {
+        var line = mk('div', 'ex');
+        if (x.wrong) line.appendChild(mk('span', 'no', x.wrong));
+        line.appendChild(document.createTextNode((x.wrong ? '→ ' : '') + x.right));
+        st.appendChild(line);
+      });
+      if (l.drill) st.appendChild(mk('div', 'drill', '✏️ 练一句：' + l.drill));
+      body.appendChild(st);
+    });
+    if (d.nextFocus) body.appendChild(mk('div', 'focus', '下次只练这一件：' + d.nextFocus));
+    var hint = mk('p', 'count', '只把你本机的句长/从句率/错误分布和最近 6 篇的节选发给了模型；全文没离开这台设备。');
+    hint.style.marginTop = '8px';
+    body.appendChild(hint);
+    el('pro-card').classList.remove('hidden');
+  }
+  function profileText() {
+    var d = state.profile;
+    if (!d) return '';
+    var out = ['# 学习画像', d.portrait || '', '', '## 薄弱环节'];
+    (d.weaknesses || []).forEach(function (w, i) {
+      out.push((i + 1) + '. ' + w.name);
+      if (w.evidence) out.push('   证据：' + w.evidence);
+      if (w.how) out.push('   怎么补：' + w.how);
+    });
+    out.push('', '## 循序渐进微练习');
+    (d.lessons || []).forEach(function (l, i) {
+      out.push((l.stage || '第 ' + (i + 1) + ' 步') + '：' + l.title);
+      if (l.teach) out.push('   ' + l.teach);
+      (l.examples || []).forEach(function (x) { out.push('   ' + (x.wrong ? x.wrong + ' → ' : '') + x.right); });
+      if (l.drill) out.push('   练一句：' + l.drill);
+    });
+    if (d.nextFocus) out.push('', '下次只练这一件：' + d.nextFocus);
+    return out.join('\n');
+  }
+  async function askProfile() {
+    setStatus('');
+    state.lastAction = askProfile;
+    var list = logRead();
+    if (list.length < 3) {
+      setStatus('台账里只有 ' + list.length + ' 篇，写满 3 篇批改才有把握诊断规律——样本太少模型也只能瞎猜。', true);
+      return;
+    }
+    setStatus('正在翻你攒的 ' + list.length + ' 篇批改记录，找跨篇规律（约 15~30 秒）…');
+    try {
+      var d = await callApi({ mode: 'profile', stats: analyze(list) });
+      renderProfile(d);
       setStatus('');
       state.lastAction = null;
     } catch (e) {
@@ -391,6 +542,16 @@
     el('tips-btn').addEventListener('click', getTips);
     el('fix-btn').addEventListener('click', correct);
     el('fb-copy').addEventListener('click', function (ev) { copyText(feedbackText(), ev.currentTarget); });
+    el('pro-btn').addEventListener('click', askProfile);
+    el('pro-copy').addEventListener('click', function (ev) { copyText(profileText(), ev.currentTarget); });
+    el('pro-clear').addEventListener('click', function () {
+      if (confirm('清空批改台账？学习画像要重新攒记录才生成（草稿和主题不受影响）')) {
+        try { localStorage.removeItem(LSL); localStorage.removeItem(LSP); } catch (e) { /* ok */ }
+        el('pro-card').classList.add('hidden');
+        setStatus('台账已清空，写完三篇再来诊断。');
+      }
+    });
+    try { var lastPro = JSON.parse(localStorage.getItem(LSP) || 'null'); if (lastPro && lastPro.kind === 'profile') renderProfile(lastPro); } catch (e) { /* 坏档就算了 */ }
     el('fb-copyrw').addEventListener('click', function (ev) { copyText((state.feedback && state.feedback.rewrite) || '', ev.currentTarget); });
     var t0 = 0;
     el('essay').addEventListener('input', function () {
@@ -405,6 +566,7 @@
   if (typeof window !== 'undefined') {
     window.enWriting = {
       state: state, callApi: callApi, renderTopic: renderTopic, newTopic: newTopic,
+      logRead: logRead, logPush: logPush, analyze: analyze, askProfile: askProfile, renderProfile: renderProfile, profileText: profileText,
       renderTips: renderTips, getTips: getTips, renderFeedback: renderFeedback, correct: correct,
       feedbackText: feedbackText, wordCount: wordCount, saveDraft: saveDraft, loadDraft: loadDraft,
     };

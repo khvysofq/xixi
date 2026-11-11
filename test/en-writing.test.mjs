@@ -96,3 +96,55 @@ test('normalizeCorrect：错误截 12、缺 quote 或 fix 的丢弃、词数自�
   assert.equal(out.wordCount, 10, '词数按原文算（\S+ 计）');
   assert.throws(() => ew.normalizeCorrect({}, { topic: 'T', text: 'a b c' }), /没批改/);
 });
+
+/* ---------- 学习画像（跨篇台账） ---------- */
+
+test('validateStats：少于 3 篇直接拒收，样本/句数/长度都有上限', () => {
+  assert.equal(ew.validateStats(null).ok, false);
+  assert.equal(ew.validateStats({ n: 2, samples: ['x'] }).ok, false, '样本太少不诊断');
+  assert.match(ew.validateStats({ n: 2 }).error, /3 篇/);
+  assert.equal(ew.validateStats({ n: 3 }).ok, false, '有 n 但没内容也不行');
+  const fat = {
+    n: 999, kindTotals: Object.fromEntries(Array.from({ length: 30 }, (_, i) => ['k' + i, i + 1])),
+    samples: Array.from({ length: 20 }, () => 's'.repeat(500)),
+    topQuotes: Array.from({ length: 30 }, (_, i) => 'q' + i),
+    avgSentenceWords: 5000, simpleRate: 7,
+  };
+  const out = ew.validateStats(fat).stats;
+  assert.equal(out.n, 200);
+  assert.equal(Object.keys(out.kindTotals).length, 10);
+  assert.equal(out.samples.length, 6);
+  assert.ok(out.samples[0].length <= 400, '单篇节选截 400');
+  assert.equal(out.topQuotes.length, 12);
+  assert.equal(out.avgSentenceWords, 999);
+  assert.equal(out.simpleRate, 1, '比率封顶 1');
+});
+
+test('profile 提示词：查句型单一和时态单一，讲台阶不并列，证据要能指出来', () => {
+  const p = ew.buildProfilePrompt({ stats: { n: 6, kindTotals: { 时态: 9 }, samples: ['Last winter I go to a shop.'] } });
+  assert.match(p, /多次批改/, '是跨篇画像不是单篇批改');
+  assert.match(p, /只会写简单句|句型单一/);
+  assert.match(p, /长短句结合|从句|非谓语|名词化/, '把 native 表达手段列全');
+  assert.match(p, /一般过去时.*过去进行时.*现在完成时|叙事三件套/s, '时态循序渐进，不许甩十六时态');
+  assert.match(p, /台阶/, 'lessons 要排成递进');
+  assert.match(p, /数字|频次/, 'evidence 必须拿台账数据说话');
+  assert.match(p, /多读多练/, '禁止说空话（作为反例出现）');
+  assert.match(p, /<<<本地统计/, '素材进定界块');
+});
+
+test('normalizeProfile：weak 截 4 且没证据的丢、lesson 截 4、全空报错', () => {
+  const fat = {
+    portrait: 'p',
+    weaknesses: Array.from({ length: 6 }, (_, i) => ({ name: 'w' + i, evidence: 'e', how: 'h' }))
+      .concat([{ name: '空口白话', evidence: '', how: '' }]),
+    lessons: Array.from({ length: 6 }, (_, i) => ({ title: 'l' + i, examples: [{ wrong: 'a', right: 'b' }, { wrong: '', right: '' }, { right: 'keep' }], drill: 'd' })),
+    next_focus: 'focus',
+  };
+  const out = ew.normalizeProfile(fat);
+  assert.equal(out.weaknesses.length, 4);
+  assert.ok(!out.weaknesses.some((w) => w.name === '空口白话'));
+  assert.equal(out.lessons.length, 4);
+  assert.equal(out.lessons[0].examples.length, 2, 'wrong/right 都空的丢');
+  assert.equal(out.nextFocus, 'focus');
+  assert.throws(() => ew.normalizeProfile({}), /没诊断出名堂/);
+});
