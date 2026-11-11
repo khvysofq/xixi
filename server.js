@@ -5,11 +5,13 @@ const http = require('node:http');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const sceneGuide = require('./lib/scene-guide.js');
+const enWriting = require('./lib/en-writing.js');
 
 const publicDir = path.join(__dirname, 'public');
 const port = Number(process.env.PORT || 10801);
 const host = process.env.HOST || '0.0.0.0';
 const API_PATH = '/api/scene-guide';
+const WRITE_PATH = '/api/en-writing';
 const MAX_BODY_BYTES = 12000;
 const BOOT_AT = new Date(); // 健在哪个代码版本上跑的，靠这个时间跟文件 mtime 对
 
@@ -71,28 +73,44 @@ function clientIp(req) {
   return (req.socket && req.socket.remoteAddress) || 'unknown';
 }
 
-async function handleApi(req, res, pathname) {
-  if (pathname === `${API_PATH}/health`) {
-    // 不回任何密钥，只用来判断“接口在不在、跑的是新代码还是旧进程”
-    let codeMtime = null;
-    try {
-      const info = await fs.stat(path.join(__dirname, 'server.js'));
-      codeMtime = info.mtime.toISOString();
-    } catch { /* 读不到就算了 */ }
-    sendJson(res, 200, {
-      ok: true,
-      model: sceneGuide.CONFIG.model,
-      binary: sceneGuide.CONFIG.bin,
-      pid: process.pid,
-      startedAt: BOOT_AT.toISOString(),
-      uptimeSec: Math.round(process.uptime()),
-      serverJsMtime: codeMtime,
-      staleCode: !!(codeMtime && new Date(codeMtime) > new Date(BOOT_AT.getTime() + 1000)),
-      todayUsed: sceneGuide.budgetUsed(),
-    });
+async function apiHealth(req, res, pathname) {
+  if (pathname !== `${API_PATH}/health` && pathname !== `${WRITE_PATH}/health`) {
+    sendJson(res, 404, { ok: false, error: '没有这个健康检查接口' });
     return;
   }
-  if (pathname !== API_PATH) {
+  // 不回任何密钥，只用来判断「接口在不在、跑的是新代码还是旧进程」
+  let codeMtime = null;
+  try {
+    const info = await fs.stat(path.join(__dirname, 'server.js'));
+    codeMtime = info.mtime.toISOString();
+  } catch { /* 读不到就算了 */ }
+  sendJson(res, 200, {
+    ok: true,
+    tool: pathname.startsWith(WRITE_PATH) ? 'en-writing' : 'scene-guide',
+    model: sceneGuide.CONFIG.model,
+    binary: sceneGuide.CONFIG.bin,
+    pid: process.pid,
+    startedAt: BOOT_AT.toISOString(),
+    uptimeSec: Math.round(process.uptime()),
+    serverJsMtime: codeMtime,
+    staleCode: !!(codeMtime && new Date(codeMtime) > new Date(BOOT_AT.getTime() + 1000)),
+    todayUsed: sceneGuide.budgetUsed(),
+    todayWritingUsed: enWriting.budgetUsed(),
+  });
+}
+
+const GEN_APIS = {
+  [API_PATH]: { tag: 'scene-guide', mod: sceneGuide },
+  [WRITE_PATH]: { tag: 'en-writing', mod: enWriting },
+};
+
+async function handleApi(req, res, pathname) {
+  if (pathname.endsWith('/health') && GEN_APIS[pathname.slice(0, pathname.lastIndexOf('/health'))]) {
+    await apiHealth(req, res, pathname);
+    return;
+  }
+  const api = GEN_APIS[pathname];
+  if (!api) {
     sendJson(res, 404, { ok: false, error: '没有这个接口' });
     return;
   }
@@ -107,7 +125,7 @@ async function handleApi(req, res, pathname) {
   const logIt = (status, note) => {
     if (logged) return;
     logged = true;
-    const line = `[scene-guide] ${new Date().toISOString()} POST from=${ip} http=${status} ${Date.now() - t0}ms${note ? ' ' + note : ''}`;
+    const line = `[${api.tag}] ${new Date().toISOString()} POST from=${ip} http=${status} ${Date.now() - t0}ms${note ? ' ' + note : ''}`;
     (status >= 500 || status === 429 ? console.error : console.log)(line);
   };
   res.on('close', () => { if (!res.writableEnded) logIt(499, 'client aborted before response'); });
@@ -121,7 +139,7 @@ async function handleApi(req, res, pathname) {
     return;
   }
   try {
-    const data = await sceneGuide.handleRequest(body, ip);
+    const data = await api.mod.handleRequest(body, ip);
     logIt(200, `mode=${data.kind || (body && body.mode)} cached=${!!data.cached}`);
     sendJson(res, 200, { ok: true, data });
   } catch (e) {

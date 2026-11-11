@@ -155,10 +155,32 @@ POST /api/scene-guide          → {ok, data}
 
 遗留的「更多表达」（more）还有一道质量兜底：模型偶尔偷懒只交一类、句式为空，服务端发现 `sections < 3 或 patterns 为空` 会自动重跑一次，取更丰满的那份（测试里用 `FAKE_OPENCLAW_THIN=1` 验证）。前端已去掉该模块，类似表达改由 `explain.similar` 带出（3~4 条，含近义+近结构）。explain 加 contexts 后一次生成约 15~35 秒（比旧的 10~20 秒长，换来词典级的语境层）。
 
+## 工具页面：英文写作教练
+
+线上入口：https://xixi.publicrandom.com/tools/en-writing/
+
+练的目标很窄但很实在：**像 native speaker 一样把一件事写完整**。三个动作，一屏放完（主人要求极简，不堆砌）：
+
+- **🎲 换一个主题**：进门自动抽一题（24 题本地题库，叙述/讨论两类，带中文翻译和「往这几个方向写」提示）。随机出题**不打模型、不烧额度**，再抽会把上一题作为 `avoid` 传过去，不会连着同一题。
+- **🧠 表达帮助**：按当前主题生成 ⏳ 时态怎么搭（带示范句）、🧱 可直接套的句式（留 `___` 空位）、🔤 这个主题的高频搭配、📖 45~70 词参考范文（折叠着，页面明说「别抄，找节奏」）。约 10~25 秒。
+- **✍️ 批改这篇**：逐条错误 `原句划线 → 替换句 + 类型徽标 + 为什么`，再给 🌟 写得好的句子、整体点评（按「先练什么」给建议）、可折叠的润色全文。约 20~40 秒。词数少于 25 客户端直接拦住，不花模型钱。
+
+作文与主题**只存在这台浏览器的 localStorage**（一个 key，`xixi.en-writing.draft.v1`），重开原样恢复；有草稿时不会再自动抽题打断思路。批改接口有**独立的额度桶**（`ENWRITING_IP_LIMIT`/`ENWRITING_DAILY_LIMIT`），写作玩多了不会把场景英语的额度吃掉。换主题会收起上一轮的帮助与批改，避免新旧混着看。
+
+```
+GET  /api/en-writing/health  → {ok, tool, model, pid, staleCode, todayWritingUsed, …}
+POST /api/en-writing         → {ok, data}
+     body: {"mode":"topic","avoid":"上一题英文"}          （本地题库随机，不打模型）
+     body: {"mode":"tips","topic":"…","topicZh":"…","type":"叙述|讨论"}
+     body: {"mode":"correct","topic":"…","text":"作文…"}   （≤4200 字符）
+```
+
+服务端在 `lib/en-writing.js`：复用 scene-guide 的 CLI 通道（`runCli`/`extractJson`/`cleanText`/`GuideError`），自己的校验、提示词、归一、预算；错误 `quote` 必须逐字来自原文（提示词钉死），模型没错误就交空数组、不许编造。
+
 ## 测试与上线自检
 
 ```bash
-npm test        # 70 个用例：站点 5 + 生成模块 23 + 接口 13 + 页面 29（含讲解使用语境/禁忌、类似表达、生词本分类/掌握/导出、练一练、整段连播、护眼配色回归、405、重试、偷懒重跑）
+npm test        # 96 个用例：站点 5 + 场景生成 23 + 场景接口 13 + 场景页面 29 + 写作模块 7 + 写作接口 8 + 写作页面 11（含讲解使用语境/禁忌、生词本、练一练、连播、护眼回归、写作三 mode、草稿恢复、限流分桶）
 npm run verify  # 打公网：页面字节一致 + 接口在不在 + 进程是否比代码旧（退出码非 0 = 没上成）
 npm run verify:probe  # 额外花一次额度跑真生成
 ```
@@ -191,10 +213,15 @@ public/wish-pool/index.html            原来的「xixi的许愿池」那一页
 public/tools/classify-stats/index.html 派费分类统计工具（单文件构建产物）
 public/tools/csv-inspect/index.html    CSV 体检工具（无依赖）
 public/tools/scene-english/index.html  场景英语提示（页面无依赖，生成走 /api/scene-guide）
+public/tools/en-writing/index.html     英文写作教练（极简三卡，生成走 /api/en-writing）
 lib/scene-guide.js                     生成接口：提示词、模型调用、抠 JSON、限流缓存
+lib/en-writing.js                      写作教练：本地题库 + tips/correct 提示词与归一（复用 scene-guide 的 CLI 通道）
 server.js                              Node.js HTTP 服务（静态文件 + 目录 index 回退 + /api/scene-guide）
 test/site.test.mjs                     站点级用例
 test/scene-guide.test.mjs              生成模块单测
 test/scene-api.test.mjs                接口端到端（起真服务 + 假 CLI）
 test/scene-page.test.mjs               工具页面用例
+test/en-writing.test.mjs               写作模块单测（题库/校验/提示词/归一）
+test/enwriting-api.test.mjs            写作接口端到端（起真服务 + 假 CLI）
+test/enwriting-page.test.mjs           写作教练页面用例
 ```

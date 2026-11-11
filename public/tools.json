@@ -95,6 +95,18 @@
       ]
     },
     {
+      "slug": "en-writing",
+      "category": "learn",
+      "name": "英文写作教练",
+      "desc": "随机给个主题动笔写，🧠 要句式就给句式，✍️ 写完逐条批改加润色，练「把一件事写完整」。",
+      "href": "/tools/en-writing/",
+      "icon": "i-pen",
+      "tags": [
+        "写作",
+        "需要希希服务生成"
+      ]
+    },
+    {
       "slug": "wish-pool",
       "category": "site",
       "name": "许愿池",

@@ -35,6 +35,11 @@ const TOOLS = {
     dir: siteRoot,
     source: path.join('public', 'tools', 'scene-english', 'index.html'),
   },
+  'en-writing': {
+    // 极简写作教练：主题本地随机，tips/批改走站点 /api/en-writing
+    dir: siteRoot,
+    source: path.join('public', 'tools', 'en-writing', 'index.html'),
+  },
 };
 
 const args = process.argv.slice(2);

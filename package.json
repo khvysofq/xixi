@@ -5,7 +5,7 @@
   "description": "希希的工具箱 —— 静态小工具站点（首页为工具导航）",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/site.test.mjs test/scene-guide.test.mjs test/scene-api.test.mjs test/scene-page.test.mjs",
+    "test": "node --test test/site.test.mjs test/scene-guide.test.mjs test/scene-api.test.mjs test/scene-page.test.mjs test/en-writing.test.mjs test/enwriting-api.test.mjs test/enwriting-page.test.mjs",
     "verify": "node scripts/verify-live.cjs",
     "verify:probe": "node scripts/verify-live.cjs --probe",
     "build:tool": "node ../tools/classify-stats/build.mjs",

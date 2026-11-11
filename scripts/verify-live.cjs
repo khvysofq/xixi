@@ -14,7 +14,7 @@ const ROOT = path.resolve(__dirname, '..');
 // 会被服务进程“吃进内存”的文件；改这些必须重启
 const CODE_FILES = ['server.js', 'lib/scene-guide.js'];
 // 静态页面不需要重启，只核对 md5 长度与线上是否一致
-const PAGES = ['public/index.html', 'public/tools.json', 'public/tools/scene-english/index.html', 'public/tools/csv-inspect/index.html'];
+const PAGES = ['public/index.html', 'public/tools.json', 'public/tools/scene-english/index.html', 'public/tools/en-writing/index.html', 'public/tools/csv-inspect/index.html'];
 
 function newestMtime(files) {
   let newest = 0, name = '';

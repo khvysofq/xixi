@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>英文写作教练 · 希希的工具箱</title>
+<style>
+  :root {
+    --bg: #e9efe6; --ink: #2d3b31; --accent: #3f7d5c; --line: #cfdad0;
+    --card: #f8fbf5; --muted: #6b7a6d; --ok: #2f8f5b; --bad: #b0483a;
+    --chip: #e3ecdf; --fix-bg: #f2f8ee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f2621; --ink: #dce5da; --accent: #7cbf98; --line: #3a453b;
+      --card: #272f28; --muted: #93a295; --ok: #79c496; --bad: #e08a7a;
+      --chip: #2c3831; --fix-bg: #2b362e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.7 -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%; }
+  .wrap { width: min(660px, calc(100% - 28px)); margin: 0 auto; padding: 28px 0 72px; }
+  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 22px; }
+  header h1 { font-size: 20px; margin: 0; font-weight: 650; letter-spacing: .5px; }
+  header a { margin-left: auto; font-size: 14px; color: var(--accent); text-decoration: none; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+  .topic-en { font-size: 21px; font-weight: 650; line-height: 1.45; margin: 6px 0 2px; }
+  .topic-zh { color: var(--muted); font-size: 14px; }
+  .topic-hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .chip { display: inline-block; background: var(--chip); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--ink); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .grow { flex: 1 1 auto; }
+  button { font: inherit; border-radius: 10px; border: 1px solid var(--line); background: var(--card);
+    color: var(--ink); padding: 9px 16px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.mini { padding: 3px 10px; font-size: 13px; border-radius: 8px; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  textarea { width: 100%; min-height: 220px; border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+    padding: 14px; font: 16px/1.75 inherit; color: var(--ink); resize: vertical; }
+  textarea:focus { outline: 2px solid rgba(63,125,92,.35); border-color: var(--accent); }
+  .count { text-align: right; color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .status { font-size: 14px; color: var(--muted); min-height: 20px; }
+  .status.err { color: var(--bad); }
+  .hidden { display: none; }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--ink); font-weight: 650; }
+  .t-row { margin-bottom: 10px; }
+  .t-row b { font-weight: 650; }
+  .t-ex { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .mv { padding: 7px 10px; border-left: 3px solid var(--accent); background: var(--fix-bg); border-radius: 8px; margin-bottom: 7px; }
+  .mv .en { font-size: 15px; }
+  .mv .zh { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .ph { display: inline-block; background: var(--chip); border-radius: 999px; padding: 4px 12px; margin: 0 6px 6px 0; font-size: 14px; }
+  .ph span { color: var(--muted); font-size: 12px; margin-left: 5px; }
+  details { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-top: 10px; }
+  summary { cursor: pointer; font-size: 14px; color: var(--accent); }
+  .err-item { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; background: var(--fix-bg); }
+  .err-item .q { color: var(--bad); text-decoration: line-through; margin-right: 8px; }
+  .err-item .f { font-weight: 650; }
+  .err-item .w { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .err-item .k { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+  .hl { font-size: 14px; margin: 4px 0; }
+  .comment { font-size: 14px; background: var(--chip); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
+  pre.rewrite { white-space: pre-wrap; word-break: break-word; font: 15px/1.7 inherit; margin: 8px 0 0; }
+  footer { color: var(--muted); font-size: 12px; line-height: 1.7; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>✍️ 英文写作教练</h1>
+    <a href="/">← 工具箱</a>
+  </header>
+
+  <section class="card" id="topic-card">
+    <span class="chip" id="t-type">叙述</span>
+    <div class="topic-en" id="t-en">…</div>
+    <div class="topic-zh" id="t-zh"></div>
+    <div class="topic-hint" id="t-hint"></div>
+    <div class="row">
+      <button id="dice">🎲 换一个主题</button>
+      <span class="grow"></span>
+      <span class="status" id="t-status"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <textarea id="essay" spellcheck="false" placeholder="Write here — 就围绕这个主题，把一件事说完整。
+不用长，5~10 句话也算数；写完点下面「批改」。"></textarea>
+    <div class="count" id="counter">0 words · 草稿自动存在本浏览器</div>
+    <div class="row">
+      <button id="tips-btn">🧠 表达帮助</button>
+      <button class="primary" id="fix-btn">✍️ 批改这篇</button>
+    </div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="card hidden" id="tips-card">
+    <h2>这个主题常用的表达</h2>
+    <div id="tips-body"></div>
+  </section>
+
+  <section class="card hidden" id="fb-card">
+    <h2 id="fb-title">批改结果</h2>
+    <div id="fb-errors"></div>
+    <div id="fb-highlights"></div>
+    <div class="comment hidden" id="fb-comment"></div>
+    <details id="fb-rewrite-box" hidden>
+      <summary>🌿 润色后的全文</summary>
+      <pre class="rewrite" id="fb-rewrite"></pre>
+    </details>
+    <div class="row">
+      <button class="mini" id="fb-copy">复制批改</button>
+      <button class="mini" id="fb-copyrw">复制润色全文</button>
+      <span class="grow"></span>
+      <span class="status" id="fb-status"></span>
+    </div>
+  </section>
+
+  <footer>
+    写作内容会发到<b>你自己的站点服务</b>（<code>/api/en-writing</code>）由服务器调模型批改，密钥只在服务端，浏览器看不到；
+    <b>别把公司运单、结算这类机密写进作文里</b>。主题随机和词数统计都在这台设备上完成。
+  </footer>
+</div>
+
+<script>
+(function () {
+'use strict';
+  var API = '/api/en-writing';
+  var LS = 'xixi.en-writing.draft.v1';
+  var state = { topic: null, tips: null, feedback: null, busy: false, lastAction: null };
+
+  function el(id) { return document.getElementById(id); }
+  function mk(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  /* ---------- 草稿 ---------- */
+  function saveDraft() {
+    try {
+      localStorage.setItem(LS, JSON.stringify({
+        topic: state.topic, text: el('essay').value, at: Date.now(),
+      }));
+    } catch (e) { /* 隐私模式存不下就算了 */ }
+  }
+  function loadDraft() {
+    try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { return null; }
+  }
+
+  /* ---------- 请求 ---------- */
+  async function callApi(payload) {
+    var res;
+    try {
+      res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      if (location.protocol === 'file:') throw new Error('本地双击打开时无法生成（要连站点的服务）');
+      throw new Error('连不上服务：' + e.message);
+    }
+    var json = null;
+    try { json = await res.json(); } catch (e) { json = null; }
+    if (json && json.ok) return json.data;
+    if (res.status === 404 || res.status === 405 || res.status === 501) {
+      throw new Error('写作接口没生效（HTTP ' + res.status + '），服务可能刚更新没重启。等十几秒点重试。');
+    }
+    throw new Error((json && json.error) || ('服务返回异常（HTTP ' + res.status + '）'));
+  }
+
+  function setStatus(msg, isErr) {
+    var st = el('status');
+    st.className = 'status' + (isErr ? ' err' : '');
+    st.textContent = msg || '';
+    if (isErr && state.lastAction) {
+      var b = mk('button', 'mini', '重试');
+      b.style.marginLeft = '8px';
+      b.addEventListener('click', function () { state.lastAction(); });
+      st.appendChild(b);
+    }
+  }
+
+  /* ---------- 主题 ---------- */
+  function renderTopic(t) {
+    state.topic = t;
+    el('t-type').textContent = t.type || '写作';
+    el('t-en').textContent = t.en;
+    el('t-zh').textContent = t.zh || '';
+    el('t-hint').textContent = t.hint ? '可以往这几个方向写：' + t.hint : '';
+    el('tips-card').classList.add('hidden');
+    el('fb-card').classList.add('hidden');
+    state.tips = null; state.feedback = null;
+    saveDraft();
+  }
+  async function newTopic() {
+    setStatus('');
+    state.lastAction = newTopic;
+    try {
+      var t = await callApi({ mode: 'topic', avoid: state.topic && state.topic.en });
+      renderTopic(t);
+      state.lastAction = null;
+    } catch (e) {
+      setStatus(e.message, true);
+    }
+  }
+
+  /* ---------- 词数 ---------- */
+  function wordCount(text) { return (String(text).match(/[A-Za-z0-9'-]+/g) || []).length; }
+  function updateCount() {
+    el('counter').textContent = wordCount(el('essay').value) + ' words · 草稿自动存在本浏览器';
+  }
+
+  /* ---------- 表达帮助 ---------- */
+  function renderTips(d) {
+    state.tips = d;
+    var body = el('tips-body');
+    body.innerHTML = '';
+    if ((d.tenses || []).length) {
+      var tw = mk('div');
+      tw.appendChild(mk('h2', null, '⏳ 时态怎么搭'));
+      d.tenses.forEach(function (t) {
+        var row = mk('div', 't-row');
+        row.appendChild(mk('b', null, t.name));
+        if (t.why) row.appendChild(document.createTextNode(' — ' + t.why));
+        if (t.example) row.appendChild(mk('div', 't-ex', t.example));
+        tw.appendChild(row);
+      });
+      body.appendChild(tw);
+    }
+    if ((d.moves || []).length) {
+      var mw = mk('div');
+      mw.appendChild(mk('h2', null, '🧱 可直接套的句式'));
+      d.moves.forEach(function (m) {
+        var box = mk('div', 'mv');
+        box.appendChild(mk('div', 'en', m.en));
+        if (m.zh) box.appendChild(mk('div', 'zh', m.zh));
+        mw.appendChild(box);
+      });
+      body.appendChild(mw);
+    }
+    if ((d.phrases || []).length) {
+      var pw = mk('div');
+      pw.appendChild(mk('h2', null, '🔤 这个主题的高频搭配'));
+      var wrap = mk('div');
+      d.phrases.forEach(function (p) {
+        var chip = mk('span', 'ph', p.en);
+        if (p.zh) chip.appendChild(mk('span', null, p.zh));
+        wrap.appendChild(chip);
+      });
+      pw.appendChild(wrap);
+      body.appendChild(pw);
+    }
+    if (d.sample && d.sample.en) {
+      var det = mk('details');
+      det.appendChild(mk('summary', null, '📖 参考范文（45~70 词，别抄，找节奏）'));
+      det.appendChild(mk('pre', 'rewrite', d.sample.en));
+      if (d.sample.zh) {
+        var z = mk('pre', 'rewrite', d.sample.zh);
+        z.style.color = 'var(--muted)';
+        det.appendChild(z);
+      }
+      body.appendChild(det);
+    }
+    el('tips-card').classList.remove('hidden');
+  }
+  async function getTips() {
+    if (!state.topic) { setStatus('主题还没出来，稍一下下'); return; }
+    setStatus('正在按主题整理表达（10~25 秒）…');
+    state.lastAction = getTips;
+    try {
+      var d = await callApi({ mode: 'tips', topic: state.topic.en, topicZh: state.topic.zh, type: state.topic.type });
+      renderTips(d);
+      setStatus('');
+      state.lastAction = null;
+    } catch (e) {
+      setStatus(e.message, true);
+    }
+  }
+
+  /* ---------- 批改 ---------- */
+  function renderFeedback(d) {
+    state.feedback = d;
+    var errs = el('fb-errors');
+    errs.innerHTML = '';
+    if (!(d.errors || []).length) {
+      errs.appendChild(mk('p', 'count', '没挑出硬伤 🎉 看看润色版和点评就行。'));
+    }
+    (d.errors || []).forEach(function (x) {
+      var item = mk('div', 'err-item');
+      var line = mk('div');
+      line.appendChild(mk('span', 'q', x.quote));
+      line.appendChild(document.createTextNode(' → '));
+      line.appendChild(mk('b', 'f', x.fix));
+      if (x.kind) line.appendChild(mk('span', 'k', x.kind));
+      item.appendChild(line);
+      if (x.why) item.appendChild(mk('div', 'w', x.why));
+      errs.appendChild(item);
+    });
+    var hl = el('fb-highlights');
+    hl.innerHTML = '';
+    (d.highlight || []).forEach(function (h) {
+      var line = mk('div', 'hl');
+      line.appendChild(document.createTextNode('🌟 ' + h.en));
+      if (h.zh) line.appendChild(mk('div', 'w', h.zh));
+      hl.appendChild(line);
+    });
+    var c = el('fb-comment');
+    c.classList.toggle('hidden', !d.comment);
+    c.textContent = d.comment || '';
+    var rw = el('fb-rewrite-box');
+    rw.hidden = !d.rewrite;
+    el('fb-rewrite').textContent = d.rewrite || '';
+    el('fb-title').textContent = '批改结果 · ' + (d.wordCount || 0) + ' 词';
+    el('fb-card').classList.remove('hidden');
+  }
+  function feedbackText() {
+    var d = state.feedback;
+    if (!d) return '';
+    var out = ['# 批改：' + (state.topic ? state.topic.en : '')];
+    if ((d.errors || []).length) {
+      out.push('', '## 错误');
+      d.errors.forEach(function (x, i) {
+        out.push((i + 1) + '. ' + x.quote + ' → ' + x.fix + (x.kind ? '（' + x.kind + '）' : ''));
+        if (x.why) out.push('   ' + x.why);
+      });
+    }
+    (d.highlight || []).forEach(function (h) { out.push('🌟 ' + h.en + (h.zh ? ' — ' + h.zh : '')); });
+    if (d.comment) out.push('', '点评：' + d.comment);
+    if (d.rewrite) out.push('', '## 润色后的全文', d.rewrite);
+    return out.join('\n');
+  }
+  async function correct() {
+    var text = el('essay').value.trim();
+    if (!state.topic) { setStatus('先等主题出来'); return; }
+    if (wordCount(text) < 25) {
+      setStatus('至少写个两三句（约 25 词）才好批改——先随便写，别怕错。', true);
+      return;
+    }
+    setStatus('正在逐句看你的文章（长文可能要 20~40 秒）…');
+    state.lastAction = correct;
+    try {
+      var d = await callApi({ mode: 'correct', topic: state.topic.en, topicZh: state.topic.zh, text: text });
+      renderFeedback(d);
+      setStatus('');
+      state.lastAction = null;
+    } catch (e) {
+      setStatus(e.message, true);
+    }
+  }
+
+  /* ---------- 复制 ---------- */
+  async function copyText(text, btn) {
+    if (!text) return;
+    var done = function () {
+      var old = btn.textContent;
+      btn.textContent = '已复制 ✓';
+      setTimeout(function () { btn.textContent = old; }, 1500);
+    };
+    try { await navigator.clipboard.writeText(text); done(); }
+    catch (e) {
+      var ta = mk('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); } catch (e2) { setStatus('浏览器不让复制，长按手动选吧', true); }
+      document.body.removeChild(ta);
+    }
+  }
+
+  /* ---------- 启动 ---------- */
+  async function boot() {
+    var saved = loadDraft();
+    if (saved && saved.topic) renderTopic(saved.topic);
+    if (saved && saved.text) { el('essay').value = saved.text; updateCount(); }
+    try {
+      var res = await fetch(API + '/health');
+      var h = await res.json();
+      if (!h.ok) throw new Error('');
+    } catch (e) {
+      el('t-status').className = 'status err';
+      el('t-status').textContent = '连不上写作服务（站点进程可能刚更新），刷新前稍等十几秒';
+    }
+    if (!state.topic) newTopic();
+    el('dice').addEventListener('click', newTopic);
+    el('tips-btn').addEventListener('click', getTips);
+    el('fix-btn').addEventListener('click', correct);
+    el('fb-copy').addEventListener('click', function (ev) { copyText(feedbackText(), ev.currentTarget); });
+    el('fb-copyrw').addEventListener('click', function (ev) { copyText((state.feedback && state.feedback.rewrite) || '', ev.currentTarget); });
+    var t0 = 0;
+    el('essay').addEventListener('input', function () {
+      updateCount();
+      clearTimeout(t0);
+      t0 = setTimeout(saveDraft, 400);
+    });
+    window.addEventListener('beforeunload', saveDraft);
+  }
+  boot();
+
+  if (typeof window !== 'undefined') {
+    window.enWriting = {
+      state: state, callApi: callApi, renderTopic: renderTopic, newTopic: newTopic,
+      renderTips: renderTips, getTips: getTips, renderFeedback: renderFeedback, correct: correct,
+      feedbackText: feedbackText, wordCount: wordCount, saveDraft: saveDraft, loadDraft: loadDraft,
+    };
+  }
+})();
+</script>
+</body>
+</html>
