@@ -342,7 +342,7 @@
       setStatus('至少写个两三句（约 25 词）才好批改——先随便写，别怕错。', true);
       return;
     }
-    setStatus('正在逐句看你的文章（长文可能要 20~40 秒）…');
+    setStatus('正在逐句看你的文章：先挑硬伤，再过一遍「语法对但 native 不这样说」的别扭句（长文约 30~60 秒）…');
     state.lastAction = correct;
     try {
       var d = await callApi({ mode: 'correct', topic: state.topic.en, topicZh: state.topic.zh, text: text });

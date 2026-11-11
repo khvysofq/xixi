@@ -109,8 +109,9 @@ test('POST correct：围栏 JSON 也能抠出来，错误/润色/点评/亮点�
     const r = await s.post('/api/en-writing', { mode: 'correct', topic: 'Describe a meal you still remember.', text: ESSAY });
     assert.equal(r.status, 200);
     const d = r.json.data;
-    assert.equal(d.errors.length, 2);
+    assert.equal(d.errors.length, 3, '含语法对但别扭的表达生硬类');
     assert.equal(d.errors[0].kind, '中式英语');
+    assert.ok(d.errors.some((e) => e.kind === '表达生硬'), 'native 二审要产出');
     assert.ok(d.rewrite && d.comment, '润色和点评要有');
     assert.equal(d.highlight.length, 1);
     assert.ok(d.wordCount > 30);

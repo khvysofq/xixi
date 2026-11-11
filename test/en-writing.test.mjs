@@ -58,7 +58,11 @@ test('correct 提示词：quote 必须逐字来自原文、rewrite 不添油加�
   assert.match(p, /不要新增原文没有的内容/);
   assert.match(p, /最多 12 条|最多 12/);
   assert.match(p, /I very like the meal\./, '原文要作为素材进 prompt');
-  assert.match(p, /没有错误就空数组，不许编造/);
+  assert.match(p, /表达生硬/, 'kind 枚举里有生硬类');
+  assert.match(p, /母语者在这个场合真会这么开口吗/, '要有 native 二审动作');
+  assert.match(p, /open the light/, '给直译搭配当反例');
+  assert.match(p, /播客或朋友/, '判断标准要具体');
+  assert.match(p, /才许交空数组/, '没硬伤不等于没问题');
 });
 
 test('normalizeTips：各组封顶、残条丢弃、全空报错', () => {
@@ -78,14 +82,16 @@ test('normalizeTips：各组封顶、残条丢弃、全空报错', () => {
 
 test('normalizeCorrect：错误截 12、缺 quote 或 fix 的丢弃、词数自己算', () => {
   const many = {
-    errors: Array.from({ length: 15 }, (_, i) => ({ quote: 'q' + i, fix: 'f' + i, why: 'w', kind: '语法' }))
-      .concat([{ quote: '', fix: '没原句也算错账' }]),
+    errors: [{ quote: 'q0', fix: 'f0', why: 'native 不这么说', kind: '表达生硬' },
+      ...Array.from({ length: 15 }, (_, i) => ({ quote: 'q' + (i + 1), fix: 'f' + (i + 1), why: 'w', kind: '语法' }))
+        .concat([{ quote: '', fix: '没原句也算错账' }])],
     rewrite: 'Clean text.',
     comment: '不错',
     highlight: [{ en: 'nice bit', zh: '顺' }, { en: '', zh: '空的' }],
   };
   const out = ew.normalizeCorrect(many, { topic: 'T', text: 'I like a cat and a dog and a fish.' });
   assert.equal(out.errors.length, 12);
+  assert.equal(out.errors[0].kind, '表达生硬', '生硬类的 kind 不能丢');
   assert.equal(out.highlight.length, 1, '空 highlight 丢弃');
   assert.equal(out.wordCount, 10, '词数按原文算（\S+ 计）');
   assert.throws(() => ew.normalizeCorrect({}, { topic: 'T', text: 'a b c' }), /没批改/);
