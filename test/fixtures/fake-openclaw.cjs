@@ -22,6 +22,7 @@ if (process.env.FAKE_OPENCLAW_THIN === '1' && isGuidePrompt(prompt)) {
 function isGuidePrompt(text) { return text.includes('"sections"'); }
 
 const isExplain = prompt.includes('"as_used"');
+const isModel = prompt.includes('"memorable"');
 const isAsk = prompt.includes('"verdict"');
 const isProfile = prompt.includes('"weaknesses"');
 const isTips = prompt.includes('"tenses"');
@@ -32,6 +33,21 @@ if (thin) {
   text = '{"sections":[{"title":"点单常用","items":[{"zh":"来一杯","en":"I\'ll have a latte","example":{"en":"I\'ll have a latte.","zh":"来个拿铁。"}}]}],"patterns":[]}';
 } else if (isExplain) {
   text = '{"phrase":"been meaning","as_used":"have been meaning to do sth","pattern":"have been meaning to do sth","meaning_zh":"一直想做但还没做成","structure_zh":"现在完成进行时：have been + doing，表示从之前持续到现在","why_zh":"不是打算做，是早就想做、一直没腾出手","examples":[{"en":"I\u0027ve been meaning to call him back.","zh":"我一直想给他回电话。"},{"en":"She\u0027s been meaning to try that place.","zh":"她一直想去试试那家店。"},{"en":"We\u0027ve been meaning to fix this for weeks.","zh":"这事我们一直想修，拖了好几周。"}],"contexts":[{"domain":"作品、创作","how":"隔多年重看重听，水准依旧在线","en":"I rewatched that show after ten years and it still holds up.","zh":"隔了十年重看那部剧，依然很能打。"},{"domain":"论断、证据","how":"经得起推敲，常用于否定句","en":"The evidence may not hold up in court.","zh":"这证据在法庭上可能站不住。"},{"domain":"耐用品","how":"鞋、电池、车子等用得久不坏","en":"The boots have held up well through three winters.","zh":"这靴子穿了三个冬天还很结实。"}],"not_for":"不能用来形容能力、才华、审美、品味","similar":[{"en":"I want to get that off my chest.","zh":"我想把这事说出来痛快痛快。","note":"更直接，没有拖了很久的意思"},{"en":"It\u0027s been on my mind for weeks.","zh":"这事我心里憋了好几周了。","note":"近结构：been + 名词，语气更轻"},{"en":"I keep meaning to get around to it.","zh":"我总说回头就做，一直没腾出手。","note":"keep doing 更口语、更自嘲"}],"caution":"别写成 I am meaning to do","category":"职场闲聊"}';
+} else if (isModel) {
+  // FAKE_MODEL_SHORT=1：第一跑故意只交 ~30 词（模拟模型手紧），第二次才写满——测服务端补长度重跑
+  let shortRun = false;
+  if (process.env.FAKE_MODEL_SHORT === '1') {
+    const mfs = require('node:fs');
+    const f = process.env.FAKE_OPENCLAW_TICK || '/tmp/fake-model-short';
+    let mn = 0;
+    try { mn = Number(mfs.readFileSync(f, 'utf8')) || 0; } catch (e) { /* 第一次 */ }
+    mn += 1;
+    try { mfs.writeFileSync(f, String(mn)); } catch (e) { /* 写不了就算了 */ }
+    shortRun = mn === 1;
+  }
+  const full = {"title":"The Deadline That Moved","paras":[{"en":"It started on a rainy Thursday, when my manager dropped a one-line message in our group chat: the client moved the deadline up by two weeks. I remember the exact feeling because my coffee was still hot in my hand, and nobody in the open office dared to speak. My teammate Xiao Zhou just looked at me and said, well, we knew this job would not be quiet.","zh":"事情始于一个雨天的周四，经理在群里甩来一行消息：客户把截止日提前了两周。我记得当时的手感，因为咖啡还烫在手里，开放办公区没人敢出声。"},{"en":"That night I walked home slowly under my umbrella, watching shop lights blur in the puddles, and I made a simple list in my head. First, what can we finish early, next week even. Second, what can we cut without hurting the client. Third, who do we ask for help before the fire starts, not after. I wrote it down on the back of a boarding pass, because paper somehow makes a promise heavier than a thought.","zh":"那晚我打着伞慢慢走回家，看店铺的灯光在水洼里晕开，脑子里列了张简单的清单。第一，什么可以提前做完。第二，什么可以砍掉又不伤到客户。第三，在起火之前去找谁帮忙，而不是之后。"},{"en":"Monday came, and I stood in front of the whiteboard with three clean options instead of one panicked face. The client picked the middle plan and even said the short version looked more confident than the long one. Two weeks later we shipped it on an ordinary Friday afternoon, no shouting, no all-nighter, which felt like its own kind of victory. The office light was the same gray as any other Friday, and yet the whole floor seemed to breathe a little deeper.","zh":"周一来了，我站在白板前拿出三个干脆的方案，而不是慌张的一张脸。客户选了中间那个，甚至说短版本看着比长的更笃定。两周后我们在一个平常的周五下午发了出去，没有吼叫没有通宵，这本身就像一种胜利。"},{"en":"Looking back, the small moment I keep is not the applause. It is that rainy walk with the umbrella, when panic turned into a list. I learned that pressure does not disappear. It just waits to see whether you will break it into steps, and the person who writes the list first usually sleeps better. That is the whole lesson, and it only cost me one rainy walk.","zh":"回头看，我留住的小瞬间不是掌声，而是那次打着伞的雨路——慌乱在那一刻变成了清单。我懂得了压力不会消失，它只是等着看你会不会把它拆成步骤；先写清单的人，通常睡得更香。"}],"memorable":[{"en":"It started on a rainy Thursday, when ___","zh":"把事拉进一个具体时刻的开头模板"},{"en":"I made a simple list in my head","zh":"慌乱的解药是把情绪拆成步骤"},{"en":"Looking back, the small moment I keep is not ___. It is ___","zh":"回看式收尾，先破再立"}]};
+  const short = {"title":"The Deadline That Moved","paras":[{"en":"It started on a rainy Thursday. My manager said the deadline moved up by two weeks. I was shocked but I made a list and we finished on time.","zh":"周四经理说截止提前两周，我做了个清单，按时完成了。"}],"memorable":[{"en":"We finished on time.","zh":"我们按时完成了。"}]};
+  text = JSON.stringify(shortRun ? short : full);
 } else if (isAsk) {
   text = '{"answer":"你原来写 needed fully considersation，问题有两层：一是这个表达想把「需要被慎重考虑」挂到前面的名词上，得用关系词 that 引出从句，裸贴上去句子会散架；二是 consideration 拼错，而且 fully 不能修饰名词，要换成 careful。that needs careful consideration 就是把这两处一起扶正。","verdict":"confirmed","revisedFix":"","examples":[{"en":"The proposal that needs careful consideration came from the intern.","zh":"带 that 的从句稳稳挂住名词。"},{"en":"This is a fully consideration of the issue.","zh":"这句是错的——fully 修饰不了名词，得说 full consideration。"}]}';
 } else if (isProfile) {

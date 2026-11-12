@@ -251,6 +251,49 @@ test('POST ask：问题或改法上下文缺失给 400，不烧模型钱', async
   } finally { stop(s); }
 });
 
+test('POST model：中文梗概 → 300~500 词中英对照范本 + 可背句', async () => {
+  const s = await startServer();
+  try {
+    const r = await s.post('/api/en-writing', {
+      mode: 'model',
+      synopsis: '第一次独立出差赶飞机，航班落地后延误了四个小时，同机舱一位老人把橙子分给每个人，回去以后我把这事讲给了同事',
+    });
+    assert.equal(r.status, 200);
+    const d = r.json.data;
+    assert.equal(d.kind, 'model');
+    assert.ok(d.words >= 280 && d.words <= 500, `词数应接近 300~500（服务端兜底 280），实际 ${d.words}`);
+    assert.equal(d.paras.length, 4);
+    assert.ok(d.paras[0].en && d.paras[0].zh, '逐段中英对照，背的时候能对上');
+    assert.ok(d.memorable.length >= 3, '值得背的句子单列');
+    const h = await s.get('/api/en-writing/health');
+    assert.equal(h.json.todayWritingUsed, 1);
+  } finally { stop(s); }
+});
+
+test('POST model：模型第一次写太短 → 服务端自动补要求重跑，用户拿到写满的', async () => {
+  const tick = '/tmp/fake-model-' + process.pid + '-' + Math.random().toString(36).slice(2);
+  try { require('node:fs').unlinkSync(tick); } catch { /* 干净 */ }
+  const s = await startServer({ FAKE_MODEL_SHORT: '1', FAKE_OPENCLAW_TICK: tick });
+  try {
+    const r = await s.post('/api/en-writing', { mode: 'model', synopsis: '航班延误四个小时，同机舱一位老人把橙子分给每个人，回家路上我想明白一件事：慌乱会变成清单' });
+    assert.equal(r.status, 200);
+    assert.ok(r.json.data.words >= 280, `重跑后应写满，实际 ${r.json.data.words} 词`);
+    const h = await s.get('/api/en-writing/health');
+    assert.equal(h.json.todayWritingUsed, 1, '重跑两次 CLI 也只算一次请求');
+  } finally { stop(s); try { require('node:fs').unlinkSync(tick); } catch { /* ok */ } }
+});
+
+test('POST model：梗概不足 30 字给 400 中文提示，不烧钱', async () => {
+  const s = await startServer();
+  try {
+    const r = await s.post('/api/en-writing', { mode: 'model', synopsis: '出差延误了' });
+    assert.equal(r.status, 400);
+    assert.match(r.json.error, /30 字/);
+    const h = await s.get('/api/en-writing/health');
+    assert.equal(h.json.todayWritingUsed, 0);
+  } finally { stop(s); }
+});
+
 test('静态页面可访问：/tools/en-writing/ 出极简写作页（回归）', async () => {
   const s = await startServer();
   try {

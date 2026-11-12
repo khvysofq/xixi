@@ -184,3 +184,38 @@ test('normalizeAsk：answer 必填、只有 revised 才留修订意见、例句�
   assert.equal(keep.revisedFix, '', '确认时不留修订');
   assert.throws(() => ew.normalizeAsk({ verdict: 'confirmed' }), /没答上话/);
 });
+
+test('model 校验：梗概太短拒收（范本不能靠编），长度封顶', () => {
+  assert.equal(ew.validateInput({ mode: 'model', synopsis: '我出差延误了' }).ok, false);
+  assert.match(ew.validateInput({ mode: 'model', synopsis: '我出差延误了' }).error, /30 字/);
+  const ok = ew.validateInput({ mode: 'model', topic: 'A trip gone wrong', synopsis: '第一次独立出差赶飞机，结果航班在落地后延误四小时，同机舱一位老人把橙子分给大家，回去后我把事情讲给同事听' });
+  assert.equal(ok.ok, true);
+  const long = ew.validateInput({ mode: 'model', synopsis: '字'.repeat(1200) });
+  assert.equal(long.input.synopsis.length, 900, '梗概截 900 字');
+});
+
+test('model 提示词：300~500 词、母语者讲亲历、不堆难词、覆盖情节点', () => {
+  const p = ew.buildModelPrompt({ synopsis: '航班延误，老人分橙子', topic: 'A trip gone wrong' });
+  assert.match(p, /300~500 词/);
+  assert.match(p, /I will tell you about/, '点名禁套话开头（作为不许出现的例子）');
+  assert.match(p, /长短句|5 词短句.*25 词|定语.*状语.*非谓语/s);
+  assert.match(p, /GRE/, '禁难词');
+  assert.match(p, /缩写/, 'must use contractions');
+  assert.match(p, /不新增改变走向的大情节/);
+  assert.match(p, /memorable/, '可背诵句要单列');
+  assert.match(p, /中文故事梗概/, '梗概进定界块');
+});
+
+test('normalizeModel：段≤8、词数服务端自己数、memorable≤5、全空报错', () => {
+  const many = {
+    title: 'T',
+    paras: Array.from({ length: 12 }, (_, i) => ({ en: 'word '.repeat(30) + i, zh: '中' + i })).concat([{ en: '', zh: '空段' }]),
+    memorable: Array.from({ length: 8 }, (_, i) => ({ en: 'm' + i, zh: '' })),
+  };
+  const out = ew.normalizeModel(many, { synopsis: 's' });
+  assert.equal(out.paras.length, 8);
+  assert.equal(out.words, 248, '词数=各段合计');
+  assert.equal(out.memorable.length, 5);
+  assert.equal(out.kind, 'model');
+  assert.throws(() => ew.normalizeModel({ paras: [] }, { synopsis: 's' }), /没写出范本/);
+});

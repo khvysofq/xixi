@@ -110,6 +110,7 @@
     <div class="row">
       <button id="tips-btn">🧠 表达帮助</button>
       <button class="primary" id="fix-btn">✍️ 批改这篇</button>
+      <button id="mdl-btn">📜 看范本</button>
       <button id="pro-btn">🧭 学习画像</button>
     </div>
     <div class="status" id="status"></div>
@@ -118,6 +119,22 @@
   <section class="card hidden" id="tips-card">
     <h2>这个主题常用的表达</h2>
     <div id="tips-body"></div>
+  </section>
+
+  <section class="card hidden" id="mdl-card">
+    <h2>照着梗概写范本 <span style="font-weight:400;color:var(--muted);font-size:13px">原文基础弱时，先看看够得着的高度</span></h2>
+    <textarea id="mdl-in" spellcheck="false" style="min-height:90px" placeholder="用中文讲你的故事骨架，100~200 字最好写。例：第一次独立出差赶飞机，航班延误四小时，同机舱一位老人把橙子分给大家；回去后我把这事讲给同事，明白了一个道理……"></textarea>
+    <div class="row">
+      <button class="primary" id="mdl-go">写一篇 300~500 词范本</button>
+      <span class="grow"></span>
+      <span class="status" id="mdl-status"></span>
+    </div>
+    <div id="mdl-out"></div>
+    <div class="row hidden" id="mdl-copyrow">
+      <button class="mini" id="mdl-copyen">复制英文全文</button>
+      <button class="mini" id="mdl-copybi">复制中英对照</button>
+      <span class="grow"></span>
+    </div>
   </section>
 
   <section class="card hidden" id="pro-card">
@@ -161,7 +178,8 @@
   var LSL = 'xixi.en-writing.log.v1';   // 批改台账：跨篇诊断的原料，只在本机
   var LSP = 'xixi.en-writing.profile.v1'; // 最近一次画像，点开不重新花钱
   var LSA = 'xixi.en-writing.ask.v1';   // 追问问答缓存：同一问题不重复花钱
-  var state = { topic: null, tips: null, feedback: null, profile: null, busy: false, lastAction: null, askBusy: false };
+  var LSM = 'xixi.en-writing.model.v1';  // 范本缓存：按梗概存，重复生成不花钱
+  var state = { topic: null, tips: null, feedback: null, profile: null, busy: false, lastAction: null, askBusy: false, modelBusy: false, modeld: null };
 
   function el(id) { return document.getElementById(id); }
   function mk(tag, cls, text) {
@@ -407,6 +425,74 @@
     }
   }
 
+  /* ---------- 中文梗概 → 高质量范本 ---------- */
+  function modelRead() {
+    try { var a = JSON.parse(localStorage.getItem(LSM) || '{}'); return a && typeof a === 'object' ? a : {}; } catch (e) { return {}; }
+  }
+  function modelSave(key, d) {
+    var map = modelRead(); map[key] = d;
+    var ks = Object.keys(map);
+    while (ks.length > 8) { delete map[ks.shift()]; }   // 范本每篇都长，存 8 篇够用
+    try { localStorage.setItem(LSM, JSON.stringify(map)); } catch (e) { /* 存不下就算了 */ }
+  }
+  function renderModel(d) {
+    state.modeld = d;
+    var out = el('mdl-out');
+    out.innerHTML = '';
+    if (d.title) out.appendChild(mk('h2', null, d.title + ' · ' + d.words + ' 词'));
+    (d.paras || []).forEach(function (p) {
+      out.appendChild(mk('div', 'mv', null)).appendChild(mk('div', 'en', p.en));
+      if (p.zh) out.lastChild.appendChild(mk('div', 'zh', p.zh));
+    });
+    if ((d.memorable || []).length) {
+      out.appendChild(mk('h2', null, '🌟 最值得背的句子'));
+      d.memorable.forEach(function (m) {
+        var line = mk('div', 'hl');
+        line.appendChild(document.createTextNode(m.en));
+        if (m.zh) line.appendChild(mk('div', 'w', m.zh));
+        out.appendChild(line);
+      });
+    }
+    el('mdl-copyrow').classList.remove('hidden');
+  }
+  function modelText(bi) {
+    var d = state.modeld;
+    if (!d) return '';
+    var out = [d.title ? '# ' + d.title : ''];
+    (d.paras || []).forEach(function (p) {
+      out.push('', p.en);
+      if (bi && p.zh) out.push(p.zh);
+    });
+    if ((d.memorable || []).length) {
+      out.push('', '## 最值得背');
+      d.memorable.forEach(function (m) { out.push('- ' + m.en + (m.zh ? ' ｜ ' + m.zh : '')); });
+    }
+    return out.join('\n').trim();
+  }
+  async function askModel() {
+    var syn = String(el('mdl-in').value || '').trim();
+    var st = el('mdl-status');
+    if (syn.length < 30) { st.textContent = '梗概写细一点（至少 30 字）：人物、发生了什么、收尾想留什么。太短范本只能靠编'; return; }
+    var key = syn.toLowerCase().replace(/\s+/g, ' ').slice(0, 120);
+    var hit = modelRead()[key];
+    if (hit) { state.modeld = hit; renderModel(hit); st.textContent = '这段梗概以前生成过，直接用本机存的（不重新花钱）'; return; }
+    if (state.modelBusy) return;
+    state.modelBusy = true;
+    var btn = el('mdl-go'); btn.disabled = true;
+    st.textContent = '正在按你的梗概写 300~500 词的完整范本（约 30~60 秒）…';
+    try {
+      var d = await callApi({ mode: 'model', synopsis: syn, topic: state.topic && state.topic.en });
+      modelSave(key, d);
+      state.modeld = d;
+      renderModel(d);
+      st.textContent = '';
+    } catch (e) {
+      st.className = 'status err'; st.textContent = e.message;
+    } finally {
+      state.modelBusy = false; btn.disabled = false;
+    }
+  }
+
   /* ---------- 对某条修改意见的追问 ---------- */
   function askRead() {
     try { var a = JSON.parse(localStorage.getItem(LSA) || '{}'); return a && typeof a === 'object' ? a : {}; } catch (e) { return {}; }
@@ -620,6 +706,14 @@
     el('tips-btn').addEventListener('click', getTips);
     el('fix-btn').addEventListener('click', correct);
     el('fb-copy').addEventListener('click', function (ev) { copyText(feedbackText(), ev.currentTarget); });
+    el('mdl-btn').addEventListener('click', function () {
+      el('mdl-card').classList.remove('hidden');
+      el('mdl-in').focus();
+      el('mdl-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    el('mdl-go').addEventListener('click', askModel);
+    el('mdl-copyen').addEventListener('click', function (ev) { copyText(modelText(false), ev.currentTarget); });
+    el('mdl-copybi').addEventListener('click', function (ev) { copyText(modelText(true), ev.currentTarget); });
     el('pro-btn').addEventListener('click', askProfile);
     el('pro-copy').addEventListener('click', function (ev) { copyText(profileText(), ev.currentTarget); });
     el('pro-clear').addEventListener('click', function () {
@@ -646,7 +740,7 @@
       state: state, callApi: callApi, renderTopic: renderTopic, newTopic: newTopic,
       logRead: logRead, logPush: logPush, analyze: analyze, askProfile: askProfile, renderProfile: renderProfile, profileText: profileText,
       renderTips: renderTips, getTips: getTips, renderFeedback: renderFeedback,
-      renderAsk: renderAsk, askRead: askRead, correct: correct,
+      renderAsk: renderAsk, askRead: askRead, renderModel: renderModel, modelText: modelText, modelRead: modelRead, askModel: askModel, correct: correct,
       feedbackText: feedbackText, wordCount: wordCount, saveDraft: saveDraft, loadDraft: loadDraft,
     };
   }

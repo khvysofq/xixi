@@ -57,6 +57,15 @@ const PROFILE = {
   nextFocus: '下次写满 5 句再点批改，先只练过去时',
 };
 
+const MODEL = {
+  kind: 'model', title: 'The Deadline That Moved', words: 312,
+  paras: [
+    { en: 'It started on a rainy Thursday, when my manager dropped a one-line message.', zh: '事情始于一个雨天的周四，经理甩来一行消息。' },
+    { en: 'That night I walked home under my umbrella and made a simple list in my head.', zh: '那晚我打着伞走回家，脑子里列了张清单。' },
+  ],
+  memorable: [{ en: 'I made a simple list in my head.', zh: '慌乱的解药是把情绪拆成步骤' }],
+};
+
 const ASK = {
   kind: 'ask',
   answer: 'fully 是副词，修饰不了名词 consideration；名词要用形容词 careful。再加上这个修饰语得挂在名词上，要用 that 引出从句。',
@@ -92,7 +101,7 @@ async function boot(opts = {}) {
         const body = init && init.body ? JSON.parse(init.body) : {};
         calls.push({ url, body });
         if (opts.fail) return Promise.resolve({ ok: false, status: 502, json: async () => ({ ok: false, error: '生成超时了，点重试再试一次' }) });
-        const data = body.mode === 'topic' ? TOPIC : body.mode === 'tips' ? TIPS : body.mode === 'profile' ? PROFILE : body.mode === 'ask' ? ASK : CORRECT;
+        const data = body.mode === 'topic' ? TOPIC : body.mode === 'tips' ? TIPS : body.mode === 'profile' ? PROFILE : body.mode === 'ask' ? ASK : body.mode === 'model' ? MODEL : CORRECT;
         return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, data }) });
       };
       window.alert = () => {};
@@ -429,4 +438,72 @@ test('追问失败：说明白「没答上」，面板不吞错误', async () =>
   box.querySelector('.ask-go').click();
   await waitFor(() => box.textContent.includes('没答上'));
   assert.ok(box.textContent.includes('模型那边挂了'));
+});
+
+
+/* ---------- 中文梗概 → 高质量范本 ---------- */
+
+const SYN = '第一次独立出差赶飞机，航班落地后延误了四个小时，同机舱一位老人把橙子分给每个人，回去以后我把这事讲给同事听，明白了一个道理';
+
+test('📜 看范本：点开卡片；梗概不足 30 字先拦住，不打接口', async () => {
+  const { window, doc, calls } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  doc.getElementById('mdl-btn').click();
+  assert.ok(!doc.getElementById('mdl-card').classList.contains('hidden'));
+  doc.getElementById('mdl-in').value = '飞机延误了';
+  doc.getElementById('mdl-go').click();
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(calls.length, 1, '太短不该花钱');
+  assert.match(doc.getElementById('mdl-status').textContent, /30 字/);
+});
+
+test('生成范本：梗概带过去，标题/词数/中英逐段/可背句都渲染', async () => {
+  const { window, doc, calls } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  doc.getElementById('mdl-btn').click();
+  doc.getElementById('mdl-in').value = SYN;
+  doc.getElementById('mdl-go').click();
+  await waitFor(() => calls.length === 2);
+  assert.equal(calls[1].body.mode, 'model');
+  assert.equal(calls[1].body.synopsis, SYN);
+  await waitFor(() => doc.getElementById('mdl-out').textContent.includes('rainy Thursday'));
+  assert.ok(doc.getElementById('mdl-out').textContent.includes('312 词'), '实际词数要说出来');
+  assert.ok(doc.getElementById('mdl-out').textContent.includes('事情始于'), '中文对照');
+  assert.ok(doc.getElementById('mdl-out').textContent.includes('最值得背'));
+  assert.ok(!doc.getElementById('mdl-copyrow').classList.contains('hidden'));
+});
+
+test('同一梗概再生成：用本机缓存，不重复花钱', async () => {
+  const { window, doc, calls } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  doc.getElementById('mdl-btn').click();
+  doc.getElementById('mdl-in').value = SYN;
+  doc.getElementById('mdl-go').click();
+  await waitFor(() => calls.length === 2);
+  await waitFor(() => doc.getElementById('mdl-out').textContent.includes('rainy Thursday'));
+  doc.getElementById('mdl-go').click();
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(calls.length, 2, '第二次不该打接口');
+  assert.match(doc.getElementById('mdl-status').textContent, /本机存的/);
+});
+
+test('范本全文复制文本：英文单语与中英对照两种排法', async () => {
+  const { window, doc } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  window.enWriting.renderModel(MODEL);
+  const en = window.enWriting.modelText(false);
+  assert.ok(en.includes('# The Deadline') && en.includes('rainy Thursday') && !en.includes('事情始于'));
+  const bi = window.enWriting.modelText(true);
+  assert.ok(bi.includes('事情始于') && bi.includes('最值得背'));
+});
+
+test('范本生成失败：状态区中文报错，按钮恢复可点', async () => {
+  const { window, doc } = await boot({ fail: true });
+  for (let i = 0; i < 200; i++) { if (window.enWriting) break; await new Promise((r) => setTimeout(r, 10)); }
+  await waitFor(() => doc.getElementById('mdl-card'));
+  doc.getElementById('mdl-btn').click();
+  doc.getElementById('mdl-in').value = SYN;
+  doc.getElementById('mdl-go').click();
+  await waitFor(() => doc.getElementById('mdl-status').textContent.includes('超时'));
+  assert.equal(doc.getElementById('mdl-go').disabled, false);
 });
