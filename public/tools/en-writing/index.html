@@ -61,6 +61,10 @@
   .err-item .f { font-weight: 650; }
   .err-item .w { color: var(--muted); font-size: 13px; margin-top: 3px; }
   .err-item .k { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+  .pick { position: fixed; z-index: 70; background: var(--accent); color: #fff; padding: 7px 12px;
+    border-radius: 9px; font-size: 13px; box-shadow: 0 3px 10px rgba(0,0,0,.25); cursor: pointer;
+    display: none; user-select: none; max-width: 82vw; }
+  .pick.show { display: block; }
   .sent-row { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
   .sent-row .txt { flex: 1 1 200px; }
   .sent-row .zh { color: var(--muted); font-size: 13px; margin-top: 2px; }
@@ -531,6 +535,69 @@
     return wbox;
   }
 
+  /* ---------- 划词收藏：选中短语/用法直接进库 ---------- */
+  var pickEl = null;
+  function ensurePick() {
+    if (pickEl) return pickEl;
+    pickEl = mk('div', 'pick');
+    document.body.appendChild(pickEl);
+    pickEl.addEventListener('click', function () {
+      var added = doPick(pickEl._txt, pickEl._ctx, pickEl._from);
+      hidePick();
+      var selObj = window.getSelection && window.getSelection();
+      if (selObj) { try { selObj.removeAllRanges(); } catch (e) { /* ok */ } }
+      return added;
+    });
+    return pickEl;
+  }
+  function hidePick() { if (pickEl) pickEl.classList.remove('show'); }
+  function favZoneOf(node) {
+    var host = node && (node.nodeType === 3 ? node.parentElement : node);
+    if (!host || !host.closest) return null;
+    return host.closest('#mdl-out') || host.closest('#fav-list');
+  }
+  function lineContext(node) {
+    var host = node && (node.nodeType === 3 ? node.parentElement : node);
+    var lineEl = host && host.closest
+      ? (host.closest('.sent-row') || host.closest('.rec-row') || host.closest('.hl') || host.closest('.ask-a') || host)
+      : host;
+    if (!lineEl) return '';
+    if (lineEl.querySelector && lineEl.querySelector('.txt') && lineEl.classList.contains('sent-row')) lineEl = lineEl.querySelector('.txt');
+    var clone = lineEl.cloneNode(true);
+    var btns = clone.querySelectorAll ? clone.querySelectorAll('button') : [];
+    for (var i = 0; i < btns.length; i++) btns[i].parentNode.removeChild(btns[i]);
+    return String(clone.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+  }
+  function onSelMaybe() {
+    var sel = window.getSelection && window.getSelection();
+    if (!sel || !sel.rangeCount) return hidePick();
+    var text = String(sel.toString() || '').replace(/\s+/g, ' ').trim();
+    if (!text || text.length < 2 || text.length > 60) return hidePick();
+    if (!/[A-Za-z]/.test(text)) return hidePick();
+    var zone = favZoneOf(sel.anchorNode);
+    if (!zone) return hidePick();
+    var btn = ensurePick();
+    btn._txt = text;
+    btn._ctx = lineContext(sel.anchorNode);
+    btn._from = zone.id === 'fav-list' ? '同类推荐' : '范本：' + ((state.modeld && state.modeld.title) || '样例');
+    btn.textContent = '⭐ 收藏「' + (text.length > 14 ? text.slice(0, 14) + '…' : text) + '」';
+    var rect = { left: 0, top: 0, bottom: 0, width: 0 };
+    try { rect = sel.getRangeAt(0).getBoundingClientRect() || rect; } catch (e) { /* 旧内核 */ }
+    var vw = window.innerWidth || 980;
+    btn.style.left = Math.max(8, Math.min(vw - 190, rect.left || 8)) + 'px';
+    var top = (rect.top || 0) - 44;
+    if (top < 8) top = (rect.bottom || 0) + 10;
+    btn.style.top = top + 'px';
+    btn.classList.add('show');
+  }
+  function doPick(txt, ctx, from) {
+    var added = addFav({ en: txt, zh: '', from: from, ctx: ctx });
+    updateFavN();
+    if (!el('fav-card').classList.contains('hidden')) renderFavs();
+    return added;
+  }
+  document.addEventListener('selectionchange', onSelMaybe);
+
   /* ---------- 范例句提问（why） ---------- */
   function whyCacheRead() {
     try { var a = JSON.parse(localStorage.getItem(LSW) || '{}'); return a && typeof a === 'object' ? a : {}; } catch (e) { return {}; }
@@ -584,7 +651,7 @@
     if (!key) return false;
     if (list.some(function (f) { return String(f.en).toLowerCase().replace(/\s+/g, ' ').trim() === key; })) { updateFavN(); return false; }
     if (list.length >= 120) { el('fav-status').textContent = '收藏到 120 条上限了，先删几条再攒'; el('fav-card').classList.remove('hidden'); return false; }
-    list.push({ id: Date.now() + '-' + Math.floor(Math.random() * 1e6), en: String(x.en).slice(0, 300), zh: String(x.zh || '').slice(0, 300), note: '', cat: '', from: String(x.from || '').slice(0, 80), at: Date.now() });
+    list.push({ id: Date.now() + '-' + Math.floor(Math.random() * 1e6), en: String(x.en).slice(0, 300), zh: String(x.zh || '').slice(0, 300), note: '', cat: '', from: String(x.from || '').slice(0, 80), ctx: String(x.ctx || '').slice(0, 240), at: Date.now() });
     favWrite(list);
     return true;
   }
@@ -607,6 +674,8 @@
       groups[c].forEach(function (f) {
         out.push('- ' + f.en + (f.zh ? ' ｜ ' + f.zh : ''));
         if (f.note) out.push('  笔记：' + f.note);
+        var cx = String(f.en).replace(/\s+/g, ' ').trim();
+        if (f.ctx && String(f.ctx).replace(/\s+/g, ' ').trim() !== cx) out.push('  原句：' + f.ctx);
       });
     });
     return out.join('\n');
@@ -620,6 +689,8 @@
       var item = mk('div', 'fav-item');
       item.appendChild(mk('div', 'en', f.en));
       var meta = (f.zh || '') + (f.from ? '（来自：' + f.from + '）' : '');
+      var fx = String(f.en).replace(/\s+/g, ' ').trim();
+      if (f.ctx && String(f.ctx).replace(/\s+/g, ' ').trim() !== fx) item.appendChild(mk('div', 'meta', '原句：' + f.ctx));
       if (meta) item.appendChild(mk('div', 'meta', meta));
       var inrow = mk('div', 'inrow');
       var note = mk('input'); note.placeholder = '笔记：什么场合你能用'; note.value = f.note || ''; note.maxLength = 120;
@@ -965,7 +1036,7 @@
       logRead: logRead, logPush: logPush, analyze: analyze, askProfile: askProfile, renderProfile: renderProfile, profileText: profileText,
       renderTips: renderTips, getTips: getTips, renderFeedback: renderFeedback,
       renderAsk: renderAsk, askRead: askRead, renderModel: renderModel, modelText: modelText, modelRead: modelRead, askModel: askModel,
-      favRead: favRead, addFav: addFav, renderFavs: renderFavs, favText: favText, updateFavN: updateFavN, renderWhy: renderWhy, correct: correct,
+      favRead: favRead, addFav: addFav, onSelMaybe: onSelMaybe, doPick: doPick, hidePick: hidePick, lineContext: lineContext, renderFavs: renderFavs, favText: favText, updateFavN: updateFavN, renderWhy: renderWhy, correct: correct,
       feedbackText: feedbackText, wordCount: wordCount, saveDraft: saveDraft, loadDraft: loadDraft,
     };
   }

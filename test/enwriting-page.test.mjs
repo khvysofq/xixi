@@ -627,3 +627,84 @@ test('why 失败：没答上直说，按钮恢复', async () => {
   wbox.querySelectorAll('.qrow button')[0].click();
   await waitFor(() => wbox.textContent.includes('没答上'));
 });
+
+/* ---------- 划词收藏 ---------- */
+
+function fakeSelect(window, node, text) {
+  let shown = null;
+  window.getSelection = () => ({
+    rangeCount: 1,
+    anchorNode: node,
+    toString: () => text,
+    removeAllRanges() {},
+    getRangeAt: () => ({ getBoundingClientRect: () => ({ left: 120, top: 300, bottom: 322, width: 80 }) }),
+  });
+  return shown;
+}
+
+test('选中范例句里的短语 → 浮出 ⭐ 按钮 → 点它入库存原句', async () => {
+  const { window, doc } = await showModel();
+  const txtNode = doc.querySelector('#mdl-out .sent-row .txt').firstChild;
+  fakeSelect(window, txtNode, 'on a rainy Thursday');
+  window.enWriting.onSelMaybe();
+  const pick = doc.querySelector('.pick');
+  assert.ok(pick && pick.classList.contains('show'), '浮动收藏按钮出现');
+  assert.ok(pick.textContent.includes('on a rainy Thu'), '按钮上写收藏的是啥（超长会截断显示）');
+  pick.click();
+  const favs = window.enWriting.favRead();
+  assert.equal(favs.length, 1);
+  assert.equal(favs[0].en, 'on a rainy Thursday', '存的是选中的短语，不是整句');
+  assert.ok(favs[0].ctx.startsWith('It started on a rainy Thursday'), '自动带上原句语境');
+  assert.ok(favs[0].from.includes('范本'), '记来源');
+  assert.ok(!pick.classList.contains('show'), '点完收起');
+  assert.equal(doc.getElementById('fav-n').textContent, '1');
+});
+
+test('同一短语再选再收：去重；重复显示原句的逻辑不再触发', async () => {
+  const { window, doc } = await showModel();
+  const txtNode = doc.querySelector('#mdl-out .sent-row .txt').firstChild;
+  fakeSelect(window, txtNode, 'made a simple list');
+  window.enWriting.onSelMaybe();
+  doc.querySelector('.pick').click();
+  fakeSelect(window, txtNode, 'made  a  simple  list');   // 空白不同也算同一句
+  window.enWriting.onSelMaybe();
+  doc.querySelector('.pick').click();
+  assert.equal(window.enWriting.favRead().length, 1, '同短语去重');
+});
+
+test('解析/推荐区也认；正文区外不弹；纯中文不弹', async () => {
+  const { window, doc } = await showModel();
+  // 提问解析里的短语
+  const row = doc.querySelector('#mdl-out .sent-row');
+  row.querySelector('button').click();
+  const wbox = row.parentElement.querySelector('.ask-box');
+  wbox.querySelectorAll('.qrow button')[0].click();
+  await waitFor(() => wbox.textContent.includes('口语老话'));
+  const ansNode = wbox.querySelector('.ask-a').firstChild;
+  fakeSelect(window, ansNode, 'being peeled');
+  window.enWriting.onSelMaybe();
+  assert.ok(doc.querySelector('.pick').classList.contains('show'), '解析文字里可选');
+  doc.querySelector('.pick').click();
+  assert.equal(window.enWriting.favRead()[0].en, 'being peeled');
+  // 正文区外（顶部标语）不弹
+  window.enWriting.hidePick();
+  fakeSelect(window, doc.getElementById('mdl-in'), 'write it anyway');
+  window.enWriting.onSelMaybe();
+  assert.ok(!doc.querySelector('.pick').classList.contains('show'), '区外不弹');
+  // 纯中文不弹
+  fakeSelect(window, doc.querySelector('#mdl-out .sent-row .txt').firstChild, '下雨的周四');
+  window.enWriting.onSelMaybe();
+  assert.ok(!doc.querySelector('.pick').classList.contains('show'), '没英文不弹');
+});
+
+test('收藏卡片显示短语的原句（方向：短语≠原句才显示）', async () => {
+  const { window, doc } = await showModel();
+  const txtNode = doc.querySelector('#mdl-out .sent-row .txt').firstChild;
+  fakeSelect(window, txtNode, 'at Gate 27');
+  window.enWriting.onSelMaybe();
+  doc.querySelector('.pick').click();
+  doc.getElementById('fav-btn').click();
+  const item = doc.querySelector('#fav-list .fav-item');
+  assert.ok(item.textContent.includes('原句：It started'), '短语收藏带原句');
+  assert.ok(window.enWriting.favText().includes('原句：'), '复制文本也带');
+});
