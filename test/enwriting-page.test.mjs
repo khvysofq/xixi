@@ -57,10 +57,25 @@ const PROFILE = {
   nextFocus: '下次写满 5 句再点批改，先只练过去时',
 };
 
+const WHYMOCK = {
+  kind: 'why',
+  answer: '「It helps」省了 It 是口语老话——劝慰时常把主语藏掉，像我们的「管用就行」。',
+  rule: '口语宽慰人，It 常可省',
+  examples: [{ en: 'Try the back streets. Faster.', zh: '绕后街吧，快点。' }],
+};
+const RECMOCK = {
+  kind: 'rec', expr: 'x',
+  rec: [
+    { en: 'What I remember most is not ___. It is ___.', zh: '我记得最清楚的不是…而是…', example: { en: 'What I remember most is not the score. It is my dad shouting.', zh: '不是比分，是我爸的喊声。' }, note: '同构句式，留白更长' },
+    { en: 'The part that sticks is ___', zh: '留下来的部分是…', example: { en: 'The part that sticks is how quiet the cabin was.', zh: '留在心里的是机舱的安静。' }, note: '更短，收尾只剩一个画面时用' },
+    { en: 'Looking back, what stayed with me was ___', zh: '回头看留在我身上的是…', example: { en: 'Looking back, what stayed with me was the smell.', zh: '留下来的是那股气味。' }, note: '写旧事重提更沉' },
+  ],
+};
+
 const MODEL = {
   kind: 'model', title: 'The Deadline That Moved', words: 312,
   paras: [
-    { en: 'It started on a rainy Thursday, when my manager dropped a one-line message.', zh: '事情始于一个雨天的周四，经理甩来一行消息。' },
+    { en: 'It started on a rainy Thursday, when my manager dropped a one-line message. The delay was four hours.', zh: '事情始于一个雨天的周四，经理甩来一行消息。延误了四个小时。' },
     { en: 'That night I walked home under my umbrella and made a simple list in my head.', zh: '那晚我打着伞走回家，脑子里列了张清单。' },
   ],
   memorable: [{ en: 'I made a simple list in my head.', zh: '慌乱的解药是把情绪拆成步骤' }],
@@ -101,7 +116,8 @@ async function boot(opts = {}) {
         const body = init && init.body ? JSON.parse(init.body) : {};
         calls.push({ url, body });
         if (opts.fail) return Promise.resolve({ ok: false, status: 502, json: async () => ({ ok: false, error: '生成超时了，点重试再试一次' }) });
-        const data = body.mode === 'topic' ? TOPIC : body.mode === 'tips' ? TIPS : body.mode === 'profile' ? PROFILE : body.mode === 'ask' ? ASK : body.mode === 'model' ? MODEL : CORRECT;
+        const data = body.mode === 'topic' ? TOPIC : body.mode === 'tips' ? TIPS : body.mode === 'profile' ? PROFILE
+          : body.mode === 'ask' ? ASK : body.mode === 'model' ? MODEL : body.mode === 'why' ? WHYMOCK : body.mode === 'rec' ? RECMOCK : CORRECT;
         return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, data }) });
       };
       window.alert = () => {};
@@ -506,4 +522,108 @@ test('范本生成失败：状态区中文报错，按钮恢复可点', async ()
   doc.getElementById('mdl-go').click();
   await waitFor(() => doc.getElementById('mdl-status').textContent.includes('超时'));
   assert.equal(doc.getElementById('mdl-go').disabled, false);
+});
+
+
+/* ---------- 范本句级提问 + 表达收藏 ---------- */
+
+async function showModel() {
+  const b = await boot();
+  await waitFor(() => b.doc.getElementById('t-en').textContent === TOPIC.en);
+  b.doc.getElementById('mdl-btn').click();
+  b.doc.getElementById('mdl-in').value = SYN;
+  b.doc.getElementById('mdl-go').click();
+  await waitFor(() => b.calls.length === 2);
+  await waitFor(() => b.doc.querySelectorAll('#mdl-out .sent-row').length === 3);
+  return b;
+}
+
+test('范本逐句成行：每句带 ❓ 和 ⭐；⭐ 入收藏去重，计数说话', async () => {
+  const { window, doc } = await showModel();
+  assert.equal(doc.querySelectorAll('#mdl-out .sent-row').length, 3, '两段落拆成三句');
+  const first = doc.querySelector('#mdl-out .sent-row');
+  const stars = first.querySelectorAll('button');
+  assert.equal(stars[1].textContent, '⭐');
+  stars[1].click();
+  assert.equal(stars[1].textContent, '✓ 已收藏');
+  assert.equal(window.enWriting.favRead().length, 1);
+  stars[1].click();
+  assert.equal(stars[1].textContent, '✓ 已在库', '同一句不收两遍');
+  assert.equal(window.enWriting.favRead().length, 1);
+  assert.equal(doc.getElementById('fav-n').textContent, '1', '入口计数实时');
+  // memorable 句也能收
+  doc.querySelectorAll('#mdl-out .hl button')[0].click();
+  assert.equal(window.enWriting.favRead().length, 2);
+});
+
+test('点 ❓ 问「为什么这么用」：mode=why 带原句；答案+口诀渲染；再问吃缓存', async () => {
+  const { window, doc, calls } = await showModel();
+  const row = doc.querySelector('#mdl-out .sent-row');
+  row.querySelector('button').click();                       // 展开提问
+  const wbox = row.parentElement.querySelector('.ask-box');
+  wbox.querySelectorAll('.qrow button')[0].click();          // 预设：为什么这么用
+  await waitFor(() => calls.length === 3);
+  assert.equal(calls[2].body.mode, 'why');
+  assert.ok(calls[2].body.sentence.includes('rainy Thursday'), '把哪句发给了模型');
+  assert.equal(calls[2].body.question, '为什么这么用');
+  await waitFor(() => wbox.textContent.includes('口语老话'));
+  assert.ok(wbox.textContent.includes('口诀：'), '口诀单独一行');
+  assert.ok(wbox.textContent.includes('Try the back streets'), '迁移例句');
+  wbox.querySelectorAll('.qrow button')[0].click();          // 同问题再点
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(calls.length, 3, '缓存命中不再花钱');
+});
+
+test('📚 收藏面板：自主编辑笔记分类落盘；✕ 删除生效', async () => {
+  const { window, doc } = await showModel();
+  doc.querySelectorAll('#mdl-out .sent-row button')[1].click();   // 收藏第一句
+  doc.getElementById('fav-btn').click();
+  assert.ok(!doc.getElementById('fav-card').classList.contains('hidden'));
+  const item = doc.querySelector('#fav-list .fav-item');
+  assert.ok(item.textContent.includes('rainy Thursday'));
+  const inputs = item.querySelectorAll('input');
+  inputs[0].value = '开会前暖场能用'; inputs[0].dispatchEvent(new window.Event('blur', { bubbles: true }));
+  inputs[1].value = '开头'; inputs[1].dispatchEvent(new window.Event('blur', { bubbles: true }));
+  const saved = window.enWriting.favRead()[0];
+  assert.equal(saved.note, '开会前暖场能用');
+  assert.equal(saved.cat, '开头');
+  assert.ok(window.enWriting.favText().includes('## 开头'), '复制文本按分类分组');
+  item.querySelectorAll('button')[item.querySelectorAll('button').length - 1].click();  // ✕ 删除
+  assert.equal(window.enWriting.favRead().length, 0);
+});
+
+test('🔁 同类推荐：每条带真实例句与差异说明；推荐里的句子也能收', async () => {
+  const { window, doc, calls } = await showModel();
+  doc.querySelectorAll('#mdl-out .sent-row button')[1].click();
+  doc.getElementById('fav-btn').click();
+  const item = doc.querySelector('#fav-list .fav-item');
+  const recBtn = [...item.querySelectorAll('button')].find((b) => b.textContent.includes('同类'));
+  recBtn.click();
+  await waitFor(() => calls.length === 3);
+  assert.equal(calls[2].body.mode, 'rec');
+  assert.ok(calls[2].body.expr.includes('rainy Thursday'), '围绕收藏那句推');
+  await waitFor(() => item.textContent.includes('The part that sticks'));
+  assert.ok(item.textContent.includes('例：'), '每条有真实例句');
+  assert.ok(item.textContent.includes('差异：'), '说清和原句差在哪');
+  const grab = [...item.querySelectorAll('button')].find((b) => b.textContent.includes('也收这条'));
+  grab.click();
+  assert.equal(window.enWriting.favRead().length, 2);
+  recBtn.click();
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(calls.length, 3, '同类推荐缓存：不重复花钱');
+});
+
+test('why 失败：没答上直说，按钮恢复', async () => {
+  const { window, doc } = await boot({ fail: true });
+  for (let i = 0; i < 200; i++) { if (window.enWriting) break; await new Promise((r) => setTimeout(r, 10)); }
+  doc.getElementById('mdl-btn').click();
+  doc.getElementById('mdl-in').value = SYN;
+  doc.getElementById('mdl-go').click();
+  await new Promise((r) => setTimeout(r, 100));               // 范本失败，手动塞一份渲染
+  window.enWriting.renderModel(MODEL);
+  const row = doc.querySelector('#mdl-out .sent-row');
+  row.querySelector('button').click();
+  const wbox = row.parentElement.querySelector('.ask-box');
+  wbox.querySelectorAll('.qrow button')[0].click();
+  await waitFor(() => wbox.textContent.includes('没答上'));
 });

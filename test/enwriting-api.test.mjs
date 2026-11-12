@@ -294,6 +294,47 @@ test('POST model：梗概不足 30 字给 400 中文提示，不烧钱', async (
   } finally { stop(s); }
 });
 
+test('POST why：点范例句问「为什么这么用」，答案带口诀和迁移例句', async () => {
+  const s = await startServer();
+  try {
+    const r = await s.post('/api/en-writing', {
+      mode: 'why', sentence: 'He just said, Have some. It helps.', question: '省略主语不是语法错误吗？', expr: 'It helps',
+    });
+    assert.equal(r.status, 200);
+    const d = r.json.data;
+    assert.equal(d.kind, 'why');
+    assert.match(d.answer, /省|It/);
+    assert.ok(d.rule && d.examples.length >= 1, '口诀+换场景例句');
+    assert.ok(!d.examples.some((e) => e.en === 'He just said, Have some. It helps.'), '不许拿范例句凑数');
+  } finally { stop(s); }
+});
+
+test('POST rec：围绕收藏表达推同类，每条都有真实例句', async () => {
+  const s = await startServer();
+  try {
+    const r = await s.post('/api/en-writing', { mode: 'rec', expr: 'What I remember most is not ___. It is ___.', zh: '我记得最清楚的不是…而是…' });
+    assert.equal(r.status, 200);
+    const d = r.json.data;
+    assert.equal(d.kind, 'rec');
+    assert.equal(d.expr, 'What I remember most is not ___. It is ___.');
+    assert.equal(d.rec.length, 3);
+    assert.ok(d.rec.every((x) => x.example.en && x.note), '例句+差异说明齐');
+    assert.ok(d.rec.every((x) => !x.en.includes(x.example.en)), '推荐句不是例句复读');
+  } finally { stop(s); }
+});
+
+test('POST why/rec：缺关键参数 400，不烧钱', async () => {
+  const s = await startServer();
+  try {
+    const q = await s.post('/api/en-writing', { mode: 'why', sentence: 'short', question: '为什么？' });
+    assert.equal(q.status, 400);
+    const r = await s.post('/api/en-writing', { mode: 'rec', expr: 'x' });
+    assert.equal(r.status, 400);
+    const h = await s.get('/api/en-writing/health');
+    assert.equal(h.json.todayWritingUsed, 0);
+  } finally { stop(s); }
+});
+
 test('静态页面可访问：/tools/en-writing/ 出极简写作页（回归）', async () => {
   const s = await startServer();
   try {

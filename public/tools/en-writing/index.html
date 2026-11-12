@@ -61,6 +61,17 @@
   .err-item .f { font-weight: 650; }
   .err-item .w { color: var(--muted); font-size: 13px; margin-top: 3px; }
   .err-item .k { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+  .sent-row { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .sent-row .txt { flex: 1 1 200px; }
+  .sent-row .zh { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .fav-item { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; background: var(--card); }
+  .fav-item .en { font-weight: 650; font-size: 15px; }
+  .fav-item .meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .fav-item .inrow { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+  .fav-item input { flex: 1 1 90px; font: inherit; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); padding: 4px 8px; }
+  .rec-row { font-size: 14px; border-top: 1px dashed var(--line); padding: 8px 0; }
+  .rec-row .ex { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .rec-row .nt { margin-top: 2px; }
   .ask-box { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
   .ask-box .qrow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .ask-box input { flex: 1 1 180px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); padding: 6px 10px; }
@@ -126,6 +137,7 @@
     <textarea id="mdl-in" spellcheck="false" style="min-height:90px" placeholder="用中文讲你的故事骨架，100~200 字最好写。例：第一次独立出差赶飞机，航班延误四小时，同机舱一位老人把橙子分给大家；回去后我把这事讲给同事，明白了一个道理……"></textarea>
     <div class="row">
       <button class="primary" id="mdl-go">写一篇 300~500 词范本</button>
+      <button id="fav-btn">📚 我的收藏 (<span id="fav-n">0</span>)</button>
       <span class="grow"></span>
       <span class="status" id="mdl-status"></span>
     </div>
@@ -134,6 +146,16 @@
       <button class="mini" id="mdl-copyen">复制英文全文</button>
       <button class="mini" id="mdl-copybi">复制中英对照</button>
       <span class="grow"></span>
+    </div>
+  </section>
+
+  <section class="card hidden" id="fav-card">
+    <h2>表达收藏 <span style="font-weight:400;color:var(--muted);font-size:13px">攒好句：可改笔记、可换分类、可推同类</span></h2>
+    <div id="fav-list"></div>
+    <div class="row">
+      <button class="mini" id="fav-copy">复制全部</button>
+      <span class="grow"></span>
+      <span class="status" id="fav-status"></span>
     </div>
   </section>
 
@@ -179,6 +201,9 @@
   var LSP = 'xixi.en-writing.profile.v1'; // 最近一次画像，点开不重新花钱
   var LSA = 'xixi.en-writing.ask.v1';   // 追问问答缓存：同一问题不重复花钱
   var LSM = 'xixi.en-writing.model.v1';  // 范本缓存：按梗概存，重复生成不花钱
+  var LSF = 'xixi.en-writing.fav.v1';    // 表达收藏库（本机）
+  var LSR = 'xixi.en-writing.rec.v1';    // 同类推荐缓存：同一条表达不重复花钱
+  var LSW = 'xixi.en-writing.why.v1';    // 范例句提问缓存
   var state = { topic: null, tips: null, feedback: null, profile: null, busy: false, lastAction: null, askBusy: false, modelBusy: false, modeld: null };
 
   function el(id) { return document.getElementById(id); }
@@ -441,20 +466,215 @@
     out.innerHTML = '';
     if (d.title) out.appendChild(mk('h2', null, d.title + ' · ' + d.words + ' 词'));
     (d.paras || []).forEach(function (p) {
-      out.appendChild(mk('div', 'mv', null)).appendChild(mk('div', 'en', p.en));
-      if (p.zh) out.lastChild.appendChild(mk('div', 'zh', p.zh));
+      var box = mk('div', 'mv');
+      var zhParts = String(p.zh || '').split(/(?<=[。！？；])\s*/);
+      var sents = String(p.en).split(/(?<=[.!?])\s+/).filter(function (x) { return x.trim(); });
+      sents.forEach(function (raw, i) {
+        var sent = raw.trim();
+        var row = mk('div', 'sent-row');
+        row.appendChild(mk('span', 'txt', sent));
+        var qb = mk('button', 'mini', '❓');
+        var fb = mk('button', 'mini', '⭐');
+        var wbox = buildWhyBox(sent, d);
+        wbox.style.display = 'none';
+        qb.addEventListener('click', function () {
+          wbox.style.display = wbox.style.display === 'none' ? 'block' : 'none';
+          if (wbox.style.display === 'block') { var gi = wbox.querySelector('input'); if (gi) gi.focus(); }
+        });
+        fb.addEventListener('click', function () {
+          var added = addFav({ en: sent, zh: (zhParts[i] || p.zh || '').trim(), from: d.title || '范本' });
+          fb.textContent = added ? '✓ 已收藏' : '✓ 已在库';
+          if (added && !el('fav-card').classList.contains('hidden')) renderFavs();
+        });
+        row.appendChild(qb); row.appendChild(fb);
+        box.appendChild(row);
+        var zhLine = (zhParts[i] || '').trim();
+        if (zhLine) box.appendChild(mk('div', 'zh', zhLine));
+        box.appendChild(wbox);
+      });
+      out.appendChild(box);
     });
     if ((d.memorable || []).length) {
       out.appendChild(mk('h2', null, '🌟 最值得背的句子'));
-      d.memorable.forEach(function (m) {
+      d.memorable.forEach(function (mm) {
         var line = mk('div', 'hl');
-        line.appendChild(document.createTextNode(m.en));
-        if (m.zh) line.appendChild(mk('div', 'w', m.zh));
+        line.appendChild(document.createTextNode(mm.en));
+        if (mm.zh) line.appendChild(mk('div', 'w', mm.zh));
+        var fb2 = mk('button', 'mini', '⭐ 收进库');
+        fb2.style.marginTop = '2px';
+        fb2.addEventListener('click', function () {
+          var added = addFav({ en: mm.en, zh: mm.zh || '', from: d.title || '范本' });
+          fb2.textContent = added ? '✓ 已收藏' : '✓ 已在库';
+          if (added && !el('fav-card').classList.contains('hidden')) renderFavs();
+        });
+        line.appendChild(fb2);
         out.appendChild(line);
       });
     }
     el('mdl-copyrow').classList.remove('hidden');
+    updateFavN();
   }
+
+  function buildWhyBox(sent, d) {
+    var wbox = mk('div', 'ask-box');
+    var qrow = mk('div', 'qrow');
+    ['为什么这么用', '我自己怎么写出这种句子'].forEach(function (preset) {
+      var p2 = mk('button', 'mini', preset);
+      p2.addEventListener('click', function () { wbox.querySelector('input').value = preset; whyAbout(sent, d, wbox); });
+      qrow.appendChild(p2);
+    });
+    var gin = mk('input'); gin.placeholder = '或自己问：如 helps 前面为什么没有 it？'; gin.maxLength = 120;
+    var go = mk('button', 'primary mini ask-go', '提问');
+    go.addEventListener('click', function () { whyAbout(sent, d, wbox); });
+    gin.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') whyAbout(sent, d, wbox); });
+    wbox.appendChild(qrow); wbox.appendChild(gin); wbox.appendChild(go);
+    return wbox;
+  }
+
+  /* ---------- 范例句提问（why） ---------- */
+  function whyCacheRead() {
+    try { var a = JSON.parse(localStorage.getItem(LSW) || '{}'); return a && typeof a === 'object' ? a : {}; } catch (e) { return {}; }
+  }
+  function whyAbout(sent, d, wbox) {
+    var text = String(wbox.querySelector('input').value || '').trim();
+    if (text.length < 4) { wbox.querySelector('input').focus(); return; }
+    var key = (sent + '|' + text).toLowerCase().replace(/\s+/g, ' ');
+    var hit = whyCacheRead()[key];
+    if (hit) { renderWhy(wbox, hit); return; }
+    if (state.askBusy) return;
+    state.askBusy = true;
+    var btn = wbox.querySelector('.ask-go');
+    btn.disabled = true; btn.textContent = '想一下（5~15 秒）…';
+    callApi({ mode: 'why', sentence: sent, question: text, topic: state.topic && state.topic.en })
+      .then(function (r) {
+        var map = whyCacheRead(); map[key] = r;
+        var ks = Object.keys(map); while (ks.length > 60) { delete map[ks.shift()]; }
+        try { localStorage.setItem(LSW, JSON.stringify(map)); } catch (e) { /* ok */ }
+        renderWhy(wbox, r);
+      })
+      .catch(function (e) {
+        var old = wbox.querySelector('.ask-a'); if (old) old.remove();
+        wbox.appendChild(mk('div', 'ask-a', '没答上：' + e.message));
+      })
+      .then(function () { state.askBusy = false; btn.disabled = false; btn.textContent = '提问'; });
+  }
+  function renderWhy(box, d) {
+    var old = box.querySelector('.ask-a'); if (old) old.remove();
+    var wrap = mk('div', 'ask-a');
+    wrap.appendChild(mk('div', null, d.answer));
+    if (d.rule) wrap.appendChild(mk('div', 'eg', '🗝 口诀：' + d.rule));
+    (d.examples || []).forEach(function (x) {
+      wrap.appendChild(mk('div', 'eg', x.en + (x.zh ? ' ｜ ' + x.zh : '')));
+    });
+    box.appendChild(wrap);
+  }
+
+  /* ---------- 表达收藏库 ---------- */
+  function favRead() {
+    try { var a = JSON.parse(localStorage.getItem(LSF) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+  }
+  function favWrite(list) {
+    try { localStorage.setItem(LSF, JSON.stringify(list)); } catch (e) { /* 存不下就算了 */ }
+    updateFavN();
+  }
+  function updateFavN() { el('fav-n').textContent = favRead().length; }
+  function addFav(x) {
+    var list = favRead();
+    var key = String(x.en || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!key) return false;
+    if (list.some(function (f) { return String(f.en).toLowerCase().replace(/\s+/g, ' ').trim() === key; })) { updateFavN(); return false; }
+    if (list.length >= 120) { el('fav-status').textContent = '收藏到 120 条上限了，先删几条再攒'; el('fav-card').classList.remove('hidden'); return false; }
+    list.push({ id: Date.now() + '-' + Math.floor(Math.random() * 1e6), en: String(x.en).slice(0, 300), zh: String(x.zh || '').slice(0, 300), note: '', cat: '', from: String(x.from || '').slice(0, 80), at: Date.now() });
+    favWrite(list);
+    return true;
+  }
+  function favPatch(id, fields) {
+    var list = favRead(); var hit = false;
+    list.forEach(function (f) { if (f.id === id) { Object.keys(fields).forEach(function (k) { f[k] = fields[k]; }); hit = true; } });
+    if (hit) favWrite(list);
+  }
+  function favRemove(id) {
+    favWrite(favRead().filter(function (f) { return f.id !== id; }));
+    renderFavs();
+  }
+  function favText() {
+    var list = favRead();
+    var groups = {};
+    list.forEach(function (f) { var c = (f.cat || '').trim() || '未分类'; (groups[c] = groups[c] || []).push(f); });
+    var out = ['# 我的表达收藏'];
+    Object.keys(groups).forEach(function (c) {
+      out.push('', '## ' + c);
+      groups[c].forEach(function (f) {
+        out.push('- ' + f.en + (f.zh ? ' ｜ ' + f.zh : ''));
+        if (f.note) out.push('  笔记：' + f.note);
+      });
+    });
+    return out.join('\n');
+  }
+  function renderFavs() {
+    var list = favRead();
+    var box = el('fav-list');
+    box.innerHTML = '';
+    if (!list.length) box.appendChild(mk('p', 'count', '库是空的——在范本里看到顺眼的句子，点 ⭐ 就能收进来。'));
+    list.forEach(function (f) {
+      var item = mk('div', 'fav-item');
+      item.appendChild(mk('div', 'en', f.en));
+      var meta = (f.zh || '') + (f.from ? '（来自：' + f.from + '）' : '');
+      if (meta) item.appendChild(mk('div', 'meta', meta));
+      var inrow = mk('div', 'inrow');
+      var note = mk('input'); note.placeholder = '笔记：什么场合你能用'; note.value = f.note || ''; note.maxLength = 120;
+      var cat = mk('input'); cat.placeholder = '分类：开头/收尾/情绪…'; cat.value = f.cat || ''; cat.maxLength = 20; cat.style.flex = '0 1 130px';
+      note.addEventListener('blur', function () { favPatch(f.id, { note: note.value.trim() }); });
+      cat.addEventListener('blur', function () { favPatch(f.id, { cat: cat.value.trim() }); });
+      var recBtn = mk('button', 'mini', '🔁 同类');
+      var delBtn = mk('button', 'mini', '✕');
+      var recBox = mk('div', 'ask-box'); recBox.style.display = 'none';
+      recBtn.addEventListener('click', function () { recBox.style.display = recBox.style.display === 'none' ? 'block' : 'none'; if (recBox.style.display === 'block') recFor(f, recBox, recBtn); });
+      delBtn.addEventListener('click', function () { favRemove(f.id); });
+      inrow.appendChild(note); inrow.appendChild(cat); inrow.appendChild(recBtn); inrow.appendChild(delBtn);
+      item.appendChild(inrow); item.appendChild(recBox);
+      box.appendChild(item);
+    });
+    el('fav-card').classList.remove('hidden');
+    updateFavN();
+  }
+  function recCacheRead() {
+    try { var a = JSON.parse(localStorage.getItem(LSR) || '{}'); return a && typeof a === 'object' ? a : {}; } catch (e) { return {}; }
+  }
+  function recFor(f, box, btn) {
+    if (box.dataset.done) return;
+    var key = String(f.en).toLowerCase().replace(/\s+/g, ' ').slice(0, 120);
+    var hit = recCacheRead()[key];
+    if (hit) { box.dataset.done = '1'; renderRec(box, f, hit); return; }
+    btn.disabled = true; btn.textContent = '找同类中（10~20 秒）…';
+    callApi({ mode: 'rec', expr: f.en, zh: f.zh })
+      .then(function (d) {
+        var map = recCacheRead(); map[key] = d;
+        var ks = Object.keys(map); while (ks.length > 40) { delete map[ks.shift()]; }
+        try { localStorage.setItem(LSR, JSON.stringify(map)); } catch (e) { /* ok */ }
+        box.dataset.done = '1';
+        renderRec(box, f, d);
+      })
+      .catch(function (e) { box.appendChild(mk('div', 'ask-a', '没推出来：' + e.message)); })
+      .then(function () { btn.disabled = false; btn.textContent = '🔁 同类'; });
+  }
+  function renderRec(box, f, d) {
+    box.innerHTML = '';
+    (d.rec || []).forEach(function (r) {
+      var row = mk('div', 'rec-row');
+      row.appendChild(mk('div', null, r.en + (r.zh ? ' ｜ ' + r.zh : '')));
+      if (r.example && r.example.en) row.appendChild(mk('div', 'ex', '例：' + r.example.en + (r.example.zh ? ' ｜ ' + r.example.zh : '')));
+      if (r.note) row.appendChild(mk('div', 'nt', '差异：' + r.note));
+      var fb = mk('button', 'mini', '⭐ 也收这条');
+      fb.addEventListener('click', function () {
+        var added = addFav({ en: r.en, zh: r.zh || '', from: '同类：' + String(f.en).slice(0, 30) });
+        fb.textContent = added ? '✓ 已收藏' : '✓ 已在库';
+      });
+      row.appendChild(fb);
+      box.appendChild(row);
+    });
+  }
+
   function modelText(bi) {
     var d = state.modeld;
     if (!d) return '';
@@ -706,6 +926,10 @@
     el('tips-btn').addEventListener('click', getTips);
     el('fix-btn').addEventListener('click', correct);
     el('fb-copy').addEventListener('click', function (ev) { copyText(feedbackText(), ev.currentTarget); });
+    el('fav-btn').addEventListener('click', function () {
+      if (el('fav-card').classList.contains('hidden')) renderFavs(); else el('fav-card').classList.add('hidden');
+    });
+    el('fav-copy').addEventListener('click', function (ev) { copyText(favText(), ev.currentTarget); });
     el('mdl-btn').addEventListener('click', function () {
       el('mdl-card').classList.remove('hidden');
       el('mdl-in').focus();
@@ -740,7 +964,8 @@
       state: state, callApi: callApi, renderTopic: renderTopic, newTopic: newTopic,
       logRead: logRead, logPush: logPush, analyze: analyze, askProfile: askProfile, renderProfile: renderProfile, profileText: profileText,
       renderTips: renderTips, getTips: getTips, renderFeedback: renderFeedback,
-      renderAsk: renderAsk, askRead: askRead, renderModel: renderModel, modelText: modelText, modelRead: modelRead, askModel: askModel, correct: correct,
+      renderAsk: renderAsk, askRead: askRead, renderModel: renderModel, modelText: modelText, modelRead: modelRead, askModel: askModel,
+      favRead: favRead, addFav: addFav, renderFavs: renderFavs, favText: favText, updateFavN: updateFavN, renderWhy: renderWhy, correct: correct,
       feedbackText: feedbackText, wordCount: wordCount, saveDraft: saveDraft, loadDraft: loadDraft,
     };
   }

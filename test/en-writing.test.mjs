@@ -219,3 +219,44 @@ test('normalizeModel：段≤8、词数服务端自己数、memorable≤5、全�
   assert.equal(out.kind, 'model');
   assert.throws(() => ew.normalizeModel({ paras: [] }, { synopsis: 's' }), /没写出范本/);
 });
+
+test('why 校验：范本原句必带、疑问要写清，不依赖主题', () => {
+  assert.equal(ew.validateInput({ mode: 'why', sentence: 'Too short', question: '为什么这么用？' }).ok, false, '句子太短不给问');
+  assert.equal(ew.validateInput({ mode: 'why', sentence: 'He just said, Have some. It helps.', question: '啊' }).ok, false);
+  const ok = ew.validateInput({ mode: 'why', sentence: 'He just said, Have some. It helps.', question: 'It helps 为什么省主语？' });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.input.topic, '', 'why 不需要主题');
+});
+
+test('rec 校验：收藏表达至少 3 字符才有的推', () => {
+  assert.equal(ew.validateInput({ mode: 'rec', expr: 'a' }).ok, false);
+  const ok = ew.validateInput({ mode: 'rec', expr: 'What I remember most is not ___. It is ___.', zh: '我记得最清楚的不是…而是…' });
+  assert.equal(ok.ok, true);
+});
+
+test('why 提示词：质疑先答是不是、口语人话翻译、例句换场景', () => {
+  const p = ew.buildWhyPrompt({ sentence: 'Have some. It helps.', question: '省略主语不是错吗？', expr: 'It helps', topic: '' });
+  assert.match(p, /先正面回答是\/不是/);
+  assert.match(p, /术语出现就顺手翻译成人话/);
+  assert.match(p, /不许照抄范例句充数/);
+  assert.match(p, /一句话口诀/);
+});
+
+test('normalizeWhy：answer 必填、例句截 3、空例句丢', () => {
+  const out = ew.normalizeWhy({ answer: '省主语是老话。', rule: '口语 It 常可省', examples: [{ en: 'a' }, { en: '' }, { en: 'c' }, { en: 'd' }] });
+  assert.equal(out.examples.length, 3);
+  assert.equal(out.rule, '口语 It 常可省');
+  assert.throws(() => ew.normalizeWhy({ rule: 'x' }), /没答上话/);
+});
+
+test('normalizeRec：必须带 example.en、上限 4、全不合格报错', () => {
+  const out = ew.normalizeRec({ rec: [
+    { en: 'a', example: { en: 'ex a' }, note: 'n' },
+    { en: 'b', example: { en: '' } },
+    { en: '', example: { en: 'x' } },
+    ...Array.from({ length: 5 }, (_, i) => ({ en: 'e' + i, example: { en: 'ex' + i } })),
+  ] });
+  assert.equal(out.rec.length, 4);
+  assert.ok(!out.rec.some((r) => r.en === 'b'));
+  assert.throws(() => ew.normalizeRec({ rec: [{ en: 'x' }] }), /没推出同类/);
+});
