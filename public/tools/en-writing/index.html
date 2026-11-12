@@ -536,7 +536,8 @@
   }
 
   /* ---------- 划词收藏：选中短语/用法直接进库 ---------- */
-  var pickEl = null;
+  var pickEl = null, lastTouch = false;
+  document.addEventListener('touchstart', function () { lastTouch = true; }, { passive: true, capture: true });
   function ensurePick() {
     if (pickEl) return pickEl;
     pickEl = mk('div', 'pick');
@@ -583,10 +584,12 @@
     btn.textContent = '⭐ 收藏「' + (text.length > 14 ? text.slice(0, 14) + '…' : text) + '」';
     var rect = { left: 0, top: 0, bottom: 0, width: 0 };
     try { rect = sel.getRangeAt(0).getBoundingClientRect() || rect; } catch (e) { /* 旧内核 */ }
-    var vw = window.innerWidth || 980;
-    btn.style.left = Math.max(8, Math.min(vw - 190, rect.left || 8)) + 'px';
-    var top = (rect.top || 0) - 44;
-    if (top < 8) top = (rect.bottom || 0) + 10;
+    var vw = window.innerWidth || 980, vh = window.innerHeight || 700;
+    btn.style.left = Math.max(8, Math.min(vw - 190, (rect.left || 0) + (rect.width || 0) / 2 - 80)) + 'px';
+    // 触屏时微信自己的「复制·搜索」菜单浮在选区上方——我们浮下面，别叠
+    var top = lastTouch ? (rect.bottom || 0) + 12 : (rect.top || 0) - 46;
+    if (!lastTouch && top < 8) top = Math.min(vh - 58, (rect.bottom || 0) + 12);
+    if (lastTouch && top > vh - 62) top = Math.max(8, (rect.top || 0) - 46);
     btn.style.top = top + 'px';
     btn.classList.add('show');
   }
