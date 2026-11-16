@@ -314,6 +314,8 @@ test('buildBtPrompt：严格打分锚点 + 不许编造（orig 必须能原样�
   assert.ok(q.includes('55~65'), '中式英语有扣分锚点');
   assert.ok(q.includes('原样照抄'), 'gap.orig 不许编');
   assert.ok(q.includes('逐字来自原文'), 'chunks 只能从原文挑');
+  assert.ok(q.includes('比 we were silent 有画面'), '作用=对比格式钉进提示词');
+  assert.ok(q.includes('优先用学生的原话'), '对比对象优先学生自己的平写法');
   assert.ok(q.includes('暴风雨困住了我们。'), '中文提示进素材');
 });
 

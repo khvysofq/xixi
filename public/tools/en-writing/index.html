@@ -83,6 +83,13 @@
   .bt-chunk .eg { color: #444; font-size: 13px; font-style: italic; }
   .bt-type { font-size: 11px; background: #eef1f6; border-radius: 6px; padding: 1px 7px; color: var(--muted); }
   .bt-chunk button { align-self: flex-start; margin-top: 2px; }
+  .bt-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+  .bt-table th { background: #1f2b45; color: #fff; text-align: left; padding: 8px 12px; font-weight: 600; }
+  .bt-table td { border-bottom: 1px solid #e8e8ee; padding: 9px 12px; vertical-align: top; }
+  .bt-table td.ck { width: 38%; }
+  .bt-table .ck code { font-family: ui-monospace, Menlo, Consolas, monospace; color: #b3423a; font-size: 13.5px; }
+  .bt-table .eg2 { color: var(--muted); font-size: 12.5px; font-style: italic; margin-top: 3px; }
+  .bt-table button { margin-left: 6px; }
   .sent-row { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
   .sent-row .txt { flex: 1 1 200px; }
   .sent-row .zh { color: var(--muted); font-size: 13px; margin-top: 2px; }
@@ -273,6 +280,7 @@
     { t: '卖不动的书店', en: 'There is a bookshop near my office which never seems to sell anything. Its owner spends the day polishing glasses he does not need, and customers come in mostly to escape the rain. I used to think it would close any week now. Yet five years have passed, the glasses are shinier than ever, and somehow the rent keeps being paid.', zh: '我办公室附近有家书店，好像从来卖不出东西。店主花一整天擦拭用不上的眼镜，顾客进来多半是为了躲雨。我原以为它随时会关门。可五年过去了，眼镜越擦越亮，而房租不知怎的一直交着。' },
     { t: '四十岁学游泳', en: 'At forty I decided to learn swimming, a decision my friends still joke about. My instructor, patient as a saint, explained that fear floats but pride sinks. For the first month I did nothing but hold the side and breathe. Last week, without planning to, I swam the full length of the pool, and the feeling beat any meeting I have ever led.', zh: '四十岁那年我决定学游泳，这个决定朋友们至今还在打趣。教练圣徒一样耐心，他解释说恐惧会漂起来，骄傲会沉下去。头一个月我只做一件事：扶着池边换气。上周没成想游了个全程，那种感觉赢过我开过的任何一场会。' },
     { t: '邻居的菜园', en: 'My neighbour grows tomatoes with the seriousness other men reserve for careers. He measures the rain, counts the leaves, and talks to the plants in a low voice. When the first fruits came out he brought me three, refusing thanks. I ate them standing in my own empty kitchen, and understood that a man without a garden borrows happiness.', zh: '我邻居种番茄的认真劲儿，是别人留给事业的那种。他量雨量、数叶子、压低嗓子跟植株说话。头一批果子下来，他给我送来三个，拒绝道谢。我站在自家空荡荡的厨房里把它们吃了，忽然明白：没有花园的人，幸福是借来的。' },
+    { t: '取消的末班车', en: 'We had checked the timetable twice, so when the last train was due at 11:40 and we reached the platform at 11:25, we had time to spare. We sat down on the bench and talked about nothing in particular - work, people we knew, where to spend next summer. At 11:38 the announcement came: the 11:40 was cancelled. No explanation, no replacement bus, nothing. For a moment neither of us said anything. Then my friend laughed, the kind of laugh that means the opposite of happy. In the end we walked two kilometres to a hotel where one room was left, at twice what it would have cost to take the train. The funny thing is, we still count that night as one of the best.', zh: '我们已经查过两遍时刻表。末班车 11:40 发车，我们 11:25 就到了站台，时间还很宽裕。于是我们在长椅上坐下，开始聊些无关紧要的事——工作、认识的人、明年夏天该去哪儿。11:38，广播响了：11:40 那趟车取消。没有解释，没有接驳巴士，什么都没有。有那么一会儿，我们谁都没说话。然后朋友笑了，那种笑的意思正好和开心相反。最后我们走了两公里到一家酒店，只剩一间房，价格是火车票的两倍。有意思的是，直到现在，我们还把那晚当成最好的夜晚之一。' },
     { t: '城市叫醒你两次', en: 'The city wakes its residents twice: first with traffic, then with conscience. Outside my window a salesman has been phoning since seven, a school crosses the street in noisy batches, and someone practices the trumpet badly but daily. I once longed for silence. Now I lie awake listening, and find I have started to trust these noises like old friends.', zh: '城市叫醒住在这里的人两次：先是车流，然后是良心。我窗外七点起就有人打推销电话，学校一批批吵闹地过街，还有个小号手吹得烂但天天吹。我曾经渴望安静。现在我醒着躺听，发现自己已经开始像信任老朋友一样信任这些声音。' },
   ];
   var state = { topic: null, tips: null, feedback: null, profile: null, busy: false, lastAction: null, askBusy: false, modelBusy: false, modeld: null };
@@ -1210,7 +1218,7 @@
     var mine = String(el('bt-mine').value || '').trim();
     if (!btSel.orig) { btStatus('先选一段材料（🎲 随机 / 范本段 / 自己贴）', true); return; }
     if (mine.length < 40) { btStatus('先把回译写出来（至少 40 字符）——写得糙才对得出差距', true); return; }
-    btStatus('比对中…（要逐句对齐，约半分钟；需要希希服务生成）');
+    btStatus('比对中…（要逐句对齐加挑语块，约 30~60 秒；需要希希服务生成）');
     var key = btCacheKey(btSel.orig, mine);
     var hit = btCacheRead()[key];
     if (hit && hit.data) { renderBt(hit.data); btStatus(''); return; }
@@ -1254,14 +1262,24 @@
       });
     }
     if (d.chunks.length) {
-      box.appendChild(mk('div', 'wd-pat', '值得背的语块（⭐ 一键进收藏库）'));
-      var grid = mk('div', 'bt-grid');
+      box.appendChild(mk('div', 'wd-pat', '值得抢的语块（⭐ 一键进收藏库）'));
+      var tb = mk('table', 'bt-table');
+      var thead = mk('thead');
+      var hr = mk('tr');
+      hr.appendChild(mk('th', '', '语块'));
+      hr.appendChild(mk('th', '', '作用'));
+      thead.appendChild(hr);
+      tb.appendChild(thead);
+      var tbody = mk('tbody');
       d.chunks.forEach(function (c) {
-        var card = mk('div', 'bt-chunk');
-        card.appendChild(mk('div', '', '<b>' + c.text + '</b> <span class="bt-type">' + c.type + '</span>'));
-        card.appendChild(mk('div', 'g', c.zh || ''));
-        if (c.eg) card.appendChild(mk('div', 'eg', c.eg));
-        if (c.note) card.appendChild(mk('div', 'g', '📌 ' + c.note));
+        var tr = mk('tr', 'bt-chunk');
+        var td1 = mk('td', 'ck');
+        td1.appendChild(mk('code', '', c.text));
+        td1.appendChild(mk('div', 'g', c.zh || ''));
+        tr.appendChild(td1);
+        var td2 = mk('td');
+        if (c.note) td2.appendChild(mk('div', '', c.note));
+        if (c.eg) td2.appendChild(mk('div', 'eg2', 'e.g. ' + c.eg));
         var sb = mk('button', 'mini', '⭐ 收');
         sb.addEventListener('click', function () {
           var added = addFav({ en: c.text, zh: c.zh || '', from: '回译·' + (d.src || '经典语料'), ctx: c.eg || '' });
@@ -1269,10 +1287,14 @@
           updateFavN();
           if (!el('fav-card').classList.contains('hidden')) renderFavs();
         });
-        card.appendChild(sb);
-        grid.appendChild(card);
+        td2.appendChild(sb);
+        var tp = mk('span', 'bt-type', c.type);
+        td2.appendChild(tp);
+        tr.appendChild(td2);
+        tbody.appendChild(tr);
       });
-      box.appendChild(grid);
+      tb.appendChild(tbody);
+      box.appendChild(tb);
     }
     var row2 = mk('div', 'row');
     var cp = mk('button', 'mini', '复制本次全部（得分+差异+语块）');
