@@ -655,6 +655,10 @@ test('why 失败：没答上直说，按钮恢复', async () => {
 
 /* ---------- 划词收藏 ---------- */
 
+function pickBtn(pick, label) {
+  return [...pick.querySelectorAll('button')].find((b) => b.textContent.includes(label));
+}
+
 function fakeSelect(window, node, text) {
   let shown = null;
   window.getSelection = () => ({
@@ -674,8 +678,8 @@ test('选中范例句里的短语 → 浮出 ⭐ 按钮 → 点它入库存原�
   window.enWriting.onSelMaybe();
   const pick = doc.querySelector('.pick');
   assert.ok(pick && pick.classList.contains('show'), '浮动收藏按钮出现');
-  assert.ok(pick.textContent.includes('on a rainy Thu'), '按钮上写收藏的是啥（超长会截断显示）');
-  pick.querySelector('button').click();
+  assert.ok(pick.textContent.includes('on a rainy'), '🔍 按钮上写查的是啥（超长截断）');
+  pickBtn(pick, '⭐').click();
   const favs = window.enWriting.favRead();
   assert.equal(favs.length, 1);
   assert.equal(favs[0].en, 'on a rainy Thursday', '存的是选中的短语，不是整句');
@@ -690,10 +694,10 @@ test('同一短语再选再收：去重；重复显示原句的逻辑不再触�
   const txtNode = doc.querySelector('#mdl-out .sent-row .txt').firstChild;
   fakeSelect(window, txtNode, 'made a simple list');
   window.enWriting.onSelMaybe();
-  doc.querySelector('.pick button').click();
+  pickBtn(doc.querySelector('.pick'), '⭐').click();
   fakeSelect(window, txtNode, 'made  a  simple  list');   // 空白不同也算同一句
   window.enWriting.onSelMaybe();
-  doc.querySelector('.pick button').click();
+  pickBtn(doc.querySelector('.pick'), '⭐').click();
   assert.equal(window.enWriting.favRead().length, 1, '同短语去重');
 });
 
@@ -709,7 +713,7 @@ test('解析/推荐区也认；正文区外不弹；纯中文不弹', async () =
   fakeSelect(window, ansNode, 'being peeled');
   window.enWriting.onSelMaybe();
   assert.ok(doc.querySelector('.pick').classList.contains('show'), '解析文字里可选');
-  doc.querySelector('.pick button').click();
+  pickBtn(doc.querySelector('.pick'), '⭐').click();
   assert.equal(window.enWriting.favRead()[0].en, 'being peeled');
   // 正文区外（顶部标语）不弹
   window.enWriting.hidePick();
@@ -727,7 +731,7 @@ test('收藏卡片显示短语的原句（方向：短语≠原句才显示）',
   const txtNode = doc.querySelector('#mdl-out .sent-row .txt').firstChild;
   fakeSelect(window, txtNode, 'at Gate 27');
   window.enWriting.onSelMaybe();
-  doc.querySelector('.pick button').click();
+  pickBtn(doc.querySelector('.pick'), '⭐').click();
   doc.getElementById('fav-btn').click();
   const item = doc.querySelector('#fav-list .fav-item');
   assert.ok(item.textContent.includes('原句：It started'), '短语收藏带原句');
@@ -743,8 +747,8 @@ test('划词条升级：⭐收藏 + 📖词义 两个按钮；点词义 mode=wor
   window.enWriting.onSelMaybe();
   const pick = doc.querySelector('.pick');
   const btns = [...pick.querySelectorAll('button')].map((b) => b.textContent);
-  assert.ok(btns.some((x) => x.includes('⭐')) && btns.some((x) => x.includes('📖')), '收藏+词义并排');
-  pick.querySelectorAll('button')[1].click();
+  assert.ok(btns.some((x) => x.includes('🔍')) && btns.some((x) => x.includes('🧾')) && btns.some((x) => x.includes('⭐')), '查询/语法/收藏三键');
+  pickBtn(pick, '🔍').click();
   await waitFor(() => calls.length === 3);
   assert.equal(calls[2].body.mode, 'word');
   assert.equal(calls[2].body.word, 'made a simple list');
@@ -868,4 +872,59 @@ test('范本段可作回译材料；自己贴的校验后也能开场', async ()
   doc.getElementById('bt-paste-en').value = 'Two weeks later we shipped it on an ordinary Friday afternoon, no shouting, no all-nighter, which felt like its own kind of victory.';
   doc.getElementById('bt-paste-ok').click();
   assert.equal(window.enWriting.btSel().src, '自己贴的');
+});
+
+/* ---------- 布局调整 + 全局查询条（主人 2026-11-16 06:26） ---------- */
+
+test('进门就是回译：第一张卡是回译、材料自动备好；照主题写降为附加', async () => {
+  const { window, doc } = await boot();
+  const cards = [...doc.querySelectorAll('section.card')];
+  assert.equal(cards[0].id, 'bt-card', '回译卡排第一');
+  assert.ok(!cards[0].classList.contains('hidden'), '默认就摊开');
+  await waitFor(() => doc.getElementById('bt-zh').textContent.length > 30);
+  assert.ok(!doc.getElementById('bt-stage').classList.contains('hidden'), '一篇材料已备好');
+  assert.ok(doc.getElementById('main-card').textContent.includes('附加'), '主题写作标成附加');
+  assert.ok(doc.getElementById('fav-btn') && doc.getElementById('word-btn'), '收藏/查询台入口在全局');
+});
+
+test('任意模块划词三键齐：tips 里选短语点 🧾 → mode=why 带整句，查询台出语法解答', async () => {
+  const { window, doc, calls } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  doc.getElementById('tips-btn').click();
+  await waitFor(() => calls.length === 2);
+  await waitFor(() => doc.getElementById('tips-body').textContent.includes('out of nowhere'));
+  const tipsEn = doc.querySelector('#tips-body .ph');
+  fakeSelect(window, tipsEn.firstChild, 'out of nowhere');
+  window.enWriting.onSelMaybe();
+  const pick = doc.querySelector('.pick');
+  assert.ok(pick.classList.contains('show'), '表达帮助里也能划词');
+  assert.equal([...pick.querySelectorAll('button')].length, 3);
+  pickBtn(pick, '🧾').click();
+  await waitFor(() => calls.length === 3);
+  assert.equal(calls[2].body.mode, 'why');
+  assert.equal(calls[2].body.question, '为什么这里要这么用？');
+  assert.ok(calls[2].body.sentence.length >= 10, '把选中处所在整句发过去了');
+  await waitFor(() => doc.getElementById('grammar-body').textContent.includes('口语老话'));
+  assert.ok(doc.getElementById('grammar-body').textContent.includes('口诀'), '口诀照给');
+  assert.ok(doc.getElementById('grammar-body').textContent.includes('Try the back streets'), '换场景例句');
+});
+
+test('语法查询吃缓存：同句同问二点不花钱；自己作文 textarea 里划不弹', async () => {
+  const { window, doc, calls } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  const tagNode = doc.getElementById('t-en');
+  fakeSelect(window, tagNode.firstChild, 'did not go as planned');
+  window.enWriting.onSelMaybe();
+  pickBtn(doc.querySelector('.pick'), '🧾').click();
+  await waitFor(() => calls.length === 2);
+  await waitFor(() => doc.getElementById('grammar-body').textContent.includes('口语老话'));   // 等首答落缓存
+  fakeSelect(window, tagNode.firstChild, 'did not go as planned');
+  window.enWriting.onSelMaybe();
+  pickBtn(doc.querySelector('.pick'), '🧾').click();
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(calls.length, 2, '缓存命中不再花钱');
+  const essay = doc.getElementById('essay');
+  fakeSelect(window, essay, 'my own sentence here');
+  window.enWriting.onSelMaybe();
+  assert.ok(!doc.querySelector('.pick').classList.contains('show'), '输入框里不弹');
 });

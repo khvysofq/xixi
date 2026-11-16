@@ -131,67 +131,13 @@
     <a href="/">← 工具箱</a>
   </header>
 
-  <section class="card" id="topic-card">
-    <span class="chip" id="t-type">叙述</span>
-    <div class="topic-en" id="t-en">…</div>
-    <div class="topic-zh" id="t-zh"></div>
-    <div class="topic-hint" id="t-hint"></div>
-    <div class="row">
-      <button id="dice">🎲 换一个主题</button>
-      <span class="grow"></span>
-      <span class="status" id="t-status"></span>
-    </div>
-  </section>
-
-  <section class="card">
-    <textarea id="essay" spellcheck="false" placeholder="Write here — 就围绕这个主题，把一件事说完整。
-不用长，5~10 句话也算数；写完点下面「批改」。"></textarea>
-    <div class="count" id="counter">0 words · 草稿自动存在本浏览器</div>
-    <div class="row">
-      <button id="tips-btn">🧠 表达帮助</button>
-      <button class="primary" id="fix-btn">✍️ 批改这篇</button>
-      <button id="mdl-btn">📜 看范本</button>
-      <button id="pro-btn">🧭 学习画像</button>
-    </div>
-    <div class="status" id="status"></div>
-  </section>
-
-  <section class="card hidden" id="tips-card">
-    <h2>这个主题常用的表达</h2>
-    <div id="tips-body"></div>
-  </section>
-
-  <section class="card hidden" id="mdl-card">
-    <h2>照着梗概写范本 <span style="font-weight:400;color:var(--muted);font-size:13px">原文基础弱时，先看看够得着的高度</span></h2>
-    <textarea id="mdl-in" spellcheck="false" style="min-height:90px" placeholder="用中文讲你的故事骨架，100~200 字最好写。例：第一次独立出差赶飞机，航班延误四小时，同机舱一位老人把橙子分给大家；回去后我把这事讲给同事，明白了一个道理……"></textarea>
-    <div class="row">
-      <button class="primary" id="mdl-go">写一篇 300~500 词范本</button>
+  <section class="card" id="bt-card">
+    <h2>🔁 回译比比 <span style="font-weight:400;color:var(--muted);font-size:13px">先从这里开始：照中文写回英文 → 对原文 → 得分、表达差异、值得抢的语块</span></h2>
+    <div class="row" style="margin-top:-4px">
       <button id="fav-btn">📚 我的收藏 (<span id="fav-n">0</span>)</button>
-      <button id="bt-btn">🔁 回译比比</button>
-      <span class="grow"></span>
-      <span class="status" id="mdl-status"></span>
-    </div>
-    <div id="mdl-out"></div>
-    <div class="row hidden" id="mdl-copyrow">
-      <button class="mini" id="mdl-copyen">复制英文全文</button>
-      <button class="mini" id="mdl-copybi">复制中英对照</button>
+      <button id="word-btn">🔍 查询台</button>
       <span class="grow"></span>
     </div>
-  </section>
-
-  <section class="card hidden" id="word-card">
-    <h2>词义与搭配 <span style="font-weight:400;color:var(--muted);font-size:13px">简单英文解释 + Ozdic 式高频搭配；选中任意英文点 📖 即查</span></h2>
-    <div class="row">
-      <input id="word-in" placeholder="查一个单词或短语，如 decision / look forward to" style="flex:1;min-width:200px">
-      <button class="mini" id="word-go">📖 查</button>
-      <span class="status" id="word-status"></span>
-    </div>
-    <h3 id="word-title" style="margin:10px 0 0"></h3>
-    <div id="word-body"></div>
-  </section>
-
-  <section class="card hidden" id="bt-card">
-    <h2>回译比比 <span style="font-weight:400;color:var(--muted);font-size:13px">照中文写回英文 → 对原文 → 得分、表达差异、可背语块</span></h2>
     <div class="row">
       <button class="primary" id="bt-rand">🎲 随机经典一篇</button>
       <select id="bt-model-sel"><option value="">用本页范本的段落…</option></select>
@@ -214,6 +160,66 @@
       </div>
       <div id="bt-out"></div>
     </div>
+  </section>
+
+  <section class="card" id="topic-card">
+    <span class="chip" id="t-type">叙述</span>
+    <div class="topic-en" id="t-en">…</div>
+    <div class="topic-zh" id="t-zh"></div>
+    <div class="topic-hint" id="t-hint"></div>
+    <div class="row">
+      <button id="dice">🎲 换一个主题</button>
+      <span class="grow"></span>
+      <span class="status" id="t-status"></span>
+    </div>
+  </section>
+
+  <section class="card" id="main-card">
+    <h2>✍️ 附加 · 照主题写 <span style="font-weight:400;color:var(--muted);font-size:13px">等回译和收藏攒够了再来挑战——这个更难</span></h2>
+    <textarea id="essay" spellcheck="false" placeholder="Write here — 就围绕这个主题，把一件事说完整。
+不用长，5~10 句话也算数；写完点下面「批改」。"></textarea>
+    <div class="count" id="counter">0 words · 草稿自动存在本浏览器</div>
+    <div class="row">
+      <button id="tips-btn">🧠 表达帮助</button>
+      <button class="primary" id="fix-btn">✍️ 批改这篇</button>
+      <button id="mdl-btn">📜 看范本</button>
+      <button id="pro-btn">🧭 学习画像</button>
+    </div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="card hidden" id="tips-card">
+    <h2>这个主题常用的表达</h2>
+    <div id="tips-body"></div>
+  </section>
+
+  <section class="card hidden" id="mdl-card">
+    <h2>照着梗概写范本 <span style="font-weight:400;color:var(--muted);font-size:13px">原文基础弱时，先看看够得着的高度</span></h2>
+    <textarea id="mdl-in" spellcheck="false" style="min-height:90px" placeholder="用中文讲你的故事骨架，100~200 字最好写。例：第一次独立出差赶飞机，航班延误四小时，同机舱一位老人把橙子分给大家；回去后我把这事讲给同事，明白了一个道理……"></textarea>
+    <div class="row">
+      <button class="primary" id="mdl-go">写一篇 300~500 词范本</button>
+      <button id="bt-btn">🔁 回译比比</button>
+      <span class="grow"></span>
+      <span class="status" id="mdl-status"></span>
+    </div>
+    <div id="mdl-out"></div>
+    <div class="row hidden" id="mdl-copyrow">
+      <button class="mini" id="mdl-copyen">复制英文全文</button>
+      <button class="mini" id="mdl-copybi">复制中英对照</button>
+      <span class="grow"></span>
+    </div>
+  </section>
+
+  <section class="card hidden" id="word-card">
+    <h2>🔍 查询台 <span style="font-weight:400;color:var(--muted);font-size:13px">词义·搭配·例句 | 选中任意文字点 🧾 问语法</span></h2>
+    <div class="row">
+      <input id="word-in" placeholder="查一个单词或短语，如 decision / look forward to" style="flex:1;min-width:200px">
+      <button class="mini" id="word-go">📖 查</button>
+      <span class="status" id="word-status"></span>
+    </div>
+    <h3 id="word-title" style="margin:10px 0 0"></h3>
+    <div id="word-body"></div>
+    <div id="grammar-body"></div>
   </section>
 
   <section class="card hidden" id="fav-card">
@@ -708,12 +714,14 @@
     if (pickEl) return pickEl;
     pickEl = mk('div', 'pick');
     document.body.appendChild(pickEl);
+    var qb = mk('button', '', '🔍 查询');
+    var gb = mk('button', '', '🧾 语法');
     var fb = mk('button', '', '⭐ 收藏');
-    var wb = mk('button', '', '📖 词义');
-    pickEl.appendChild(fb); pickEl.appendChild(wb);
-    pickEl._fb = fb; pickEl._wb = wb;
+    pickEl.appendChild(qb); pickEl.appendChild(gb); pickEl.appendChild(fb);
+    pickEl._qb = qb; pickEl._gb = gb; pickEl._fb = fb;
+    qb.addEventListener('click', function () { wordAsk(pickEl._txt, pickEl._ctx); closeSel(); });
+    gb.addEventListener('click', function () { grammarAsk(pickEl._ctx, pickEl._txt); closeSel(); });
     fb.addEventListener('click', function () { doPick(pickEl._txt, pickEl._ctx, pickEl._from); closeSel(); });
-    wb.addEventListener('click', function () { wordAsk(pickEl._txt, pickEl._ctx); closeSel(); });
     return pickEl;
   }
   function closeSel() {
@@ -725,7 +733,10 @@
   function favZoneOf(node) {
     var host = node && (node.nodeType === 3 ? node.parentElement : node);
     if (!host || !host.closest) return null;
-    return host.closest('#mdl-out') || host.closest('#fav-list') || host.closest('#word-card') || host.closest('#bt-card');
+    var z = host.closest('#mdl-out') || host.closest('#fav-list') || host.closest('#word-card') || host.closest('#bt-card');
+    if (z) return z;
+    if (host.closest('input, textarea, button, select')) return null;
+    return host.closest('.card') || host.closest('header');
   }
   function lineContext(node) {
     var host = node && (node.nodeType === 3 ? node.parentElement : node);
@@ -749,16 +760,19 @@
     if (!zone) return hidePick();
     var btn = ensurePick();
     btn._txt = text;
-    btn._fb.textContent = '⭐ ' + (text.length > 14 ? text.slice(0, 14) + '…' : text);
+    btn._qb.textContent = '🔍 查「' + (text.length > 10 ? text.slice(0, 10) + '…' : text) + '」';
     btn._ctx = lineContext(sel.anchorNode);
-    btn._from = zone.id === 'fav-list' ? '同类推荐'
-      : zone.id === 'word-card' ? '词义搭配'
+    btn._from = (zone.id === 'mdl-out' || zone.id === 'mdl-card') ? '范本：' + ((state.modeld && state.modeld.title) || '样例')
+      : zone.id === 'word-card' ? '查询台'
         : zone.id === 'bt-card' ? '回译·' + (btSel.src || '')
-          : '范本：' + ((state.modeld && state.modeld.title) || '样例');
+          : zone.id === 'tips-card' ? '表达帮助'
+            : zone.id === 'fb-card' ? '批改反馈'
+              : zone.id === 'pro-card' ? '学习画像'
+                : zone.id === 'fav-card' ? '收藏库' : zone.id === 'main-card' ? '我的作文' : '页面';
     var rect = { left: 0, top: 0, bottom: 0, width: 0 };
     try { rect = sel.getRangeAt(0).getBoundingClientRect() || rect; } catch (e) { /* 旧内核 */ }
     var vw = window.innerWidth || 980, vh = window.innerHeight || 700;
-    btn.style.left = Math.max(8, Math.min(vw - 210, (rect.left || 0) + (rect.width || 0) / 2 - 100)) + 'px';
+    btn.style.left = Math.max(8, Math.min(vw - 300, (rect.left || 0) + (rect.width || 0) / 2 - 140)) + 'px';
     // 触屏时微信自己的「复制·搜索」菜单浮在选区上方——我们浮下面，别叠
     var top = lastTouch ? (rect.bottom || 0) + 12 : (rect.top || 0) - 46;
     if (!lastTouch && top < 8) top = Math.min(vh - 58, (rect.bottom || 0) + 12);
@@ -1155,6 +1169,38 @@
     }
   }
 
+  /* ---------- 全局语法查询（选中点 🧾） ---------- */
+  async function grammarAsk(sentence, expr) {
+    sentence = String(sentence || '').replace(/\s+/g, ' ').trim();
+    if (sentence.length < 10) {
+      el('word-card').classList.remove('hidden');
+      el('grammar-body').innerHTML = '';
+      el('grammar-body').appendChild(mk('div', 'status err', '选中位置没找到完整句子——直接选中整句或长一点的片段再点 🧾'));
+      return;
+    }
+    el('word-card').classList.remove('hidden');
+    var box = el('grammar-body');
+    box.innerHTML = '';
+    box.appendChild(mk('div', 'wd-pat', '🧾 语法 · ' + (String(expr || '').length > 30 ? String(expr).slice(0, 30) + '…' : expr || sentence.slice(0, 30))));
+    var q = '为什么这里要这么用？';
+    var key = (sentence + '|' + q).toLowerCase().replace(/\s+/g, ' ');
+    var hit = whyCacheRead()[key];
+    if (hit) { renderWhy(box, hit); return; }
+    var busy = mk('div', 'status', '教练在想（5~15 秒）…');
+    box.appendChild(busy);
+    try {
+      var r = await callApi({ mode: 'why', sentence: sentence, question: q, expr: String(expr || '').slice(0, 120), topic: state.topic && state.topic.en });
+      var map = whyCacheRead(); map[key] = r;
+      var ks = Object.keys(map); while (ks.length > 60) { delete map[ks.shift()]; }
+      try { localStorage.setItem(LSW, JSON.stringify(map)); } catch (e) { /* ok */ }
+      busy.remove();
+      renderWhy(box, r);
+    } catch (e) {
+      busy.className = 'status err';
+      busy.textContent = '没答上：' + e.message;
+    }
+  }
+
   /* ---------- 回译比比 ---------- */
   var btSel = { src: '', orig: '', zh: '' };
   function btStatus(msg, isErr) {
@@ -1317,6 +1363,7 @@
       el('t-status').textContent = '连不上写作服务（站点进程可能刚更新），刷新前稍等十几秒';
     }
     if (!state.topic) newTopic();
+    btRandom();   // 回译是主练习：进门就备好一篇材料
     el('dice').addEventListener('click', newTopic);
     el('tips-btn').addEventListener('click', getTips);
     el('fix-btn').addEventListener('click', correct);
@@ -1333,11 +1380,16 @@
     el('mdl-go').addEventListener('click', askModel);
     el('mdl-copyen').addEventListener('click', function (ev) { copyText(modelText(false), ev.currentTarget); });
     el('word-go').addEventListener('click', function () { wordAsk(el('word-in').value); });
+    el('word-btn').addEventListener('click', function () {
+      el('word-card').classList.remove('hidden');
+      el('word-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
     el('word-in').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') wordAsk(el('word-in').value); });
     el('bt-btn').addEventListener('click', function () {
       var card = el('bt-card');
-      if (card.classList.contains('hidden')) { card.classList.remove('hidden'); btFillModelSel(); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-      else card.classList.add('hidden');
+      card.classList.remove('hidden');
+      btFillModelSel();
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
     el('bt-rand').addEventListener('click', btRandom);
     el('bt-model-sel').addEventListener('change', function () {
@@ -1386,7 +1438,7 @@
       renderTips: renderTips, getTips: getTips, renderFeedback: renderFeedback,
       renderAsk: renderAsk, askRead: askRead, renderModel: renderModel, modelText: modelText, modelRead: modelRead, askModel: askModel,
       favRead: favRead, addFav: addFav, onSelMaybe: onSelMaybe, wordAsk: wordAsk, renderWord: renderWord, wordText: wordText,
-      btSel: function () { return btSel; }, btRandom: btRandom, btSetMaterial: btSetMaterial, btGo: btGo, renderBt: renderBt, btText: btText, btPasteOk: btPasteOk, CORPUS: CORPUS, doPick: doPick, hidePick: hidePick, lineContext: lineContext, renderFavs: renderFavs, favText: favText, updateFavN: updateFavN, renderWhy: renderWhy, correct: correct,
+      btSel: function () { return btSel; }, grammarAsk: grammarAsk, btRandom: btRandom, btSetMaterial: btSetMaterial, btGo: btGo, renderBt: renderBt, btText: btText, btPasteOk: btPasteOk, CORPUS: CORPUS, doPick: doPick, hidePick: hidePick, lineContext: lineContext, renderFavs: renderFavs, favText: favText, updateFavN: updateFavN, renderWhy: renderWhy, correct: correct,
       feedbackText: feedbackText, wordCount: wordCount, saveDraft: saveDraft, loadDraft: loadDraft,
     };
   }
