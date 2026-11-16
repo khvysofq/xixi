@@ -61,10 +61,28 @@
   .err-item .f { font-weight: 650; }
   .err-item .w { color: var(--muted); font-size: 13px; margin-top: 3px; }
   .err-item .k { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
-  .pick { position: fixed; z-index: 70; background: var(--accent); color: #fff; padding: 7px 12px;
-    border-radius: 9px; font-size: 13px; box-shadow: 0 3px 10px rgba(0,0,0,.25); cursor: pointer;
-    display: none; user-select: none; max-width: 82vw; }
-  .pick.show { display: block; }
+  .pick { position: fixed; z-index: 70; box-shadow: 0 3px 10px rgba(0,0,0,.25);
+    display: none; user-select: none; }
+  .pick.show { display: flex; gap: 6px; }
+  .pick button { background: var(--accent); color: #fff; border: 0; border-radius: 9px;
+    padding: 7px 11px; font-size: 13px; cursor: pointer; }
+  .wd { margin-top: 6px; }
+  .wd-def { background: #f4f7ff; border-radius: 10px; padding: 9px 12px; font-size: 15px; margin: 8px 0; }
+  .wd-def .zh { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .wd-pat { font-size: 12px; color: var(--accent); font-weight: 600; margin: 10px 0 4px; }
+  .wd-item { display: flex; gap: 8px; align-items: baseline; padding: 5px 0; border-bottom: 1px dashed #eee; font-size: 14px; }
+  .wd-item .g { color: var(--muted); font-size: 13px; }
+  .wd-item .eg { flex: 1; color: #444; font-size: 13px; }
+  .wd-item button { flex: none; }
+  .wd-warn { margin-top: 10px; background: #fff7ec; border-radius: 10px; padding: 8px 11px; font-size: 13px; }
+  .bt-chip { display: inline-block; background: #eef1f6; border-radius: 999px; padding: 3px 12px; font-size: 13px; margin: 8px 6px 0 0; }
+  .bt-chip.hot { background: var(--accent); color: #fff; }
+  .bt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-top: 8px; }
+  .bt-chunk { border: 1px solid #e8e8ee; border-radius: 12px; padding: 10px 12px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+  .bt-chunk .g { color: var(--muted); font-size: 13px; }
+  .bt-chunk .eg { color: #444; font-size: 13px; font-style: italic; }
+  .bt-type { font-size: 11px; background: #eef1f6; border-radius: 6px; padding: 1px 7px; color: var(--muted); }
+  .bt-chunk button { align-self: flex-start; margin-top: 2px; }
   .sent-row { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
   .sent-row .txt { flex: 1 1 200px; }
   .sent-row .zh { color: var(--muted); font-size: 13px; margin-top: 2px; }
@@ -142,6 +160,7 @@
     <div class="row">
       <button class="primary" id="mdl-go">写一篇 300~500 词范本</button>
       <button id="fav-btn">📚 我的收藏 (<span id="fav-n">0</span>)</button>
+      <button id="bt-btn">🔁 回译比比</button>
       <span class="grow"></span>
       <span class="status" id="mdl-status"></span>
     </div>
@@ -150,6 +169,43 @@
       <button class="mini" id="mdl-copyen">复制英文全文</button>
       <button class="mini" id="mdl-copybi">复制中英对照</button>
       <span class="grow"></span>
+    </div>
+  </section>
+
+  <section class="card hidden" id="word-card">
+    <h2>词义与搭配 <span style="font-weight:400;color:var(--muted);font-size:13px">简单英文解释 + Ozdic 式高频搭配；选中任意英文点 📖 即查</span></h2>
+    <div class="row">
+      <input id="word-in" placeholder="查一个单词或短语，如 decision / look forward to" style="flex:1;min-width:200px">
+      <button class="mini" id="word-go">📖 查</button>
+      <span class="status" id="word-status"></span>
+    </div>
+    <h3 id="word-title" style="margin:10px 0 0"></h3>
+    <div id="word-body"></div>
+  </section>
+
+  <section class="card hidden" id="bt-card">
+    <h2>回译比比 <span style="font-weight:400;color:var(--muted);font-size:13px">照中文写回英文 → 对原文 → 得分、表达差异、可背语块</span></h2>
+    <div class="row">
+      <button class="primary" id="bt-rand">🎲 随机经典一篇</button>
+      <select id="bt-model-sel"><option value="">用本页范本的段落…</option></select>
+      <button class="mini" id="bt-paste-btn">✍️ 自己贴一段</button>
+      <span class="status" id="bt-status"></span>
+    </div>
+    <div class="hidden" id="bt-paste">
+      <textarea id="bt-paste-zh" spellcheck="false" style="min-height:60px" placeholder="中文提示段——你照着它回译（要比对一段自己写的/润色好的英文，这里贴它的中文意思）"></textarea>
+      <textarea id="bt-paste-en" spellcheck="false" style="min-height:60px" placeholder="英文原文——比对的标准答案（范本、课文、批改的 rewrite 都行）"></textarea>
+      <div class="row"><button class="mini" id="bt-paste-ok">用这段开始</button></div>
+    </div>
+    <div class="hidden" id="bt-stage">
+      <div class="wd-pat" id="bt-src"></div>
+      <div class="wd-def" id="bt-zh"></div>
+      <textarea id="bt-mine" spellcheck="false" placeholder="照上面的中文，凭手感把这段写回英文——别查词典，写不出就意会。差距才是收获。"></textarea>
+      <div class="row">
+        <button class="primary" id="bt-go">提交比对（需要希希服务生成）</button>
+        <button class="mini" id="bt-peek">偷看原文</button>
+        <span class="grow"></span>
+      </div>
+      <div id="bt-out"></div>
     </div>
   </section>
 
@@ -208,6 +264,17 @@
   var LSF = 'xixi.en-writing.fav.v1';    // 表达收藏库（本机）
   var LSR = 'xixi.en-writing.rec.v1';    // 同类推荐缓存：同一条表达不重复花钱
   var LSW = 'xixi.en-writing.why.v1';    // 范例句提问缓存
+  var LSWD = 'xixi.en-writing.word.v1';  // 词义/搭配查询缓存：一个词查一次
+  var LST = 'xixi.en-writing.bt.v1';     // 回译比对缓存（同原文同译文不重跑）
+  // 经典风语料：仿「新概念」叙事短文风格的自创篇目（版权干净），中文是回译提示
+  var CORPUS = [
+    { t: '暴风雨周末', en: 'Last August a storm kept us indoors for the whole weekend. For once nobody complained. My father read the newspaper aloud, my mother mended a curtain, and the dog pretended to be frightened every time the thunder rolled. By Sunday evening the power came back, and we went out to find the street split by fallen branches. Oddly enough, none of us wanted that weekend to end.', zh: '去年八月，一场暴风雨把我们困在屋里整整一个周末。难得地，谁也没有抱怨。父亲大声念报纸，母亲缝补窗帘，狗每次雷声滚过都装作吓坏了。到周日晚上电来了，我们出门才发现街道被掉落的树枝劈开了。奇怪的是，我们谁都不希望那个周末结束。' },
+    { t: '晚点的三十秒', en: 'I missed the last train by thirty seconds, which I counted. The station master, a man of few smiles, told me to wait in the booking office. Half an hour later a goods train stopped right outside, and its driver handed down two warm rolls through the window. Nobody explained anything. I simply walked home eating one, grateful to be late.', zh: '我差三十秒没赶上末班车，那三十秒是我自己数的。站长是个不爱笑的人，让我在售票室里等。半小时后一列货车正好停在门外，司机从车窗递下来两个热面包。没人解释什么。我就一边吃着一个走回了家，庆幸自己迟了。' },
+    { t: '卖不动的书店', en: 'There is a bookshop near my office which never seems to sell anything. Its owner spends the day polishing glasses he does not need, and customers come in mostly to escape the rain. I used to think it would close any week now. Yet five years have passed, the glasses are shinier than ever, and somehow the rent keeps being paid.', zh: '我办公室附近有家书店，好像从来卖不出东西。店主花一整天擦拭用不上的眼镜，顾客进来多半是为了躲雨。我原以为它随时会关门。可五年过去了，眼镜越擦越亮，而房租不知怎的一直交着。' },
+    { t: '四十岁学游泳', en: 'At forty I decided to learn swimming, a decision my friends still joke about. My instructor, patient as a saint, explained that fear floats but pride sinks. For the first month I did nothing but hold the side and breathe. Last week, without planning to, I swam the full length of the pool, and the feeling beat any meeting I have ever led.', zh: '四十岁那年我决定学游泳，这个决定朋友们至今还在打趣。教练圣徒一样耐心，他解释说恐惧会漂起来，骄傲会沉下去。头一个月我只做一件事：扶着池边换气。上周没成想游了个全程，那种感觉赢过我开过的任何一场会。' },
+    { t: '邻居的菜园', en: 'My neighbour grows tomatoes with the seriousness other men reserve for careers. He measures the rain, counts the leaves, and talks to the plants in a low voice. When the first fruits came out he brought me three, refusing thanks. I ate them standing in my own empty kitchen, and understood that a man without a garden borrows happiness.', zh: '我邻居种番茄的认真劲儿，是别人留给事业的那种。他量雨量、数叶子、压低嗓子跟植株说话。头一批果子下来，他给我送来三个，拒绝道谢。我站在自家空荡荡的厨房里把它们吃了，忽然明白：没有花园的人，幸福是借来的。' },
+    { t: '城市叫醒你两次', en: 'The city wakes its residents twice: first with traffic, then with conscience. Outside my window a salesman has been phoning since seven, a school crosses the street in noisy batches, and someone practices the trumpet badly but daily. I once longed for silence. Now I lie awake listening, and find I have started to trust these noises like old friends.', zh: '城市叫醒住在这里的人两次：先是车流，然后是良心。我窗外七点起就有人打推销电话，学校一批批吵闹地过街，还有个小号手吹得烂但天天吹。我曾经渴望安静。现在我醒着躺听，发现自己已经开始像信任老朋友一样信任这些声音。' },
+  ];
   var state = { topic: null, tips: null, feedback: null, profile: null, busy: false, lastAction: null, askBusy: false, modelBusy: false, modeld: null };
 
   function el(id) { return document.getElementById(id); }
@@ -535,6 +602,97 @@
     return wbox;
   }
 
+  /* ---------- 词义解释：简单英文释义 + Ozdic 式搭配 ---------- */
+  function wordCacheRead() {
+    try { var a = JSON.parse(localStorage.getItem(LSWD) || '{}'); return a && typeof a === 'object' ? a : {}; } catch (e) { return {}; }
+  }
+  function wordCachePut(k, d) {
+    try {
+      var m = wordCacheRead(); m[k] = { data: d, at: Date.now() };
+      var ks = Object.keys(m);
+      if (ks.length > 80) { ks.sort(function (a, b) { return (m[a].at || 0) - (m[b].at || 0); }); delete m[ks[0]]; }
+      localStorage.setItem(LSWD, JSON.stringify(m));
+    } catch (e) { /* 存不下就算了 */ }
+  }
+  async function wordAsk(word, sentence) {
+    word = String(word || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (word.length < 2) return null;
+    el('word-card').classList.remove('hidden');
+    var st = el('word-status');
+    st.className = 'status'; st.textContent = '';
+    var cached = wordCacheRead()[word.toLowerCase()];
+    if (cached && cached.data && !cached.data.error) { renderWord(cached.data); return cached.data; }
+    st.textContent = '查词典中…（需要希希服务生成）';
+    try {
+      var d = await callApi({ mode: 'word', word: word, sentence: String(sentence || '').slice(0, 400), topic: state.topic ? state.topic.en : '' });
+      wordCachePut(word.toLowerCase(), d);
+      renderWord(d);
+      return d;
+    } catch (e) {
+      renderWord({ kind: 'word', word: word, pos: '', simpleDef: '', zh: '', collocations: [], warn: '', error: e.message });
+      return null;
+    } finally { st.textContent = ''; }
+  }
+  function wordText(d) {
+    var out = [d.word + (d.pos ? '  ' + d.pos : '')];
+    if (d.simpleDef) out.push(d.simpleDef, d.zh);
+    (d.collocations || []).forEach(function (g) {
+      out.push('', '[' + g.pattern + ']');
+      g.items.forEach(function (it) { out.push('  ' + it.en + (it.zh ? ' — ' + it.zh : '') + (it.eg ? '\n    e.g. ' + it.eg : '')); });
+    });
+    if (d.warn) out.push('', '坑：' + d.warn);
+    return out.join('\n');
+  }
+  function renderWord(d) {
+    var box = el('word-body');
+    box.innerHTML = '';
+    el('word-card').classList.remove('hidden');
+    if (d.error) {
+      var er = mk('div', 'status err');
+      er.textContent = '没查上：' + d.error + ' ';
+      var rb = mk('button', 'mini', '重试');
+      rb.addEventListener('click', function () { wordAsk(d.word); });
+      er.appendChild(rb);
+      box.appendChild(er);
+      return;
+    }
+    var h = el('word-title');
+    h.textContent = '';
+    h.appendChild(mk('b', '', d.word + ' '));
+    if (d.pos) h.appendChild(mk('span', 'g', d.pos));
+    var def = mk('div', 'wd-def');
+    def.appendChild(mk('div', '', d.simpleDef || ''));
+    if (d.zh) def.appendChild(mk('div', 'zh', d.zh));
+    box.appendChild(def);
+    (d.collocations || []).forEach(function (g) {
+      box.appendChild(mk('div', 'wd-pat', g.pattern));
+      g.items.forEach(function (it) {
+        var row = mk('div', 'wd-item');
+        var main = mk('span', '');
+        main.appendChild(mk('b', '', it.en));
+        if (it.zh) main.appendChild(mk('span', 'g', ' ' + it.zh));
+        row.appendChild(main);
+        if (it.eg) row.appendChild(mk('span', 'eg', it.eg));
+        var sb = mk('button', 'mini', '⭐');
+        sb.title = '收进收藏库';
+        sb.addEventListener('click', function () {
+          var added = addFav({ en: it.en, zh: it.zh || '', from: '词义·' + d.word, ctx: it.eg || '' });
+          sb.textContent = added ? '✓' : '✓ 已在库';
+          updateFavN();
+          if (!el('fav-card').classList.contains('hidden')) renderFavs();
+        });
+        row.appendChild(sb);
+        box.appendChild(row);
+      });
+    });
+    if (d.warn) box.appendChild(mk('div', 'wd-warn', '⚠️ 中国学习者坑：' + d.warn));
+    var row2 = mk('div', 'row');
+    var cp = mk('button', 'mini', '复制这一页');
+    cp.addEventListener('click', function (ev) { copyText(wordText(d), ev.currentTarget); });
+    row2.appendChild(cp);
+    box.appendChild(row2);
+  }
+
   /* ---------- 划词收藏：选中短语/用法直接进库 ---------- */
   var pickEl = null, lastTouch = false;
   document.addEventListener('touchstart', function () { lastTouch = true; }, { passive: true, capture: true });
@@ -542,20 +700,24 @@
     if (pickEl) return pickEl;
     pickEl = mk('div', 'pick');
     document.body.appendChild(pickEl);
-    pickEl.addEventListener('click', function () {
-      var added = doPick(pickEl._txt, pickEl._ctx, pickEl._from);
-      hidePick();
-      var selObj = window.getSelection && window.getSelection();
-      if (selObj) { try { selObj.removeAllRanges(); } catch (e) { /* ok */ } }
-      return added;
-    });
+    var fb = mk('button', '', '⭐ 收藏');
+    var wb = mk('button', '', '📖 词义');
+    pickEl.appendChild(fb); pickEl.appendChild(wb);
+    pickEl._fb = fb; pickEl._wb = wb;
+    fb.addEventListener('click', function () { doPick(pickEl._txt, pickEl._ctx, pickEl._from); closeSel(); });
+    wb.addEventListener('click', function () { wordAsk(pickEl._txt, pickEl._ctx); closeSel(); });
     return pickEl;
+  }
+  function closeSel() {
+    hidePick();
+    var selObj = window.getSelection && window.getSelection();
+    if (selObj) { try { selObj.removeAllRanges(); } catch (e) { /* ok */ } }
   }
   function hidePick() { if (pickEl) pickEl.classList.remove('show'); }
   function favZoneOf(node) {
     var host = node && (node.nodeType === 3 ? node.parentElement : node);
     if (!host || !host.closest) return null;
-    return host.closest('#mdl-out') || host.closest('#fav-list');
+    return host.closest('#mdl-out') || host.closest('#fav-list') || host.closest('#word-card') || host.closest('#bt-card');
   }
   function lineContext(node) {
     var host = node && (node.nodeType === 3 ? node.parentElement : node);
@@ -579,13 +741,16 @@
     if (!zone) return hidePick();
     var btn = ensurePick();
     btn._txt = text;
+    btn._fb.textContent = '⭐ ' + (text.length > 14 ? text.slice(0, 14) + '…' : text);
     btn._ctx = lineContext(sel.anchorNode);
-    btn._from = zone.id === 'fav-list' ? '同类推荐' : '范本：' + ((state.modeld && state.modeld.title) || '样例');
-    btn.textContent = '⭐ 收藏「' + (text.length > 14 ? text.slice(0, 14) + '…' : text) + '」';
+    btn._from = zone.id === 'fav-list' ? '同类推荐'
+      : zone.id === 'word-card' ? '词义搭配'
+        : zone.id === 'bt-card' ? '回译·' + (btSel.src || '')
+          : '范本：' + ((state.modeld && state.modeld.title) || '样例');
     var rect = { left: 0, top: 0, bottom: 0, width: 0 };
     try { rect = sel.getRangeAt(0).getBoundingClientRect() || rect; } catch (e) { /* 旧内核 */ }
     var vw = window.innerWidth || 980, vh = window.innerHeight || 700;
-    btn.style.left = Math.max(8, Math.min(vw - 190, (rect.left || 0) + (rect.width || 0) / 2 - 80)) + 'px';
+    btn.style.left = Math.max(8, Math.min(vw - 210, (rect.left || 0) + (rect.width || 0) / 2 - 100)) + 'px';
     // 触屏时微信自己的「复制·搜索」菜单浮在选区上方——我们浮下面，别叠
     var top = lastTouch ? (rect.bottom || 0) + 12 : (rect.top || 0) - 46;
     if (!lastTouch && top < 8) top = Math.min(vh - 58, (rect.bottom || 0) + 12);
@@ -982,6 +1147,140 @@
     }
   }
 
+  /* ---------- 回译比比 ---------- */
+  var btSel = { src: '', orig: '', zh: '' };
+  function btStatus(msg, isErr) {
+    var st = el('bt-status');
+    st.className = 'status' + (isErr ? ' err' : '');
+    st.textContent = msg || '';
+  }
+  function btSetMaterial(src, en, zh) {
+    btSel = { src: src, orig: en, zh: zh };
+    el('bt-stage').classList.remove('hidden');
+    el('bt-paste').classList.add('hidden');
+    el('bt-src').textContent = src;
+    el('bt-zh').textContent = zh;
+    el('bt-mine').value = '';
+    el('bt-out').innerHTML = '';
+    btStatus('');
+  }
+  function btRandom() {
+    var c = CORPUS[Math.floor(Math.random() * CORPUS.length)];
+    btSetMaterial('经典风语料 · ' + c.t, c.en, c.zh);
+  }
+  function btFillModelSel() {
+    var sel = el('bt-model-sel');
+    while (sel.options.length > 1) sel.remove(1);
+    var md = state.modeld;
+    if (md && md.paras) {
+      md.paras.forEach(function (para, i) {
+        if (String(para.en).length >= 60) {
+          var op = document.createElement('option');
+          op.value = String(i);
+          op.textContent = '范本「' + (md.title || '样例') + '」第 ' + (i + 1) + ' 段';
+          sel.appendChild(op);
+        }
+      });
+    }
+    sel.classList.toggle('hidden', sel.options.length < 2);
+  }
+  function btPasteOk() {
+    var zh = String(el('bt-paste-zh').value || '').trim();
+    var en = String(el('bt-paste-en').value || '').replace(/\s+/g, ' ').trim();
+    if (en.length < 60) { btStatus('英文原文至少 60 字符——太短比不出东西', true); return; }
+    if (zh.length < 15) { btStatus('中文提示也要一段（不然拿什么回译）', true); return; }
+    if (en.length > 3000 || zh.length > 2200) { btStatus('贴的段落太长了（原文≤3000字符）', true); return; }
+    btSetMaterial('自己贴的', en, zh);
+  }
+  function btCacheKey(orig, mine) {
+    return String(orig).length + '#' + String(mine).length + '#' + String(mine).replace(/\s+/g, ' ').trim().slice(0, 60);
+  }
+  function btCacheRead() {
+    try { var a = JSON.parse(localStorage.getItem(LST) || '{}'); return a && typeof a === 'object' ? a : {}; } catch (e) { return {}; }
+  }
+  function btCachePut(k, d) {
+    try {
+      var m = btCacheRead(); m[k] = { data: d, at: Date.now() };
+      var ks = Object.keys(m);
+      if (ks.length > 6) { ks.sort(function (a, b) { return (m[a].at || 0) - (m[b].at || 0); }); delete m[ks[0]]; }
+      localStorage.setItem(LST, JSON.stringify(m));
+    } catch (e) { /* ok */ }
+  }
+  async function btGo() {
+    var mine = String(el('bt-mine').value || '').trim();
+    if (!btSel.orig) { btStatus('先选一段材料（🎲 随机 / 范本段 / 自己贴）', true); return; }
+    if (mine.length < 40) { btStatus('先把回译写出来（至少 40 字符）——写得糙才对得出差距', true); return; }
+    btStatus('比对中…（要逐句对齐，约半分钟；需要希希服务生成）');
+    var key = btCacheKey(btSel.orig, mine);
+    var hit = btCacheRead()[key];
+    if (hit && hit.data) { renderBt(hit.data); btStatus(''); return; }
+    try {
+      var d = await callApi({ mode: 'bt', orig: btSel.orig, mine: mine, zh: btSel.zh, src: btSel.src });
+      btCachePut(key, d);
+      renderBt(d);
+      btStatus('');
+    } catch (e) {
+      btStatus('没比上：' + e.message, true);
+    }
+  }
+  function btText(d) {
+    var out = ['【' + (d.src || '回译') + '】得分 ' + d.score + ' · 表达差异 ' + d.gaps.length + ' 处 · 语块 ' + d.chunks.length + ' 个', ''];
+    out.push('—— 表达差异 ——');
+    d.gaps.forEach(function (g) { out.push('× ' + g.mine + '\n√ ' + g.orig + (g.kind ? '  [' + g.kind + ']' : '') + (g.note ? '\n   ' + g.note : '')); });
+    out.push('', '—— 可背语块 ——');
+    d.chunks.forEach(function (c) { out.push('* ' + c.text + ' — ' + c.zh + ' (' + c.type + ')' + (c.eg ? '\n   e.g. ' + c.eg : '')); });
+    return out.join('\n');
+  }
+  function renderBt(d) {
+    var box = el('bt-out');
+    box.innerHTML = '';
+    var chips = mk('div', 'row');
+    function chip(txt, hot) { var c = mk('span', 'bt-chip' + (hot ? ' hot' : '')); c.textContent = txt; chips.appendChild(c); }
+    chip('回译得分 ' + d.score, true);
+    chip('表达差异 ' + d.gaps.length + ' 处');
+    chip('可背语块 ' + d.chunks.length + ' 个');
+    box.appendChild(chips);
+    if (d.comment) box.appendChild(mk('div', 'wd-def', d.comment));
+    if (d.gaps.length) {
+      box.appendChild(mk('div', 'wd-pat', '逐处差异（你写的 vs 原文）'));
+      d.gaps.forEach(function (g) {
+        var row = mk('div', 'wd-item');
+        var main = mk('span', '');
+        main.appendChild(mk('b', '', '× ' + g.mine));
+        main.appendChild(mk('div', '', '√ ' + g.orig + (g.kind ? '  [' + g.kind + ']' : '')));
+        if (g.note) main.appendChild(mk('span', 'g', g.note));
+        row.appendChild(main);
+        box.appendChild(row);
+      });
+    }
+    if (d.chunks.length) {
+      box.appendChild(mk('div', 'wd-pat', '值得背的语块（⭐ 一键进收藏库）'));
+      var grid = mk('div', 'bt-grid');
+      d.chunks.forEach(function (c) {
+        var card = mk('div', 'bt-chunk');
+        card.appendChild(mk('div', '', '<b>' + c.text + '</b> <span class="bt-type">' + c.type + '</span>'));
+        card.appendChild(mk('div', 'g', c.zh || ''));
+        if (c.eg) card.appendChild(mk('div', 'eg', c.eg));
+        if (c.note) card.appendChild(mk('div', 'g', '📌 ' + c.note));
+        var sb = mk('button', 'mini', '⭐ 收');
+        sb.addEventListener('click', function () {
+          var added = addFav({ en: c.text, zh: c.zh || '', from: '回译·' + (d.src || '经典语料'), ctx: c.eg || '' });
+          sb.textContent = added ? '✓ 已收' : '✓ 已在库';
+          updateFavN();
+          if (!el('fav-card').classList.contains('hidden')) renderFavs();
+        });
+        card.appendChild(sb);
+        grid.appendChild(card);
+      });
+      box.appendChild(grid);
+    }
+    var row2 = mk('div', 'row');
+    var cp = mk('button', 'mini', '复制本次全部（得分+差异+语块）');
+    cp.addEventListener('click', function (ev) { copyText(btText(d), ev.currentTarget); });
+    row2.appendChild(cp);
+    box.appendChild(row2);
+  }
+
   /* ---------- 启动 ---------- */
   async function boot() {
     var saved = loadDraft();
@@ -1011,6 +1310,31 @@
     });
     el('mdl-go').addEventListener('click', askModel);
     el('mdl-copyen').addEventListener('click', function (ev) { copyText(modelText(false), ev.currentTarget); });
+    el('word-go').addEventListener('click', function () { wordAsk(el('word-in').value); });
+    el('word-in').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') wordAsk(el('word-in').value); });
+    el('bt-btn').addEventListener('click', function () {
+      var card = el('bt-card');
+      if (card.classList.contains('hidden')) { card.classList.remove('hidden'); btFillModelSel(); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+      else card.classList.add('hidden');
+    });
+    el('bt-rand').addEventListener('click', btRandom);
+    el('bt-model-sel').addEventListener('change', function () {
+      var i = el('bt-model-sel').value;
+      if (i === '') return;
+      var p = state.modeld && state.modeld.paras[Number(i)];
+      if (p) btSetMaterial('范本「' + (state.modeld.title || '样例') + '」段' + (Number(i) + 1), p.en, p.zh);
+    });
+    el('bt-paste-btn').addEventListener('click', function () { el('bt-paste').classList.toggle('hidden'); });
+    el('bt-paste-ok').addEventListener('click', btPasteOk);
+    el('bt-go').addEventListener('click', btGo);
+    el('bt-peek').addEventListener('click', function () {
+      var z = el('bt-zh');
+      if (z.getAttribute('data-peek') === '1') {
+        z.textContent = btSel.zh; z.removeAttribute('data-peek'); el('bt-peek').textContent = '偷看原文';
+      } else {
+        z.textContent = btSel.orig; z.setAttribute('data-peek', '1'); el('bt-peek').textContent = '收回原文';
+      }
+    });
     el('mdl-copybi').addEventListener('click', function (ev) { copyText(modelText(true), ev.currentTarget); });
     el('pro-btn').addEventListener('click', askProfile);
     el('pro-copy').addEventListener('click', function (ev) { copyText(profileText(), ev.currentTarget); });
@@ -1039,7 +1363,8 @@
       logRead: logRead, logPush: logPush, analyze: analyze, askProfile: askProfile, renderProfile: renderProfile, profileText: profileText,
       renderTips: renderTips, getTips: getTips, renderFeedback: renderFeedback,
       renderAsk: renderAsk, askRead: askRead, renderModel: renderModel, modelText: modelText, modelRead: modelRead, askModel: askModel,
-      favRead: favRead, addFav: addFav, onSelMaybe: onSelMaybe, doPick: doPick, hidePick: hidePick, lineContext: lineContext, renderFavs: renderFavs, favText: favText, updateFavN: updateFavN, renderWhy: renderWhy, correct: correct,
+      favRead: favRead, addFav: addFav, onSelMaybe: onSelMaybe, wordAsk: wordAsk, renderWord: renderWord, wordText: wordText,
+      btSel: function () { return btSel; }, btRandom: btRandom, btSetMaterial: btSetMaterial, btGo: btGo, renderBt: renderBt, btText: btText, btPasteOk: btPasteOk, CORPUS: CORPUS, doPick: doPick, hidePick: hidePick, lineContext: lineContext, renderFavs: renderFavs, favText: favText, updateFavN: updateFavN, renderWhy: renderWhy, correct: correct,
       feedbackText: feedbackText, wordCount: wordCount, saveDraft: saveDraft, loadDraft: loadDraft,
     };
   }

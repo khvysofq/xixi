@@ -260,3 +260,75 @@ test('normalizeRec：必须带 example.en、上限 4、全不合格报错', () =
   assert.ok(!out.rec.some((r) => r.en === 'b'));
   assert.throws(() => ew.normalizeRec({ rec: [{ en: 'x' }] }), /没推出同类/);
 });
+
+/* ---------- 词义解释 word ---------- */
+
+test('word 校验：要英文词/短语，长度封顶', () => {
+  assert.equal(ew.validateInput({ mode: 'word', word: 'a' }).ok, false);
+  assert.equal(ew.validateInput({ mode: 'word', word: '决定' }).ok, false, '纯中文不给查');
+  const ok = ew.validateInput({ mode: 'word', word: 'look forward to', sentence: 'I look forward to it.', topic: '邮件' });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.input.word, 'look forward to');
+  assert.equal(ok.input.sentence, 'I look forward to it.');
+});
+
+test('buildWordPrompt：钉住简单英文释义 + Ozdic 式搭配分组', () => {
+  const q = ew.buildWordPrompt({ word: 'decision', sentence: 'It was a tough decision.', topic: '' });
+  assert.ok(q.includes('2000 词'), '定义语言要用简单词');
+  assert.ok(q.includes('verb + decision'), '搭配按模式分组给样子');
+  assert.ok(q.includes('tough decision'), '真实高频');
+  assert.ok(q.includes('It was a tough decision.'), '带上下文句就按该义项解释');
+});
+
+test('normalizeWord：组与条目先滤后截、全空报错、pos/warn 落袋', () => {
+  const d = ew.normalizeWord({
+    word: 'junk', pos: 'n.', simpleDef: 'something you throw away', zh: '垃圾',
+    collocations: [
+      { pattern: 'verb + rubbish', items: [{ en: 'take out the rubbish', zh: '倒垃圾', eg: 'Dad takes out the rubbish every night.' }, { zh: '没 en 的丢掉' }] },
+      { pattern: '空组', items: [] },
+      { pattern: 'g7', items: [{ en: 'x' }] }, { pattern: 'g8', items: [{ en: 'y' }] },
+      { pattern: 'g9', items: [{ en: 'z' }] }, { pattern: 'g10', items: [{ en: 'w' }] },
+    ],
+    warn: 'do a decision 不成立',
+  }, { word: 'decision' });
+  assert.equal(d.kind, 'word');
+  assert.equal(d.word, 'decision', '回显查询词');
+  assert.equal(d.collocations.length, 5, '空组不占名额（先滤后截）');
+  assert.deepEqual(d.collocations[0].items.map((i) => i.en), ['take out the rubbish']);
+  assert.equal(d.warn, 'do a decision 不成立');
+  assert.throws(() => ew.normalizeWord({ collocations: [] }, { word: 'x' }), /没查出/);
+});
+
+/* ---------- 回译对照 bt ---------- */
+
+test('bt 校验：原文和回译都得够长才配比', () => {
+  assert.equal(ew.validateInput({ mode: 'bt', orig: 'too short', mine: 'x'.repeat(50) }).ok, false);
+  assert.equal(ew.validateInput({ mode: 'bt', orig: 'o'.repeat(80), mine: '写得短' }).ok, false, '回译太短不给比');
+  const ok = ew.validateInput({ mode: 'bt', orig: 'The storm kept us indoors all weekend; for once nobody complained about the rain.', mine: 'We stayed at home because the weather is bad, we can not go outside at all.', zh: '暴风雨让我们整个周末都只能待在屋里。', src: '经典短文·暴风雨' });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.input.src, '经典短文·暴风雨');
+});
+
+test('buildBtPrompt：严格打分锚点 + 不许编造（orig 必须能原样找到）', () => {
+  const q = ew.buildBtPrompt({ orig: 'The storm kept us indoors.', mine: 'We were stopped by storm.', zh: '暴风雨困住了我们。', src: 'T1' });
+  assert.ok(q.includes('55~65'), '中式英语有扣分锚点');
+  assert.ok(q.includes('原样照抄'), 'gap.orig 不许编');
+  assert.ok(q.includes('逐字来自原文'), 'chunks 只能从原文挑');
+  assert.ok(q.includes('暴风雨困住了我们。'), '中文提示进素材');
+});
+
+test('normalizeBt：分数钳位、gap/chunk 先滤后截、全空报错', () => {
+  const d = ew.normalizeBt({
+    score: '128', comment: '练主语换着开',
+    gaps: Array.from({ length: 15 }, (_, i) => ({ mine: 'm' + i, orig: 'o' + i, kind: '表达', note: 'n' + i }))
+      .concat([{ mine: '缺 orig', kind: 'x', note: '' }]),
+    chunks: [{ text: 'keep somebody indoors', zh: '困在屋里', type: '动词句', eg: 'The heat kept us indoors.' }]
+      .concat(Array.from({ length: 14 }, () => ({ zh: '没文本' }))),
+  }, { orig: 'o', mine: 'm', src: 'S' });
+  assert.equal(d.score, 100, '钳到 100');
+  assert.equal(d.gaps.length, 12, 'gaps≤12 且滤缺 orig 的');
+  assert.equal(d.chunks.length, 1, 'chunks 先滤后截');
+  assert.equal(d.src, 'S');
+  assert.equal(ew.normalizeBt({ score: -3, gaps: [{ mine: 'm', orig: 'o' }], chunks: [] }, { src: '' }).score, 0);
+  assert.throws(() => ew.normalizeBt({ score: 80, gaps: [], chunks: [] }, { src: '' }), /没比出/);
+});

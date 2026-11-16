@@ -63,6 +63,30 @@ const WHYMOCK = {
   rule: '口语宽慰人，It 常可省',
   examples: [{ en: 'Try the back streets. Faster.', zh: '绕后街吧，快点。' }],
 };
+const WORDMOCK = {
+  kind: 'word', word: 'x', pos: 'n.',
+  simpleDef: 'a choice you make after thinking about it',
+  zh: '决定；决策',
+  collocations: [
+    { pattern: 'verb + decision', items: [
+      { en: 'make a decision', zh: '做决定', eg: 'Take your time - make a decision today.' },
+      { en: 'reach a decision', zh: '达成决定', eg: 'The panel reached a decision.' }] },
+    { pattern: 'adjective + decision', items: [{ en: 'tough decision', zh: '艰难的决定', eg: 'It was a tough decision.' }] },
+  ],
+  warn: '中文说下决定，英文只配 make',
+};
+const BTMOCK = {
+  kind: 'bt', score: 74, src: 't',
+  comment: '你在逐句翻中文的壳，先练事件做主语。',
+  gaps: [
+    { mine: 'we were stopped by the storm', orig: 'the storm kept us indoors', kind: '表达', note: '英文爱用事件做主语' },
+  ],
+  chunks: [
+    { text: 'keep somebody indoors', zh: '困在屋里', type: '动词句', eg: 'The heat kept us indoors.', note: '天气万能动词框' },
+    { text: 'for once', zh: '难得地', type: '词组', eg: 'For once, he told the truth.', note: '句首一放就有味道' },
+  ],
+};
+
 const RECMOCK = {
   kind: 'rec', expr: 'x',
   rec: [
@@ -117,7 +141,8 @@ async function boot(opts = {}) {
         calls.push({ url, body });
         if (opts.fail) return Promise.resolve({ ok: false, status: 502, json: async () => ({ ok: false, error: '生成超时了，点重试再试一次' }) });
         const data = body.mode === 'topic' ? TOPIC : body.mode === 'tips' ? TIPS : body.mode === 'profile' ? PROFILE
-          : body.mode === 'ask' ? ASK : body.mode === 'model' ? MODEL : body.mode === 'why' ? WHYMOCK : body.mode === 'rec' ? RECMOCK : CORRECT;
+          : body.mode === 'ask' ? ASK : body.mode === 'model' ? MODEL : body.mode === 'why' ? WHYMOCK : body.mode === 'rec' ? RECMOCK
+          : body.mode === 'word' ? WORDMOCK : body.mode === 'bt' ? BTMOCK : CORRECT;
         return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, data }) });
       };
       window.alert = () => {};
@@ -650,7 +675,7 @@ test('选中范例句里的短语 → 浮出 ⭐ 按钮 → 点它入库存原�
   const pick = doc.querySelector('.pick');
   assert.ok(pick && pick.classList.contains('show'), '浮动收藏按钮出现');
   assert.ok(pick.textContent.includes('on a rainy Thu'), '按钮上写收藏的是啥（超长会截断显示）');
-  pick.click();
+  pick.querySelector('button').click();
   const favs = window.enWriting.favRead();
   assert.equal(favs.length, 1);
   assert.equal(favs[0].en, 'on a rainy Thursday', '存的是选中的短语，不是整句');
@@ -665,10 +690,10 @@ test('同一短语再选再收：去重；重复显示原句的逻辑不再触�
   const txtNode = doc.querySelector('#mdl-out .sent-row .txt').firstChild;
   fakeSelect(window, txtNode, 'made a simple list');
   window.enWriting.onSelMaybe();
-  doc.querySelector('.pick').click();
+  doc.querySelector('.pick button').click();
   fakeSelect(window, txtNode, 'made  a  simple  list');   // 空白不同也算同一句
   window.enWriting.onSelMaybe();
-  doc.querySelector('.pick').click();
+  doc.querySelector('.pick button').click();
   assert.equal(window.enWriting.favRead().length, 1, '同短语去重');
 });
 
@@ -684,7 +709,7 @@ test('解析/推荐区也认；正文区外不弹；纯中文不弹', async () =
   fakeSelect(window, ansNode, 'being peeled');
   window.enWriting.onSelMaybe();
   assert.ok(doc.querySelector('.pick').classList.contains('show'), '解析文字里可选');
-  doc.querySelector('.pick').click();
+  doc.querySelector('.pick button').click();
   assert.equal(window.enWriting.favRead()[0].en, 'being peeled');
   // 正文区外（顶部标语）不弹
   window.enWriting.hidePick();
@@ -702,9 +727,145 @@ test('收藏卡片显示短语的原句（方向：短语≠原句才显示）',
   const txtNode = doc.querySelector('#mdl-out .sent-row .txt').firstChild;
   fakeSelect(window, txtNode, 'at Gate 27');
   window.enWriting.onSelMaybe();
-  doc.querySelector('.pick').click();
+  doc.querySelector('.pick button').click();
   doc.getElementById('fav-btn').click();
   const item = doc.querySelector('#fav-list .fav-item');
   assert.ok(item.textContent.includes('原句：It started'), '短语收藏带原句');
   assert.ok(window.enWriting.favText().includes('原句：'), '复制文本也带');
+});
+
+/* ---------- 词义解释 ---------- */
+
+test('划词条升级：⭐收藏 + 📖词义 两个按钮；点词义 mode=word 带选中短语与原句', async () => {
+  const { window, doc, calls } = await showModel();
+  const txtNode = doc.querySelector('#mdl-out .sent-row .txt').firstChild;
+  fakeSelect(window, txtNode, 'made a simple list');
+  window.enWriting.onSelMaybe();
+  const pick = doc.querySelector('.pick');
+  const btns = [...pick.querySelectorAll('button')].map((b) => b.textContent);
+  assert.ok(btns.some((x) => x.includes('⭐')) && btns.some((x) => x.includes('📖')), '收藏+词义并排');
+  pick.querySelectorAll('button')[1].click();
+  await waitFor(() => calls.length === 3);
+  assert.equal(calls[2].body.mode, 'word');
+  assert.equal(calls[2].body.word, 'made a simple list');
+  assert.ok(calls[2].body.sentence.includes('It started on a rainy Thursday'), '带选中时所在原句');
+  await waitFor(() => doc.getElementById('word-body').textContent.includes('make a decision'));
+  const wb = doc.getElementById('word-body');
+  assert.ok(wb.textContent.includes('a choice you make'), '简单英文释义');
+  assert.ok(wb.textContent.includes('verb + decision'), 'Ozdic 式分组');
+  assert.ok(wb.textContent.includes('只配 make'), '中国学习者坑');
+});
+
+test('词义独立查询 + 缓存：同词二查不花钱；搭配行 ⭐ 直接进收藏', async () => {
+  const { window, doc, calls } = await showModel();
+  doc.getElementById('word-in').value = 'decision';
+  doc.getElementById('word-go').click();
+  await waitFor(() => calls.length === 3);
+  assert.equal(calls[2].body.word, 'decision');
+  await waitFor(() => doc.getElementById('word-body').textContent.includes('tough decision'));
+  doc.getElementById('word-in').value = 'DECISION';   // 大小写归一吃缓存
+  doc.getElementById('word-go').click();
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(calls.length, 3, '同词不重查');
+  const star = doc.querySelector('#word-body .wd-item button');
+  star.click();
+  const favs = window.enWriting.favRead();
+  assert.equal(favs.length, 1);
+  assert.equal(favs[0].en, 'make a decision');
+  assert.ok(favs[0].from.includes('词义'), '来源标了查的词');
+  assert.ok(favs[0].ctx.includes('Take your time'), '例句进语境');
+});
+
+test('词义失败：没查上直说 + 重试按钮', async () => {
+  const { window, doc } = await boot({ fail: true });
+  for (let i = 0; i < 200; i++) { if (window.enWriting) break; await new Promise((r) => setTimeout(r, 10)); }
+  await window.enWriting.wordAsk('decision');
+  const wb = doc.getElementById('word-body');
+  assert.ok(wb.textContent.includes('没查上'), wb.textContent.slice(0, 80));
+  assert.ok([...wb.querySelectorAll('button')].some((b) => b.textContent === '重试'));
+});
+
+/* ---------- 回译 ---------- */
+
+test('🔁 回译：随机经典篇 → 中文提示 + 原文藏好；写够才提交，mode=bt 带 orig/mine', async () => {
+  const { window, doc, calls } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  doc.getElementById('bt-btn').click();
+  assert.ok(!doc.getElementById('bt-card').classList.contains('hidden'));
+  doc.getElementById('bt-rand').click();
+  assert.ok(!doc.getElementById('bt-stage').classList.contains('hidden'), '材料摆出来了');
+  const zhText = doc.getElementById('bt-zh').textContent;
+  assert.ok(zhText.length > 30, '中文提示到位');
+  doc.getElementById('bt-mine').value = 'too short';
+  doc.getElementById('bt-go').click();
+  assert.ok(doc.getElementById('bt-status').textContent.includes('40'), '写太少不给比');
+  assert.equal(calls.length, 1, '没浪费钱');
+  doc.getElementById('bt-mine').value = 'Last month a heavy rain made us stay at home all the weekend, we were very bored but nobody said it.';
+  doc.getElementById('bt-go').click();
+  await waitFor(() => calls.length === 2);
+  assert.equal(calls[1].body.mode, 'bt');
+  assert.ok(calls[1].body.orig.length > 60 && /[A-Za-z]/.test(calls[1].body.orig), '原文（标准答案）发给模型了');
+  assert.equal(calls[1].body.mine.length, 'Last month a heavy rain made us stay at home all the weekend, we were very bored but nobody said it.'.length);
+  assert.ok(calls[1].body.zh.includes('去年') || calls[1].body.zh.length > 20, '中文提示也带上');
+});
+
+test('回译结果：得分/差异/语块三芯片 + 逐处差异 + 语块卡片；⭐ 收语块进收藏', async () => {
+  const { window, doc, calls } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  doc.getElementById('bt-btn').click();
+  doc.getElementById('bt-rand').click();
+  doc.getElementById('bt-mine').value = 'Last month a heavy rain made us stay at home all the weekend, we were very bored but nobody said it out.';
+  doc.getElementById('bt-go').click();
+  await waitFor(() => doc.querySelectorAll('#bt-out .bt-chunk').length === 2);
+  const out = doc.getElementById('bt-out');
+  assert.ok(out.textContent.includes('回译得分 74'), '分数芯片');
+  assert.ok(out.textContent.includes('表达差异 1 处') && out.textContent.includes('可背语块 2 个'));
+  assert.ok(out.textContent.includes('× we were stopped by the storm'), '你写的');
+  assert.ok(out.textContent.includes('√ the storm kept us indoors'), '原文对照');
+  const chunk0 = doc.querySelector('#bt-out .bt-chunk');
+  assert.ok(chunk0.textContent.includes('keep somebody indoors') && chunk0.textContent.includes('动词句') && chunk0.textContent.includes('The heat kept us indoors'));
+  chunk0.querySelector('button').click();
+  assert.equal(window.enWriting.favRead()[0].en, 'keep somebody indoors');
+  assert.ok(window.enWriting.favRead()[0].from.includes('回译'));
+});
+
+test('回译缓存：同原文同译文再点不重跑；偷看原文可收回', async () => {
+  const { window, doc, calls } = await boot();
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  doc.getElementById('bt-btn').click();
+  doc.getElementById('bt-rand').click();
+  const src = window.enWriting.btSel();
+  const mine = 'Last month a heavy rain made us stay at home all the weekend; nobody complained about it at all.';
+  await window.enWriting.btGo ? null : null;
+  doc.getElementById('bt-mine').value = mine;
+  doc.getElementById('bt-go').click();
+  await waitFor(() => calls.length === 2);
+  await waitFor(() => doc.querySelectorAll('#bt-out .bt-chunk').length === 2);   // 等首答落缓存
+  doc.getElementById('bt-mine').value = mine;
+  doc.getElementById('bt-go').click();
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(calls.length, 2, '同译文吃缓存');
+  const peek = doc.getElementById('bt-peek');
+  peek.click();
+  assert.equal(doc.getElementById('bt-zh').textContent, window.enWriting.btSel().orig, '偷看到原文');
+  peek.click();
+  assert.ok(!/[A-Za-z]/.test(doc.getElementById('bt-zh').textContent), '收回又变回中文');
+});
+
+test('范本段可作回译材料；自己贴的校验后也能开场', async () => {
+  const { window, doc, calls } = await showModel();
+  doc.getElementById('bt-btn').click();
+  const sel = doc.getElementById('bt-model-sel');
+  assert.ok(sel.options.length >= 3, '范本够长的段进了下拉: ' + sel.options.length);
+  sel.value = '1';
+  sel.dispatchEvent(new window.Event('change', { bubbles: true }));
+  assert.ok(window.enWriting.btSel().orig.includes('That night I walked home'), '第二段成为标准答案');
+  doc.getElementById('bt-paste-btn').click();
+  doc.getElementById('bt-paste-en').value = '太短';
+  doc.getElementById('bt-paste-ok').click();
+  assert.ok(doc.getElementById('bt-status').classList.contains('err'), '原文太短拒了');
+  doc.getElementById('bt-paste-zh').value = '周五下午我们按时交付了，没有欢呼也没有通宵。';
+  doc.getElementById('bt-paste-en').value = 'Two weeks later we shipped it on an ordinary Friday afternoon, no shouting, no all-nighter, which felt like its own kind of victory.';
+  doc.getElementById('bt-paste-ok').click();
+  assert.equal(window.enWriting.btSel().src, '自己贴的');
 });

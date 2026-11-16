@@ -335,6 +335,52 @@ test('POST why/rec：缺关键参数 400，不烧钱', async () => {
   } finally { stop(s); }
 });
 
+test('POST word：查 decision 得简单英文释义 + Ozdic 式搭配分组', async () => {
+  const s = await startServer();
+  try {
+    const r = await s.post('/api/en-writing', { mode: 'word', word: 'decision', sentence: 'It was a tough decision.' });
+    assert.equal(r.status, 200);
+    const d = r.json.data;
+    assert.equal(d.kind, 'word');
+    assert.equal(d.word, 'decision');
+    assert.match(d.simpleDef, /choice/, '英文释义到位');
+    assert.ok(d.collocations.length >= 2 && d.collocations.every((g) => g.pattern && g.items.length), '按模式分组的搭配');
+    assert.ok(d.collocations[0].items[0].eg, '搭配带例句');
+    assert.ok(d.warn.includes('make'), '中国人坑位提示');
+  } finally { stop(s); }
+});
+
+test('POST bt：回译对照得 分数+表达差异+可背语块', async () => {
+  const s = await startServer();
+  try {
+    const r = await s.post('/api/en-writing', {
+      mode: 'bt',
+      orig: 'The storm kept us indoors all weekend. For once nobody complained; the food was surprisingly good and we read aloud for hours.',
+      mine: 'We were stopped by the storm and did not go out. The food was very delicious, we read books together.',
+      zh: '暴风雨让我们整个周末待在屋里。难得地没人抱怨。', src: '经典短文·暴风雨',
+    });
+    assert.equal(r.status, 200);
+    const d = r.json.data;
+    assert.equal(d.kind, 'bt');
+    assert.ok(d.score >= 0 && d.score <= 100, '分数钳位');
+    assert.ok(d.gaps.length >= 1 && d.gaps.every((g) => g.mine && g.orig), '差异成对');
+    assert.ok(d.chunks.length >= 1 && d.chunks.every((c) => c.text && (c.eg || c.zh)), '语块可背');
+    assert.equal(d.src, '经典短文·暴风雨');
+  } finally { stop(s); }
+});
+
+test('POST word/bt：缺关键参数 400，不烧钱', async () => {
+  const s = await startServer();
+  try {
+    const q = await s.post('/api/en-writing', { mode: 'word', word: '决定' });
+    assert.equal(q.status, 400);
+    const r = await s.post('/api/en-writing', { mode: 'bt', orig: 'o'.repeat(80), mine: '短' });
+    assert.equal(r.status, 400);
+    const h = await s.get('/api/en-writing/health');
+    assert.equal(h.json.todayWritingUsed, 0);
+  } finally { stop(s); }
+});
+
 test('静态页面可访问：/tools/en-writing/ 出极简写作页（回归）', async () => {
   const s = await startServer();
   try {
