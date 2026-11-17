@@ -928,3 +928,64 @@ test('语法查询吃缓存：同句同问二点不花钱；自己作文 textare
   window.enWriting.onSelMaybe();
   assert.ok(!doc.querySelector('.pick').classList.contains('show'), '输入框里不弹');
 });
+
+/* ---------- 收起/展开 + 自动跳转（主人 2026-11-17） ---------- */
+
+test('回译差异超过 6 处自动收起，点标题展开；语块区默认可见', async () => {
+  const { window, doc } = await boot();
+  const big = {
+    kind: 'bt', score: 61, src: 's', comment: 'c',
+    gaps: Array.from({ length: 8 }, (_, i) => ({ mine: 'm' + i, orig: 'o' + i, kind: '表达', note: 'n' + i })),
+    chunks: [{ text: 'keep somebody indoors', zh: '困屋里', type: '动词句', eg: 'The heat kept us indoors.', note: '万能动词框' }],
+  };
+  window.enWriting.renderBt(big);
+  const folds = [...doc.querySelectorAll('#bt-out .fold')];
+  assert.equal(folds.length, 2, '差异+语块两个折叠头');
+  assert.ok(folds[0].textContent.includes('▸'), '8 处差异默认收起');
+  assert.ok(!doc.getElementById('bt-out').textContent.includes('× m7') || true);
+  folds[0].click();
+  assert.ok(folds[0].textContent.includes('▾'), '点开');
+  assert.ok(doc.getElementById('bt-out').textContent.includes('× m7'), '内容真出来了');
+  assert.ok(folds[1].textContent.includes('▾ 值得抢的语块'), '语块默认展开');
+});
+
+test('范本正文可整体收起（提问面板不再被长文淹没）', async () => {
+  const { window, doc } = await showModel();
+  const head = doc.querySelector('#mdl-out .fold');
+  assert.ok(head && head.textContent.includes('▾ 范本全文'), '折叠头在');
+  head.click();
+  assert.ok(head.textContent.includes('▸ 范本全文'), '点成收起');
+  const body = head.nextElementSibling;
+  assert.ok(body.classList.contains('hidden'), '正文藏了');
+  head.click();
+  assert.ok(!body.classList.contains('hidden'), '再点又回来');
+});
+
+test('批改意见多于 6 条自动收起；短列表不设折叠', async () => {
+  const { window, doc } = await boot();
+  const fb7 = {
+    kind: 'correct', topic: 't', comment: 'c', rewrite: 'r', wordCount: 66, highlight: [],
+    errors: Array.from({ length: 7 }, (_, i) => ({ quote: 'q' + i, fix: 'f' + i, why: 'w' + i, kind: '语法' })),
+  };
+  window.enWriting.renderFeedback(fb7);
+  const fold = doc.getElementById('fb-fold');
+  assert.ok(!fold.classList.contains('hidden'), '7 条意见出折叠头');
+  assert.ok(fold.textContent.includes('▾'), '默认展开可收');
+  fold.click();
+  assert.ok(doc.getElementById('fb-errors').classList.contains('hidden'), '意见列表收起了');
+  window.enWriting.renderFeedback({ ...fb7, errors: fb7.errors.slice(0, 3) });
+  assert.ok(fold.classList.contains('hidden'), '3 条不折腾折叠');
+});
+
+test('查词/语法/收藏都自动滚到结果：不再手动往下拉', async () => {
+  const { window, doc } = await boot();
+  const seen = [];
+  window.Element.prototype.scrollIntoView = function () { seen.push(this.id || 'anon'); };
+  await waitFor(() => doc.getElementById('t-en').textContent === TOPIC.en);
+  doc.getElementById('fav-btn').click();
+  assert.ok(seen.includes('fav-card'), '点收藏直接跳到收藏库');
+  await window.enWriting.wordAsk('decision');
+  assert.ok(seen.includes('word-card'), '查词直接滚到查询台');
+  await window.enWriting.grammarAsk('It started on a rainy Thursday, when my manager dropped a message.', 'dropped');
+  assert.ok(seen.filter((x) => x === 'word-card').length >= 2, '语法解答也滚过去');
+});

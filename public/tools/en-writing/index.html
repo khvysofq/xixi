@@ -90,6 +90,8 @@
   .bt-table .ck code { font-family: ui-monospace, Menlo, Consolas, monospace; color: #b3423a; font-size: 13.5px; }
   .bt-table .eg2 { color: var(--muted); font-size: 12.5px; font-style: italic; margin-top: 3px; }
   .bt-table button { margin-left: 6px; }
+  .fold { cursor: pointer; user-select: none; }
+  .fold:hover { opacity: .75; }
   .sent-row { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
   .sent-row .txt { flex: 1 1 200px; }
   .sent-row .zh { color: var(--muted); font-size: 13px; margin-top: 2px; }
@@ -244,6 +246,7 @@
 
   <section class="card hidden" id="fb-card">
     <h2 id="fb-title">批改结果</h2>
+    <div class="wd-pat fold hidden" id="fb-fold"></div>
     <div id="fb-errors"></div>
     <div id="fb-highlights"></div>
     <div class="comment hidden" id="fb-comment"></div>
@@ -309,6 +312,24 @@
   }
   function loadDraft() {
     try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { return null; }
+  }
+
+  function jumpTo(node) {
+    try { if (node && typeof node.scrollIntoView === 'function') node.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* jsdom/旧内核没这方法就算了 */ }
+  }
+
+  /* ---------- 长区块收起/展开 ---------- */
+  function foldBar(label, body, open) {
+    var head = mk('div', 'wd-pat fold', (open ? '▾ ' : '▸ ') + label);
+    if (!open) body.classList.add('hidden');
+    head.addEventListener('click', function () {
+      var nowHidden = body.classList.toggle('hidden');
+      head.textContent = (nowHidden ? '▸ ' : '▾ ') + label;
+    });
+    var wrap = mk('div', 'fold-wrap');
+    wrap.appendChild(head);
+    wrap.appendChild(body);
+    return wrap;
   }
 
   /* ---------- 请求 ---------- */
@@ -447,6 +468,17 @@
     state.feedback = d;
     var errs = el('fb-errors');
     errs.innerHTML = '';
+    var fold = el('fb-fold');
+    fold.className = 'wd-pat fold hidden';
+    fold.onclick = null;
+    if ((d.errors || []).length > 6) {
+      fold.className = 'wd-pat fold';
+      fold.textContent = '▾ 批改意见（' + d.errors.length + ' 条）';
+      fold.onclick = function () {
+        var nowHidden = errs.classList.toggle('hidden');
+        fold.textContent = (nowHidden ? '▸ ' : '▾ ') + '批改意见（' + d.errors.length + ' 条）';
+      };
+    }
     if (!(d.errors || []).length) {
       errs.appendChild(mk('p', 'count', '没挑出硬伤 🎉 看看润色版和点评就行。'));
     }
@@ -549,7 +581,8 @@
     state.modeld = d;
     var out = el('mdl-out');
     out.innerHTML = '';
-    if (d.title) out.appendChild(mk('h2', null, d.title + ' · ' + d.words + ' 词'));
+    var body = mk('div');
+    if (d.title) body.appendChild(mk('h2', null, d.title + ' · ' + d.words + ' 词'));
     (d.paras || []).forEach(function (p) {
       var box = mk('div', 'mv');
       var zhParts = String(p.zh || '').split(/(?<=[。！？；])\s*/);
@@ -577,10 +610,10 @@
         if (zhLine) box.appendChild(mk('div', 'zh', zhLine));
         box.appendChild(wbox);
       });
-      out.appendChild(box);
+      body.appendChild(box);
     });
     if ((d.memorable || []).length) {
-      out.appendChild(mk('h2', null, '🌟 最值得背的句子'));
+      body.appendChild(mk('h2', null, '🌟 最值得背的句子'));
       d.memorable.forEach(function (mm) {
         var line = mk('div', 'hl');
         line.appendChild(document.createTextNode(mm.en));
@@ -593,9 +626,10 @@
           if (added && !el('fav-card').classList.contains('hidden')) renderFavs();
         });
         line.appendChild(fb2);
-        out.appendChild(line);
+        body.appendChild(line);
       });
     }
+    out.appendChild(foldBar('范本全文（嫌长就收起，别挡下面的事）', body, true));
     el('mdl-copyrow').classList.remove('hidden');
     updateFavN();
   }
@@ -632,6 +666,7 @@
     word = String(word || '').replace(/\s+/g, ' ').trim().slice(0, 80);
     if (word.length < 2) return null;
     el('word-card').classList.remove('hidden');
+    jumpTo(el('word-card'));
     var st = el('word-status');
     st.className = 'status'; st.textContent = '';
     var cached = wordCacheRead()[word.toLowerCase()];
@@ -1174,11 +1209,13 @@
     sentence = String(sentence || '').replace(/\s+/g, ' ').trim();
     if (sentence.length < 10) {
       el('word-card').classList.remove('hidden');
+      jumpTo(el('word-card'));
       el('grammar-body').innerHTML = '';
       el('grammar-body').appendChild(mk('div', 'status err', '选中位置没找到完整句子——直接选中整句或长一点的片段再点 🧾'));
       return;
     }
     el('word-card').classList.remove('hidden');
+    jumpTo(el('word-card'));
     var box = el('grammar-body');
     box.innerHTML = '';
     box.appendChild(mk('div', 'wd-pat', '🧾 语法 · ' + (String(expr || '').length > 30 ? String(expr).slice(0, 30) + '…' : expr || sentence.slice(0, 30))));
@@ -1296,7 +1333,7 @@
     box.appendChild(chips);
     if (d.comment) box.appendChild(mk('div', 'wd-def', d.comment));
     if (d.gaps.length) {
-      box.appendChild(mk('div', 'wd-pat', '逐处差异（你写的 vs 原文）'));
+      var gWrap = mk('div');
       d.gaps.forEach(function (g) {
         var row = mk('div', 'wd-item');
         var main = mk('span', '');
@@ -1304,11 +1341,11 @@
         main.appendChild(mk('div', '', '√ ' + g.orig + (g.kind ? '  [' + g.kind + ']' : '')));
         if (g.note) main.appendChild(mk('span', 'g', g.note));
         row.appendChild(main);
-        box.appendChild(row);
+        gWrap.appendChild(row);
       });
+      box.appendChild(foldBar('逐处差异（你写的 vs 原文 · ' + d.gaps.length + ' 处）', gWrap, d.gaps.length <= 6));
     }
     if (d.chunks.length) {
-      box.appendChild(mk('div', 'wd-pat', '值得抢的语块（⭐ 一键进收藏库）'));
       var tb = mk('table', 'bt-table');
       var thead = mk('thead');
       var hr = mk('tr');
@@ -1340,8 +1377,9 @@
         tbody.appendChild(tr);
       });
       tb.appendChild(tbody);
-      box.appendChild(tb);
+      box.appendChild(foldBar('值得抢的语块（⭐ 一键进收藏库 · ' + d.chunks.length + ' 个）', tb, true));
     }
+    jumpTo(box);
     var row2 = mk('div', 'row');
     var cp = mk('button', 'mini', '复制本次全部（得分+差异+语块）');
     cp.addEventListener('click', function (ev) { copyText(btText(d), ev.currentTarget); });
@@ -1369,27 +1407,30 @@
     el('fix-btn').addEventListener('click', correct);
     el('fb-copy').addEventListener('click', function (ev) { copyText(feedbackText(), ev.currentTarget); });
     el('fav-btn').addEventListener('click', function () {
-      if (el('fav-card').classList.contains('hidden')) renderFavs(); else el('fav-card').classList.add('hidden');
+      if (el('fav-card').classList.contains('hidden')) {
+        renderFavs();
+        jumpTo(el('fav-card'));
+      } else el('fav-card').classList.add('hidden');
     });
     el('fav-copy').addEventListener('click', function (ev) { copyText(favText(), ev.currentTarget); });
     el('mdl-btn').addEventListener('click', function () {
       el('mdl-card').classList.remove('hidden');
       el('mdl-in').focus();
-      el('mdl-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      jumpTo(el('mdl-card'));
     });
     el('mdl-go').addEventListener('click', askModel);
     el('mdl-copyen').addEventListener('click', function (ev) { copyText(modelText(false), ev.currentTarget); });
     el('word-go').addEventListener('click', function () { wordAsk(el('word-in').value); });
     el('word-btn').addEventListener('click', function () {
       el('word-card').classList.remove('hidden');
-      el('word-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      jumpTo(el('word-card'));
     });
     el('word-in').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') wordAsk(el('word-in').value); });
     el('bt-btn').addEventListener('click', function () {
       var card = el('bt-card');
       card.classList.remove('hidden');
       btFillModelSel();
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      jumpTo(card);
     });
     el('bt-rand').addEventListener('click', btRandom);
     el('bt-model-sel').addEventListener('change', function () {
