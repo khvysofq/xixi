@@ -1,0 +1,31 @@
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { JSDOM, VirtualConsole } = require('../scripts/deps.cjs');
+const { TextDecoder, TextEncoder } = require('node:util');
+const PAGE=new URL('../public/tools/resume-check/index.html', import.meta.url);
+const vc=new VirtualConsole(); vc.on('jsdomError',(e)=>console.log('JSDOMERR:',String(e&&e.message||e).slice(0,200)));
+const dom=new JSDOM(fs.readFileSync(PAGE,'utf8'),{runScripts:'dangerously',pretendToBeVisual:true,url:'http://localhost/',virtualConsole:vc,beforeParse(w){w.TextDecoder=TextDecoder;w.TextEncoder=TextEncoder;}});
+const w=dom.window;
+await new Promise(r=>setTimeout(r,100));
+const JSZipNode = require('../vendor/jszip.min.js');
+const zip=new JSZipNode();
+zip.file('word/document.xml','<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>王五</w:t></w:r></w:p></w:body></w:document>');
+const buf=await zip.generateAsync({type:'nodebuffer'});
+const u2=new w.Uint8Array(Array.from(buf));
+console.log('loadAsync?',typeof w.JSZip.loadAsync);
+let done=false;
+w.JSZip.loadAsync(u2).then(async z=>{
+  done=true;
+  console.log('files:',Object.keys(z.files));
+  const s=await z.file('word/document.xml').async('string');
+  console.log('string len:',s.length,'head:',s.slice(0,60));
+}).catch(e=>{done=true;console.log('loadAsync rejected:',e.message);});
+await new Promise(r=>setTimeout(r,2000));
+console.log('resolved?',done);
+// 第二轮：喂 ArrayBuffer
+let done2=false;
+w.JSZip.loadAsync(buf.buffer.slice(buf.byteOffset, buf.byteOffset+buf.length)).then(z=>{done2=true;console.log('ArrayBuffer load ok:',Object.keys(z.files).length);}).catch(e=>{done2=true;console.log('ArrayBuffer rejected:',e.message);});
+await new Promise(r=>setTimeout(r,1500));
+console.log('resolved2?',done2);
+process.exit(0);

@@ -1,0 +1,31 @@
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { JSDOM, VirtualConsole } = require('../scripts/deps.cjs');
+const PAGE=new URL('../public/tools/resume-check/index.html', import.meta.url);
+const vc=new VirtualConsole();
+vc.on('jsdomError',(e)=>console.log('JSDOMERR:',String(e&&e.message||e).slice(0,300)));
+const dom=new JSDOM(fs.readFileSync(PAGE,'utf8'),{runScripts:'dangerously',pretendToBeVisual:true,url:'http://localhost/',virtualConsole:vc});
+const w=dom.window;
+await new Promise(r=>setTimeout(r,100));
+const u8=new w.Uint8Array(Array.from(Buffer.from('hello 世界 resume text','utf8')));
+const f=new w.File([u8],'a.txt',{type:'text/plain'});
+console.log('File ok, arrayBuffer?',typeof f.arrayBuffer);
+try{ const ab=await f.arrayBuffer(); console.log('arrayBuffer ok bytes',ab.byteLength); }catch(e){ console.log('arrayBuffer FAIL',e.message); }
+console.log('status fn:',w.document.getElementById('status').textContent);
+// 现在直接拖一个 .docx
+const JSZipNode = require('../vendor/jszip.min.js');
+const zip=new JSZipNode();
+zip.file('word/document.xml','<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>王五</w:t></w:r></w:p><w:p><w:r><w:t>男，31岁</w:t></w:r></w:p><w:p><w:r><w:t>2015.09-2019.06 中南大学 物流管理 本科</w:t></w:r></w:p><w:p><w:r><w:t>工作经历 2019.07-至今 广州速达物流有限公司 仓储主管</w:t></w:r></w:p></w:body></w:document>');
+const buf=await zip.generateAsync({type:'nodebuffer'});
+console.log('nodebuffer len',buf.length);
+const u2=new w.Uint8Array(Array.from(buf));
+const f2=new w.File([u2],'r.docx');
+const ev=new w.Event('drop',{bubbles:true,cancelable:true});
+ev.dataTransfer={files:[f2]};
+w.document.getElementById('drop').dispatchEvent(ev);
+await new Promise(r=>setTimeout(r,1500));
+console.log('status after docx drop:',w.document.getElementById('status').textContent);
+console.log('card-rs hidden:',w.document.getElementById('card-rs').hidden);
+console.log('kv:',w.document.getElementById('rs-kv').textContent.slice(0,80));
+process.exit(0);

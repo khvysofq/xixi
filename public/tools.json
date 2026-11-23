@@ -1,6 +1,6 @@
 {
   "site": "希希的工具箱",
-  "updated": "2026-11-08",
+  "updated": "2026-11-23",
   "categories": [
     {
       "id": "freight",
@@ -16,6 +16,11 @@
       "id": "learn",
       "name": "学习成长",
       "desc": "英语口语小帮手"
+    },
+    {
+      "id": "hiring",
+      "name": "招聘人事",
+      "desc": "简历初筛、匹配分析与台账记录"
     },
     {
       "id": "site",
@@ -104,6 +109,19 @@
       "tags": [
         "写作",
         "需要希希服务生成"
+      ]
+    },
+    {
+      "slug": "resume-check",
+      "category": "hiring",
+      "name": "简历速看",
+      "desc": "把 PDF / DOCX / TXT 简历拖进来，自动认出姓名、院校、每段履职时间和技能；贴上岗位核心要点（支持权重）就算匹配度，逐条给证据，生成 50~100 字总结和多版本招聘台账纯文字，一键复制。全程本机计算，简历不出你的设备。",
+      "href": "/tools/resume-check/",
+      "icon": "i-search",
+      "tags": [
+        "本地计算",
+        "PDF/DOCX",
+        "台账复制"
       ]
     },
     {

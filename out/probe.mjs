@@ -1,0 +1,16 @@
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { JSDOM, VirtualConsole } = require('../scripts/deps.cjs');
+const PAGE=new URL('../public/tools/resume-check/index.html', import.meta.url);
+const t0=Date.now();
+const vc=new VirtualConsole();
+vc.on('jsdomError',(e)=>console.log('JSDOMERR:',String(e&&e.message||e).slice(0,300)));
+vc.on('error',(e)=>console.log('CONSOLEERR:',String(e).slice(0,300)));
+console.log('booting...');
+const dom=new JSDOM(fs.readFileSync(PAGE,'utf8'),{runScripts:'dangerously',pretendToBeVisual:true,url:'http://localhost/',virtualConsole:vc});
+console.log('constructed',Date.now()-t0,'ms');
+const w=dom.window;
+await new Promise(r=>setTimeout(r,3000));
+console.log('after 3s: JSZip?',!!w.JSZip,'pdfjsLib?',!!w.pdfjsLib,'b64?',typeof w.__PDFJS_WORKER_B64,'drop:',!!w.document.getElementById('drop'));
+process.exit(0);

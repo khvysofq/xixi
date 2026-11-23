@@ -1,0 +1,15 @@
+async () => {
+  const b64='JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgNSAwIFIgPj4gPj4gPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0ODIgPj4Kc3RyZWFtCkJUIC9GMSAxMiBUZiA1MCA3NDAgVGQgKFdhbmcgRmFuZykgVGogMCAtMTggVGQgKEZlbWFsZSwgMjcgeWVhcnMgb2xkLCBUZWw6IDEzNzAwMDAxMjM0KSBUaiAwIC0xOCBUZCAoSW50ZW50OiBGaW5hbmNpYWwgQWNjb3VudGluZykgVGogMCAtMTggVGQgKEVkdWNhdGlvbiAyMDE2LjA5LTIwMjAuMDYgSHVhemhvbmcgVW5pdmVyc2l0eSBvZiBTY2llbmNlIGFuZCBUZWNobm9sb2d5IEFjY291bnRpbmcgQmFjaGVsb3IpIFRqIDAgLTE4IFRkIChXb3JrIEV4cGVyaWVuY2UgMjAyMC4wNy0yMDIzLjA2IFd1aGFuIFpob25naGUgQWNjb3VudGluZyBGaXJtIEF1ZGl0IEFzc2lzdGFudCkgVGogMCAtMTggVGQgKDIwMjMuMDctcHJlc2VudCBTaGVuemhlbiBMYW5oYWkgU3VwcGx5IENoYWluIENvIEx0ZCBBY2NvdW50YW50KSBUaiAwIC0xOCBUZCAoLSBtb250aGx5IHNldHRsZW1lbnQgcmVwb3J0cyBhbmQgcmVjb25jaWxpYXRpb24pIFRqIDAgLTE4IFRkIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI0MSAwMDAwMCBuIAowMDAwMDAwNzc0IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKODQ0CiUlRU9GCg==';
+  const bin=atob(b64); const u8=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+  const f=new File([u8],'wangfang.pdf',{type:'application/pdf'});
+  const ev=new Event('drop',{bubbles:true,cancelable:true});
+  ev.dataTransfer={files:[f]};
+  document.getElementById('drop').dispatchEvent(ev);
+  await new Promise(r=>setTimeout(r,4000));
+  return JSON.stringify({
+    status: document.getElementById('status').textContent,
+    kv: document.getElementById('rs-kv').textContent.slice(0,260),
+    jobs: document.getElementById('rs-jobs').textContent.slice(0,160)
+  });
+}
