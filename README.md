@@ -155,6 +155,16 @@ POST /api/scene-guide          → {ok, data}
 
 遗留的「更多表达」（more）还有一道质量兜底：模型偶尔偷懒只交一类、句式为空，服务端发现 `sections < 3 或 patterns 为空` 会自动重跑一次，取更丰满的那份（测试里用 `FAKE_OPENCLAW_THIN=1` 验证）。前端已去掉该模块，类似表达改由 `explain.similar` 带出（3~4 条，含近义+近结构）。explain 加 contexts 后一次生成约 15~35 秒（比旧的 10~20 秒长，换来词典级的语境层）。
 
+## 工具页面：简历速看
+
+线上入口：https://xixi.publicrandom.com/tools/resume-check/ （单文件 1.9MB，PDF/DOCX/TXT 全在本机浏览器解析，简历不出设备；本地双击 dist/简历速看.html 同产物）
+
+- **引擎**：`tools-src/resume/extract.mjs`（纯文本→姓名/年龄/学历/院校/履职段/年限/技能）+ `tools-src/resume/match.mjs`（岗位要点→硬规则：年限/学历/985·211/年龄；软规则：关键词+同义词+n-gram；支持 `30% 要点` / `要点|30` 权重）。`node tools-src/resume/build.mjs` 内联 vendor（jszip、pdf.js legacy + worker base64）产出单文件。
+- **产出**：逐条匹配证据、50~100 字总结、台账多行版 + 一行 Tab 版（直接贴 Excel/飞书表格），全部一键复制。
+- **已知边界**：扫描版图片 PDF 提不出字会明说；英文简历只认电话/日期段，姓名/学历词表是中文的；老 `.doc` 引导另存。
+- **测试**：`test/resume-engine.test.mjs`（10 条）+ `test/resume-page.test.mjs`（7 条 jsdom 端到端：TXT 拖入/粘贴/真 docx/pdf 桩/防呆/恢复/权重）。jsdom 里 JSZip 需要注入 `setImmediate`（真实浏览器无此问题）。
+- 首页卡片数据在 `public/tools.json`（分类 `hiring` 招聘人事）。
+
 ## 工具页面：英文写作教练
 
 线上入口：https://xixi.publicrandom.com/tools/en-writing/
