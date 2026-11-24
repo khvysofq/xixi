@@ -225,3 +225,17 @@ test('PDF 分列拆行：公司名行 + 纯日期行要合并成一段', () => {
   assert.equal(r.jobs[0].role, '高级招商经理');
   assert.equal(r.jobs[0].dur, 3.5);
 });
+
+test('pdf 乱序 items：写入顺序颠倒也能拼回正确行', () => {
+  const scrambled = [
+    { str: '高级招商经理', transform: [1, 0, 0, 1, 60, 700] },
+    { str: '2023.04-至今（3年6个月）', transform: [1, 0, 0, 1, 420, 752] },
+    { str: '中海商业上海环宇城 MAX', transform: [1, 0, 0, 1, 60, 750] },
+  ];
+  const t = pdfItemsToText(scrambled);
+  assert.ok(t.includes('中海商业上海环宇城 MAX 2023.04-至今（3年6个月）'), '同行按 x 排：' + JSON.stringify(t));
+  const r = parseResume('工作经历\n' + t, { now: new Date(NOW) });
+  assert.equal(r.jobs.length, 1);
+  assert.equal(r.jobs[0].company, '中海商业上海环宇城 MAX');
+  assert.equal(r.jobs[0].role, '高级招商经理');
+});

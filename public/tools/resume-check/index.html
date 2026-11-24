@@ -278,6 +278,14 @@ function parseResume(text, opts) {
     }
     wl.push(line);
   }
+  // 反方向：日期行在前、公司名行在后（pdf 写入顺序倒置）
+  for (let i = 0; i + 1 < wl.length; i++) {
+    if (DATE_ONLY_RE.test(wl[i]) && wl[i + 1] && !/\d{4}/.test(wl[i + 1]) && wl[i + 1].length <= 40 && !/[:：]/.test(wl[i + 1]) && !DATE_ONLY_RE.test(wl[i + 1])) {
+      wl[i] = wl[i + 1] + ' ' + wl[i];
+      wl.splice(i + 1, 1);
+      i--;
+    }
+  }
   let inWork = false, inEdu = false;
   for (let i = 0; i < wl.length; i++) {
     const line = wl[i];
@@ -395,16 +403,35 @@ function docxXmlToText(xml) {
 
 // pdf.js getTextContent 的 items → 行文本（同样纯函数）
 function pdfItemsToText(items) {
-  const out = [];
-  let lastY = null;
-  for (const it of items || []) {
-    if (!it.str) continue;
-    const y = it.transform ? Math.round(it.transform[5]) : 0;
-    if (lastY !== null && Math.abs(y - lastY) > 4) out.push('\n');
-    out.push(it.str);
-    lastY = y;
+  // pdf.js 的 items 顺序 = PDF 内部写入顺序，不保证视觉顺序；双列简历里公司名/日期常错位。
+  // 正确做法：按 y（PDF 坐标向上）聚行，容差 3pt；行内按 x 排序拼接，列间距 >18pt 补空格。
+  const valid = (items || []).filter((it) => it && it.str);
+  const withPos = valid.map((it) => ({
+    str: it.str,
+    x: it.transform ? it.transform[4] : 0,
+    y: it.transform ? it.transform[5] : 0,
+  }));
+  withPos.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+  const rows = [];
+  for (const it of withPos) {
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(row.y - it.y) <= 3) row.items.push(it);
+    else rows.push({ y: it.y, items: [it] });
   }
-  return out.join('').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const lines = rows.map((row) => {
+    row.items.sort((a, b) => a.x - b.x);
+    let line = '';
+    let prevEnd = null;
+    for (const it of row.items) {
+      const str = it.str.replace(/^ +/, '');
+      if (!str) continue;
+      if (prevEnd !== null && it.x - prevEnd > 18) line += ' ';
+      line += str;
+      prevEnd = it.x + (it.width || str.length * 6);
+    }
+    return line.replace(/ +$/, '');
+  });
+  return lines.join('\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
 }
 
 // 岗位要点 × 简历 → 匹配度、逐条证据、50~100 字总结、台账纯文字版。
