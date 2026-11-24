@@ -1,4 +1,4 @@
-// 岗位要点 × 简历 → 匹配度、逐条证据、50~100 字总结、台账纯文字版。
+// 岗位要点 × 简历 → 匹配度、逐条证据、总结（说清楚为主，≤300 字）、台账纯文字版。
 // 全部本地启发式：数字类要求（年限/学历/年龄/985）走硬规则，其余走关键词+同义词+n-gram 命中。
 
 'use strict';
@@ -199,18 +199,18 @@ function summary(resume, match) {
   if (resume.yearsTotal != null) parts.push(who + '约' + trimYear(resume.yearsTotal) + '年' + guessDomain(resume) + '经验');
   else parts.push(who);
   if (resume.school) parts.push(resume.school + (resume.degree || '') + (resume.major ? '·' + resume.major : ''));
-  const good = match.items.filter((x) => x.score >= 75).map((x) => x.hit || x.req.slice(0, 8)).slice(0, 2);
+  const good = match.items.filter((x) => x.score >= 75).map((x) => x.hit || x.req.slice(0, 14)).slice(0, 3);
   if (good.length) parts.push('命中' + good.join('、').slice(0, 24));
-  const bad = match.items.filter((x) => x.score <= 40).map((x) => x.req.slice(0, 10)).slice(0, 2);
+  const bad = match.items.filter((x) => x.score <= 40).map((x) => x.req.slice(0, 14)).slice(0, 3);
   if (bad.length) parts.push('但' + bad.join('、') + '未见体现');
   parts.push('综合匹配' + match.overall + '%，' + (match.overall >= 75 ? '建议约面' : match.overall >= 50 ? '可电话初筛' : '不建议投入'));
   let s = parts.join('，').replace(/，+/g, '，') + '。';
-  if (s.length > 100) s = s.slice(0, 99) + '。';
+  if (s.length > 300) s = s.slice(0, 299) + '。';
   const pad = ['建议对照原简历补齐关键信息', '本段依据简历文本自动汇总', '数据以简历原文为准请人工复核'];
   let pi = 0;
   while (s.length < 50 && pi < pad.length) s = s.replace(/。$/, '') + '，' + pad[pi++] + '。';
   if (s.length < 50) s += '以上为工具初判。';
-  if (s.length > 100) s = s.slice(0, 99) + '。';
+  if (s.length > 300) s = s.slice(0, 299) + '。';
   return s;
 }
 

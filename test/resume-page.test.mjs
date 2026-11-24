@@ -106,7 +106,7 @@ test('拖入 TXT → 解析全字段 → 自动出匹配/总结/台账（要点�
   const score = Number(el(w, 'res-score').textContent.replace('%', ''));
   assert.ok(score >= 70, '物流岗对物流人 score=' + score);
   const sum = el(w, 'sum-text').textContent;
-  assert.ok(sum.length >= 50 && sum.length <= 100, '总结 ' + sum.length + ' 字：' + sum);
+  assert.ok(sum.length >= 50 && sum.length <= 300, '总结 ' + sum.length + ' 字：' + sum);
   const led = el(w, 'led-text').textContent;
   assert.ok(led.includes('武汉理工大学') && led.includes('2018.07-2021.03') && led.includes('2021.04-至今'), led);
   assert.ok(el(w, 'led-line').textContent.split('\t').length >= 6, '一行版 6+ 个 tab 字段');
