@@ -208,6 +208,24 @@ test('重开页面自动恢复上次的简历和要点', async () => {
   dom.window.close();
 });
 
+test('专业意见卡：负责人要求下亮短板与双视角，复制可取全文', async () => {
+  const dom = boot(); const w = dom.window;
+  await tick(2);
+  el(w, 'paste').value = RESUME_TXT;
+  el(w, 'reqs').value = '已带团队的招商负责人';
+  el(w, 'btn-parse-paste').click();
+  await tick(10);
+  assert.equal(el(w, 'card-pro').hidden, false, '专业意见卡要出来');
+  assert.ok(el(w, 'pro-level').textContent.includes('管理层'), el(w, 'pro-level').textContent);
+  assert.ok(el(w, 'pro-gap').textContent.includes('管理'), el(w, 'pro-gap').textContent);
+  assert.ok(el(w, 'pro-hr').textContent.length > 10, 'hrAdvice 要有话');
+  assert.ok(el(w, 'pro-biz').textContent.length > 10);
+  el(w, 'btn-copy-pro').click();
+  await tick(3);
+  assert.ok((w.__clip.text || '').includes('【专业意见】'), '复制的是纯文字版');
+  dom.window.close();
+});
+
 test('示例按钮：带权重要渲染出权重标记，整体结论有芯片', async () => {
   const dom = boot(); const w = dom.window;
   await tick(2);

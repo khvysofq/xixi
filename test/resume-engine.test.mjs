@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseResume, docxXmlToText, pdfItemsToText, normalizeText } from '../tools-src/resume/extract.mjs';
+import { professional, professionalText } from '../tools-src/resume/professional.mjs';
 import { analyze, summary, ledgerText, ledgerOneLine, schoolTier } from '../tools-src/resume/match.mjs';
 
 const NOW = '2026-11-23T00:00:00Z';
@@ -260,4 +261,42 @@ test('大悦城段（主人第二张截图）：控股系无后缀公司、全�
   const a = analyze(r, '3年以上商业地产招商经验\n带过团队|25', { now: NOW });
   const team = a.items.find((x) => x.req.includes('带过团队'));
   assert.ok(team.score >= 55, '“招商组长，组员2人”应算带团队：' + team.score + ' ' + team.evidence);
+});
+
+const FULL_LP = `刘经理
+男，35岁
+电话：13800001111
+
+教育背景
+2009.09-2013.06 上海大学 工商管理 本科（学士）
+
+工作经历
+中海商业上海环宇城 MAX\t2023.04-至今（3年6个月）
+高级招商经理
+职责业绩：【项目经历】32万方上海真如环宇城MAX购物中心（2023.12开业），2025年销售上海TOP8-62亿，参与筹备开业招商及运营期全业态招商工作
+【2023筹备期招商】筹备期集中签约品牌百余个，其中引进首店品牌50余个
+大悦城控股上海长风大悦城\t2021.03－2023.04（2年1个月）
+招商经理
+职责业绩： 负责项目零售业态招商，代理招商负责人，引入多家上海首店、区域首店；
+【管理角色】零售业态组招商组长，组员2人；作为项目代理招商负责人统筹招商工作，部门成员4人
+龙湖天街购物中心\t2020.06-2023.03（2年9个月）
+招商主管
+职责业绩：负责华东区两家天街零售业态招商，累计签约品牌300+，空置率从8%压到3%`;
+
+test('专业意见：同一简历两个岗位要求的分野（主人原话场景）', () => {
+  const r = parseResume(FULL_LP, { now: new Date(NOW) });
+  const p1 = professional(r, '5年左右高级招商经理', analyze(r, '5年左右高级招商经理', { now: NOW }));
+  assert.equal(p1.level, 'mid');
+  assert.equal(p1.industry, '商业地产招商');
+  assert.equal(p1.gaps.length, 0, '高级经理岗不该挑出硬短板：' + JSON.stringify(p1.gaps));
+  assert.ok(p1.bizAdvice.includes('直接接盘子'), p1.bizAdvice);
+
+  const p2 = professional(r, '已带团队的招商负责人', analyze(r, '已带团队的招商负责人', { now: NOW }));
+  assert.equal(p2.level, 'mgmt');
+  assert.ok(p2.gaps.some((g) => g.includes('管理') && g.includes('代理')), '管理量级短板：' + JSON.stringify(p2.gaps));
+  assert.ok(p2.gaps.some((g) => g.includes('横向')), '横向沟通短板：' + JSON.stringify(p2.gaps));
+  assert.ok(p2.hrAdvice.includes('优等生'), p2.hrAdvice);
+  assert.ok(p2.bizAdvice.includes('将') && p2.bizAdvice.includes('帅'), p2.bizAdvice);
+  const txt = professionalText(p2);
+  assert.ok(txt.includes('【专业意见】') && txt.includes('短板') && txt.includes('人力视角'), txt.slice(0, 120));
 });

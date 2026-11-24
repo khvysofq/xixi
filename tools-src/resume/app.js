@@ -1,5 +1,5 @@
 // 简历速看 · 前端逻辑（构建时与引擎、vendor 一起内联成单文件）
-/* global parseResume, docxXmlToText, pdfItemsToText, analyze, summary, ledgerText, ledgerOneLine */
+/* global parseResume, docxXmlToText, pdfItemsToText, analyze, summary, ledgerText, ledgerOneLine, professional, professionalText */
 
 var state = { resume: null, match: null, raw: '', fname: '' };
 
@@ -199,9 +199,36 @@ function doAnalyze() {
     box.appendChild(d);
   });
   el('sum-text').textContent = summary(state.resume, a);
+  renderProfessional(state.resume, reqText, a);
   el('led-text').textContent = ledgerText(state.resume, a);
   el('led-line').textContent = ledgerOneLine(state.resume, a);
   jumpTo(el('card-res'));
+}
+
+function renderProfessional(r, reqText, a) {
+  var p = professional(r, reqText, a);
+  state.pro = p;
+  el('card-pro').hidden = false;
+  el('pro-level').textContent = '级别画像：' + p.levelName;
+  el('pro-ind').textContent = p.industry ? '行业：' + p.industry : '行业：通用';
+  var vd = el('pro-verdict');
+  if (p.level === 'mgmt' && p.gaps.some(function (g) { return g.indexOf('管理') >= 0; })) {
+    vd.textContent = '要点命中 ≠ 够负责人量级';
+    vd.style.display = '';
+    vd.style.color = 'var(--bad)';
+  } else vd.style.display = 'none';
+  var good = el('pro-good'); good.innerHTML = '';
+  if (p.strengths.length) {
+    good.appendChild(mk('b', null, '✅ 优点'));
+    p.strengths.forEach(function (x) { good.appendChild(mk('div', 'pro-line good', x)); });
+  }
+  var gap = el('pro-gap'); gap.innerHTML = '';
+  if (p.gaps.length) {
+    gap.appendChild(mk('b', null, '⚠️ 短板'));
+    p.gaps.forEach(function (x) { gap.appendChild(mk('div', 'pro-line gap', x)); });
+  } else if (p.strengths.length) gap.appendChild(mk('div', 'hint', '这条要求下没挑出硬短板。'));
+  el('pro-hr').textContent = p.hrAdvice;
+  el('pro-biz').textContent = p.bizAdvice;
 }
 
 // ---------- 复制 ----------
@@ -257,6 +284,7 @@ el('btn-copy-sum').addEventListener('click', function () { copyText(el('sum-text
 el('btn-copy-led').addEventListener('click', function () { copyText(el('led-text').textContent, '多行台账'); });
 el('btn-copy-line').addEventListener('click', function () { copyText(el('led-line').textContent, '一行台账'); });
 el('btn-copy-raw').addEventListener('click', function () { copyText(state.raw, '简历原文'); });
+el('btn-copy-pro').addEventListener('click', function () { copyText(state.pro ? professionalText(state.pro) : '', '专业意见'); });
 
 // 进门恢复上次
 (function init() {

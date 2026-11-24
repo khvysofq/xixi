@@ -16,7 +16,8 @@ function moduleToClassic(src) {
 }
 
 const engine = moduleToClassic(fs.readFileSync(path.join(root, 'extract.mjs'), 'utf8'))
-  + '\n' + moduleToClassic(fs.readFileSync(path.join(root, 'match.mjs'), 'utf8'));
+  + '\n' + moduleToClassic(fs.readFileSync(path.join(root, 'match.mjs'), 'utf8'))
+  + '\n' + moduleToClassic(fs.readFileSync(path.join(root, 'professional.mjs'), 'utf8'));
 const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 
 const workerB64 = fs.readFileSync(path.join(xixi, 'vendor', 'pdf.worker.min.js')).toString('base64');
