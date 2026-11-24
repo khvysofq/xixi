@@ -1,7 +1,7 @@
 // 简历速看 · 前端逻辑（构建时与引擎、vendor 一起内联成单文件）
 /* global parseResume, docxXmlToText, pdfItemsToText, analyze, summary, ledgerText, ledgerOneLine, professional, professionalText */
 
-var state = { resume: null, match: null, raw: '', fname: '' };
+var state = { resume: null, match: null, raw: '', fname: '', pro: null, proAI: null };
 
 function el(id) { return document.getElementById(id); }
 function mk(tag, cls, txt) {
@@ -208,6 +208,9 @@ function doAnalyze() {
 
 function renderProfessional(p) {
   state.pro = p;
+  state.proAI = null;
+  el('pro-ai').hidden = true;
+  el('pro-ai').innerHTML = '';
   el('card-pro').hidden = false;
   el('pro-level').textContent = '级别画像：' + p.levelName;
   el('pro-ind').textContent = p.industry ? '行业：' + p.industry : '行业：通用';
@@ -230,6 +233,73 @@ function renderProfessional(p) {
   el('pro-hr').textContent = p.hrAdvice;
   el('pro-biz').textContent = p.bizAdvice;
 }
+
+// ---------- AI 深度点评（先本机脱敏，再走主人自己的模型通道） ----------
+function redactPII(t) {
+  var r = String(t || '');
+  var name = state.resume && state.resume.name;
+  if (name && name.length >= 2 && name !== '候选人') {
+    r = r.split(name).join('候选人');
+  }
+  return r
+    .replace(/\b\d{6}(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b/g, '【身份证】')
+    .replace(/1[3-9]\d{9}/g, '【电话】')
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '【邮箱】')
+    .replace(/微信[:：]?\s*\w{5,20}/g, '【微信】')
+    .replace(/\d{2,3}\s*岁/g, '【年龄】')
+    .replace(/(?:现居|居住地|所在地)[:：]?\s*[\u4e00-\u9fa5]{2,8}(?:市)?/g, '【所在地】');
+}
+function proAISection(d) {
+  return '\n\n—— AI 深度点评 · 按「' + (d.domain || '该职能') + '」行规 ——\n'
+    + (d.levelCall ? '级别定性：' + d.levelCall + '\n' : '')
+    + '业务线内行：' + d.biz + '\n'
+    + '人力/背调视角：' + d.hr + '\n'
+    + '面试追问：\n' + (d.probes || []).map(function (x, i) { return (i + 1) + '. ' + x; }).join('\n');
+}
+function renderProAI(d) {
+  var box = el('pro-ai');
+  box.innerHTML = '';
+  box.hidden = false;
+  box.appendChild(mk('div', 'hint', '🧠 AI 深度点评 · 按「' + (d.domain || '该职能') + '」行规（' + (d.model || '') + '；姓名/电话/邮箱/年龄已在发送前脱敏）'));
+  if (d.levelCall) box.appendChild(mk('div', 'pro-line good', '一句话定性：' + d.levelCall));
+  var b1 = mk('div', 'wk'); b1.appendChild(mk('b', null, '🏢 业务线内行')); b1.appendChild(mk('div', 'how', d.biz)); box.appendChild(b1);
+  var b2 = mk('div', 'wk'); b2.appendChild(mk('b', null, '👤 人力/背调视角')); b2.appendChild(mk('div', 'how', d.hr)); box.appendChild(b2);
+  if (d.probes && d.probes.length) {
+    var b3 = mk('div', 'wk'); b3.appendChild(mk('b', null, '🎯 面试追问（验真伪）'));
+    var ol = document.createElement('ol'); ol.className = 'how';
+    d.probes.forEach(function (q) { ol.appendChild(mk('li', null, q)); });
+    b3.appendChild(ol); box.appendChild(b3);
+  }
+}
+window.__resumeRedact = redactPII; // 测试钩子：脱敏可被 jsdom 断言
+el('btn-pro-ai').addEventListener('click', function () {
+  if (!state.resume) { toast('先把简历拖进来'); return; }
+  if (!state.pro) { toast('先跑一次匹配分析'); return; }
+  var btn = el('btn-pro-ai');
+  if (btn.disabled) return;
+  var old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ 老师傅翻简历中（约 20~60 秒）…';
+  var payload = {
+    reqText: el('reqs').value || '',
+    resumeText: redactPII(state.raw).slice(0, 9000),
+    rule: professionalText(state.pro).slice(0, 1200)
+  };
+  fetch('/api/resume-pro', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function (res) {
+    return res.json().then(function (j) { return { st: res.status, j: j }; }, function () { return { st: res.status, j: {} }; });
+  }, function (e) { return { st: 0, j: { error: '网络失败：' + e.message } }; }).then(function (x) {
+    btn.disabled = false;
+    btn.textContent = old;
+    if (!x.j || !x.j.ok) { toast((x.j && x.j.error) || ('调用失败 HTTP ' + x.st)); return; }
+    state.proAI = x.j.data;
+    renderProAI(x.j.data);
+    toast('AI 深度点评已出');
+  });
+});
 
 // ---------- 复制 ----------
 function copyText(text, label) {
@@ -284,7 +354,11 @@ el('btn-copy-sum').addEventListener('click', function () { copyText(el('sum-text
 el('btn-copy-led').addEventListener('click', function () { copyText(el('led-text').textContent, '多行台账'); });
 el('btn-copy-line').addEventListener('click', function () { copyText(el('led-line').textContent, '一行台账'); });
 el('btn-copy-raw').addEventListener('click', function () { copyText(state.raw, '简历原文'); });
-el('btn-copy-pro').addEventListener('click', function () { copyText(state.pro ? professionalText(state.pro) : '', '专业意见'); });
+el('btn-copy-pro').addEventListener('click', function () {
+  if (!state.pro) { toast('还没内容可复制'); return; }
+  var t = professionalText(state.pro) + (state.proAI ? proAISection(state.proAI) : '');
+  copyText(t, '专业意见');
+});
 
 // 进门恢复上次
 (function init() {

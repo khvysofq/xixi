@@ -122,13 +122,14 @@
   </div>
 
   <div class="card" id="card-pro" hidden>
-    <h2>💼 专业意见<span class="hint">（人力 + 业务线双视角，按岗位级别画像本地推断）</span></h2>
+    <h2>💼 专业意见<span class="hint">（规则引擎本地判断；可加 AI 深度点评：按具体职能的行内口径点评，姓名/电话等先在本机脱敏、只走你自己配置的模型通道）</span></h2>
     <div class="row" style="margin-top:0"><span class="chip" id="pro-level"></span><span class="chip" id="pro-ind"></span><span class="chip" id="pro-verdict" style="display:none"></span></div>
     <div id="pro-good" style="margin-top:10px"></div>
     <div id="pro-gap" style="margin-top:8px"></div>
     <div class="wk" style="margin-top:10px"><b>👤 人力视角</b><div class="how" id="pro-hr"></div></div>
     <div class="wk"><b>🏢 业务线视角</b><div class="how" id="pro-biz"></div></div>
-    <div class="row"><button class="btn" id="btn-copy-pro" type="button">📋 复制专业意见</button></div>
+    <div id="pro-ai" hidden style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px"></div>
+    <div class="row"><button class="btn" id="btn-pro-ai" type="button">🧠 AI 深度点评（内行视角）</button><button class="btn" id="btn-copy-pro" type="button">📋 复制专业意见</button></div>
   </div>
 
   <div class="card" id="card-led" hidden>

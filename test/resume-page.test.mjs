@@ -238,3 +238,19 @@ test('示例按钮：带权重要渲染出权重标记，整体结论有芯片',
   assert.ok(/高匹配|中等匹配|低匹配/.test(el(w, 'res-verdict').textContent), el(w, 'res-verdict').textContent);
   dom.window.close();
 });
+
+test('AI 深度点评：按钮在页上，redactPII 钩子把姓名/电话/年龄/微信全打掉', async () => {
+  const { window } = boot('resume');
+  assert.ok(window.document.getElementById('btn-pro-ai'));
+  assert.ok(window.document.getElementById('pro-ai'));
+  const doc = window.document;
+  doc.getElementById('paste').value = '刘经理\n男，35岁\n电话：13800001111\n\n工作经历\n中海商业上海环宇城 2023.04-至今\n高级招商经理\n负责招商';
+  doc.getElementById('btn-parse-paste').click();
+  await new Promise((r2) => setTimeout(r2, 50));
+  const r = window.__resumeRedact('刘经理 男，35岁 电话：13800001111 zs@a.com 微信:liuwg2024 现居上海 110101199001011234');
+  assert.ok(!r.includes('刘经理'), r);
+  assert.ok(!r.includes('13800001111'), r);
+  assert.ok(!r.includes('zs@a.com'), r);
+  assert.ok(!r.includes('35岁'), r);
+  assert.ok(!r.includes('110101199001011234'), r);
+});

@@ -6,12 +6,14 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const sceneGuide = require('./lib/scene-guide.js');
 const enWriting = require('./lib/en-writing.js');
+const resumePro = require('./lib/resume-pro.js');
 
 const publicDir = path.join(__dirname, 'public');
 const port = Number(process.env.PORT || 10801);
 const host = process.env.HOST || '0.0.0.0';
 const API_PATH = '/api/scene-guide';
 const WRITE_PATH = '/api/en-writing';
+const RESUME_PATH = '/api/resume-pro';
 const MAX_BODY_BYTES = 12000;
 const BOOT_AT = new Date(); // 健在哪个代码版本上跑的，靠这个时间跟文件 mtime 对
 
@@ -43,14 +45,15 @@ function sendJson(res, status, payload) {
   res.end(body);
 }
 
-function readBody(req) {
+function readBody(req, maxBytes) {
+  const max = maxBytes || MAX_BODY_BYTES;
   return new Promise((resolve, reject) => {
     let size = 0;
     let tooBig = false;
     const chunks = [];
     req.on('data', (chunk) => {
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
+      if (size > max) {
         // 不要 destroy：先干脆地回 413，否者客户端只看到 socket hang up
         tooBig = true;
         chunks.length = 0;
@@ -59,7 +62,7 @@ function readBody(req) {
       if (!tooBig) chunks.push(chunk);
     });
     req.on('end', () => {
-      if (tooBig) reject(Object.assign(new Error('请求体太大了（最多 ' + MAX_BODY_BYTES + ' 字节）'), { status: 413 }));
+      if (tooBig) reject(Object.assign(new Error('请求体太大了（最多 ' + max + ' 字节）'), { status: 413 }));
       else resolve(Buffer.concat(chunks).toString('utf8'));
     });
     req.on('error', reject);
@@ -102,6 +105,7 @@ async function apiHealth(req, res, pathname) {
 const GEN_APIS = {
   [API_PATH]: { tag: 'scene-guide', mod: sceneGuide },
   [WRITE_PATH]: { tag: 'en-writing', mod: enWriting },
+  [RESUME_PATH]: { tag: 'resume-pro', mod: resumePro, maxBody: 60000 },
 };
 
 async function handleApi(req, res, pathname) {
@@ -130,7 +134,7 @@ async function handleApi(req, res, pathname) {
   };
   res.on('close', () => { if (!res.writableEnded) logIt(499, 'client aborted before response'); });
   try {
-    const raw = await readBody(req);
+    const raw = await readBody(req, api.maxBody);
     body = raw ? JSON.parse(raw) : null;
   } catch (e) {
     const status = e.status === 413 ? 413 : 400;
