@@ -269,9 +269,18 @@ function parseResume(text, opts) {
   }
 
   // 工作经历
+  const DATE_ONLY_RE = /^\d{4}\s*[.\/-]\s*\d{1,2}\s*[-–—~至到]+\s*(?:至今|今|\d{4}\s*[.\/-]\s*\d{1,2})\s*(?:[（(][^）)]*[）)])?$/;
+  const wl = [];
+  for (const line of lines) {
+    if (DATE_ONLY_RE.test(line) && wl.length) {
+      const prev = wl[wl.length - 1];
+      if (!/\d{4}/.test(prev) && prev.length <= 40 && !/[:：]/.test(prev)) { wl[wl.length - 1] = prev + ' ' + line; continue; }
+    }
+    wl.push(line);
+  }
   let inWork = false, inEdu = false;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (let i = 0; i < wl.length; i++) {
+    const line = wl[i];
     if (/工作经历|工作经验|职业经历|Employment|Work Experience/i.test(line) && line.length < 20) { inWork = true; inEdu = false; continue; }
     if (/教育|学历|Education/i.test(line) && line.length < 16) { inEdu = true; inWork = false; continue; }
     if (/技能|证书|项目经历|荣誉|其他|自我评价/.test(line) && line.length < 16) { inWork = false; inEdu = false; continue; }
@@ -280,33 +289,50 @@ function parseResume(text, opts) {
     if (!rg.length) continue;
     if (/^[-\d\s.~至到年月日:：()（）至今今—–]+$/.test(line)) continue;
     if (/大学|学院|学校/.test(line) && /学士|本科|硕士|研究生|博士|大专|专科/.test(line)) continue;
-    const ctx = line + ' ' + (lines[i + 1] || '') + ' ' + (lines[i + 2] || '');
+    const ctx = line + ' ' + (wl[i + 1] || '') + ' ' + (wl[i + 2] || '');
     COMPANY_RE.lastIndex = 0;
-    const co = COMPANY_RE.exec(ctx);
+    let co = COMPANY_RE.exec(line);
+    if (!co) {
+      const di = line.search(/\d{4}\s*[.\/-]\s*\d{1,2}/);
+      const head = (di > 0 ? line.slice(0, di) : line).replace(/[（(][^）)]*[）)]/g, '').replace(/\s+/g, ' ').trim();
+      if (head.length >= 2 && head.length <= 30 && !/职责|部门|汇报|薪|业绩|学历|院校|所在|负责/.test(head)) co = [head, head];
+    }
+    if (!co) { COMPANY_RE.lastIndex = 0; co = COMPANY_RE.exec(ctx); }
     let ro = ROLE_RE.exec(line);
     if (!ro) { const so = SOLO_ROLE.exec(line); if (so) ro = [so[0], so[0]]; }
     if (!ro) ro = ROLE_RE.exec(ctx);
-    if (!co && !ro && !inWork) continue;
+    let coName = co ? co[1].trim() : '';
+    if (!coName && !ro && !inWork) continue;
+    if (!ro && !coName) continue;
     const a = rg[0];
+    const durM = /[（(]\s*(\d+(?:[.,]\d+)?)\s*年\s*(\d+)?\s*个?月?\s*[）)]/.exec(line);
     r.jobs.push({
       from: a.from.y + '.' + String(a.from.m).padStart(2, '0'),
       to: a.to ? a.to.y + '.' + String(a.to.m).padStart(2, '0') : '至今',
-      company: co ? co[1].trim() : '', role: ro ? ro[1].trim() : '',
+      company: coName, role: ro ? ro[1].trim() : '',
+      dur: durM ? Number(durM[1].replace(',', '.')) + (durM[2] ? Number(durM[2]) / 12 : 0) : null,
       desc: [],
     });
   }
   // 每段描述：下一段之前的 bullet
   for (let j = 0; j < r.jobs.length; j++) {
-    const startLine = lines.findIndex((l) => l.includes(r.jobs[j].from));
-    const endLine = j + 1 < r.jobs.length ? lines.findIndex((l) => l.includes(r.jobs[j + 1].from)) : lines.length;
+    const startLine = wl.findIndex((l) => l.includes(r.jobs[j].from));
+    const endLine = j + 1 < r.jobs.length ? wl.findIndex((l) => l.includes(r.jobs[j + 1].from)) : wl.length;
     for (let i = Math.max(0, startLine); i < endLine; i++) {
-      const l = lines[i];
+      const l = wl[i];
+      if (i === startLine) continue;
+      const zm = /^职责业绩\s*[:：]\s*(.{8,})$/.exec(l);
+      if (zm) { r.jobs[j].desc.push(zm[1]); continue; }
+      if (/^【[^】]{2,14}】/.test(l) && l.length > 12) { r.jobs[j].desc.push(l); continue; }
       if (/^[-•·*●▪\d.、\s]*(负责|参与|完成|协助|主导|搭建|优化|管理|处理|对接|输出)/.test(l) && l.length > 8) r.jobs[j].desc.push(l);
     }
   }
 
-  // 总年限：合并区间
-  if (r.jobs.length) {
+  // 总年限：每段自带「（3年6个月）」就先信显式时长
+  if (r.jobs.length && r.jobs.every((j) => j.dur)) {
+    r.yearsTotal = Math.round(r.jobs.reduce((a, j) => a + j.dur, 0) * 10) / 10;
+  }
+  if (r.jobs.length && r.yearsTotal == null) {
     const spans = r.jobs.map((j) => {
       const [fy, fm] = j.from.split('.').map(Number);
       const ty = j.to === '至今' ? now.getFullYear() : Number(j.to.split('.')[0]);

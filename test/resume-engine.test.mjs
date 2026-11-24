@@ -184,3 +184,44 @@ test('真机冒烟带回的坑：角色不串段、证据不空转、节标题�
   const a3 = analyze(r, '熟练使用Excel，会用友或金蝶优先', { now: NOW });
   assert.ok(a3.items[0].score >= 75 && !a3.items[0].evidence.includes('「」'), a3.items[0].evidence);
 });
+
+test('猎聘导出格式：公司名无后缀、职位独立行、职责业绩长文、显式时长', () => {
+  const LP = `刘经理
+男，35岁
+电话：13800001111
+
+教育背景
+2009.09-2013.06 上海大学 工商管理 本科（学士）
+
+工作经历
+中海商业上海环宇城 MAX\t2023.04-至今（3年6个月）
+高级招商经理
+所在部门：\t汇报对象：
+职责业绩：【项目经历】32万方上海真如环宇城MAX购物中心（2023.12开业），2025年销售上海TOP8-62亿，参与筹备开业招商及运营期全业态招商工作
+【2023筹备期招商】筹备期集中签约品牌百余个，其中引进首店品牌50余个
+龙湖天街购物中心\t2020.06-2023.03（2年9个月）
+招商主管
+职责业绩：负责华东区两家天街零售业态招商，累计签约品牌300+`;
+  const r = parseResume(LP, { now: new Date(NOW) });
+  assert.equal(r.jobs.length, 2);
+  assert.equal(r.jobs[0].company, '中海商业上海环宇城 MAX', '无“公司”后缀也要拿到抬头');
+  assert.equal(r.jobs[0].role, '高级招商经理');
+  assert.equal(r.jobs[1].role, '招商主管');
+  assert.ok(r.jobs[0].desc.length >= 2, '职责业绩+【】行都要进描述：' + r.jobs[0].desc.length);
+  assert.equal(r.yearsTotal, 6.3, '3年6个月+2年9个月=6.3：' + r.yearsTotal);
+  const a = analyze(r, '3年以上商业地产招商经验\n有购物中心筹备期开业招商案例', { now: NOW });
+  assert.ok(a.overall >= 70, '招商岗对招商人 overall=' + a.overall);
+});
+
+test('PDF 分列拆行：公司名行 + 纯日期行要合并成一段', () => {
+  const SPLIT = `工作经历
+中海商业上海环宇城 MAX
+2023.04-至今（3年6个月）
+高级招商经理
+职责业绩：【项目经历】负责购物中心全业态招商与品牌落位管理`;
+  const r = parseResume(SPLIT, { now: new Date(NOW) });
+  assert.equal(r.jobs.length, 1);
+  assert.equal(r.jobs[0].company, '中海商业上海环宇城 MAX');
+  assert.equal(r.jobs[0].role, '高级招商经理');
+  assert.equal(r.jobs[0].dur, 3.5);
+});
