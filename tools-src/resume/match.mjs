@@ -3,6 +3,7 @@
 
 'use strict';
 import { DEGREE_RANK } from './extract.mjs';
+import { detectReqLevel, mgmtSignals } from './professional.mjs';
 
 const STOP = new RegExp('^(的|了|和|与|或|及|能|会|可|需|要|有|无|等|以及|至少|以上|以下|优先|熟悉|掌握|精通|熟练|了解|具备|具有|负责|从事|相关|良好|较强|扎实|一定的|优秀的|基本的|熟练使用|使用|做过|参与|不限|年龄|性别|男|女|全日制|应届|经验|工作经验|工作|岗位|职责|要求|条件|左右|以内|之外|个|名|年|岁)$');
 
@@ -115,7 +116,7 @@ function kwScore(reqText, r) {
 
 function scoreOne(req, r) {
   const out = { req, score: 0, hit: '', evidence: '' };
-  let m = /(\d+(?:\.\d+)?)\s*年[^，,。;；]*?(经验|工作)/.exec(req);
+  let m = /(\d+(?:\.\d+)?)\s*年[^，,。;；]*?(经验|工作|经理|主管|负责人|专员|总监|工程师|招商|运营|财务|销售)/.exec(req);
   if (m) {
     const need = Number(m[1]);
     const have = r.yearsTotal == null ? 0 : r.yearsTotal;
@@ -166,6 +167,7 @@ function scoreOne(req, r) {
 function analyze(resume, reqText, opts) {
   const nowYear = (opts && opts.now ? new Date(opts.now) : new Date()).getFullYear();
   const lines = String(reqText || '').split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  const sig = mgmtSignals(resume);
   const items = lines.map((line) => {
     let weight = 1;
     let req = line;
@@ -173,7 +175,14 @@ function analyze(resume, reqText, opts) {
     if (m) { weight = Number(m[1]); req = m[2]; }
     else { m = /^(.*?)[|｜]\s*(\d{1,3})\s*[%％]?$/.exec(line); if (m && m[2]) { req = m[1]; weight = Number(m[2]); } }
     const s = scoreOne(req, resume);
-    return { req, weight, score: s.score, hit: s.hit, evidence: s.evidence };
+    let score = s.score, evidence = s.evidence;
+    // 级别校正：这条要求指向管理层，但简历管理信号只有代理/小团队 → 不许满分
+    const needMgmt = detectReqLevel(req) === 'mgmt' || /带过团队|带团队|管理团队|团队管理/.test(req);
+    if (needMgmt && score >= 75 && (!sig.formalLeadTitle || sig.acting || sig.teamMax < 8)) {
+      score = 55;
+      evidence += '；级别校正：这条要求是负责人/带团队量级，简历管理经历为' + (sig.acting ? '「代理」性质' : '非正式任命') + '（约 ' + sig.teamMax + ' 人），封顶 55';
+    }
+    return { req, weight, score, hit: s.hit, evidence };
   });
   const wsum = items.reduce((a, x) => a + x.weight, 0) || 1;
   const overall = items.length ? Math.round(items.reduce((a, x) => a + x.score * x.weight, 0) / wsum) : 0;
@@ -193,7 +202,7 @@ function guessDomain(resume) {
   return '';
 }
 
-function summary(resume, match) {
+function summary(resume, match, pro) {
   const parts = [];
   const who = resume.name || '候选人';
   if (resume.yearsTotal != null) parts.push(who + '约' + trimYear(resume.yearsTotal) + '年' + guessDomain(resume) + '经验');
@@ -203,13 +212,14 @@ function summary(resume, match) {
   if (good.length) parts.push('命中' + good.join('、'));
   const bad = match.items.filter((x) => x.score <= 40).map((x) => x.req.slice(0, 14)).slice(0, 3);
   if (bad.length) parts.push('但' + bad.join('、') + '未见体现');
+  if (pro && pro.level === 'mgmt' && pro.gaps.some((g) => g.indexOf('管理') >= 0)) {
+    parts.push('级别判断：够高级经理即战力，但按此简历的管理幅度与任命经历，不够到该负责人岗的量级');
+  }
   parts.push('综合匹配' + match.overall + '%，' + (match.overall >= 75 ? '建议约面' : match.overall >= 50 ? '可电话初筛' : '不建议投入'));
   let s = parts.join('，').replace(/，+/g, '，') + '。';
   if (s.length > 300) s = s.slice(0, 299) + '。';
-  const pad = ['建议对照原简历补齐关键信息', '本段依据简历文本自动汇总', '数据以简历原文为准请人工复核'];
-  let pi = 0;
-  while (s.length < 50 && pi < pad.length) s = s.replace(/。$/, '') + '，' + pad[pi++] + '。';
-  if (s.length < 50) s += '以上为工具初判。';
+  if (s.length < 40) s = s.replace(/。$/, '') + '，履职' + (resume.jobs.length ? resume.jobs.length + '段' : '段数未明') + '，技能' + (resume.skills.slice(0, 3).join('/') || '未列') + '。';
+  if (s.length < 40) s += '信息以简历原文为准，建议人工复核。';
   if (s.length > 300) s = s.slice(0, 299) + '。';
   return s;
 }

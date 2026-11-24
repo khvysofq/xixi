@@ -198,15 +198,15 @@ function doAnalyze() {
     d.appendChild(mk('div', 'ev', x.evidence));
     box.appendChild(d);
   });
-  el('sum-text').textContent = summary(state.resume, a);
-  renderProfessional(state.resume, reqText, a);
+  var pro = professional(state.resume, reqText, a);
+  el('sum-text').textContent = summary(state.resume, a, pro);
+  renderProfessional(pro);
   el('led-text').textContent = ledgerText(state.resume, a);
   el('led-line').textContent = ledgerOneLine(state.resume, a);
   jumpTo(el('card-res'));
 }
 
-function renderProfessional(r, reqText, a) {
-  var p = professional(r, reqText, a);
+function renderProfessional(p) {
   state.pro = p;
   el('card-pro').hidden = false;
   el('pro-level').textContent = '级别画像：' + p.levelName;

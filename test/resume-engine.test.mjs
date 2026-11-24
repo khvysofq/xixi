@@ -300,3 +300,22 @@ test('专业意见：同一简历两个岗位要求的分野（主人原话场�
   const txt = professionalText(p2);
   assert.ok(txt.includes('【专业意见】') && txt.includes('短板') && txt.includes('人力视角'), txt.slice(0, 120));
 });
+
+test('一致性问题（主人点名）：总结分数与专业意见不许打架', () => {
+  const r = parseResume(FULL_LP, { now: new Date(NOW) });
+  // 负责人要求：分数必须被级别校正拉下来，总结必须带级别结论
+  const a1 = analyze(r, '已带团队的招商负责人', { now: NOW });
+  const p1 = professional(r, '已带团队的招商负责人', a1);
+  const s1 = summary(r, a1, p1);
+  assert.ok(a1.overall <= 70, '负责人要求不许 100 分：' + a1.overall);
+  assert.ok(p1.gaps.some((g) => g.includes('管理')), '专业意见要有管理短板');
+  assert.ok(s1.includes('不够到该负责人岗的量级'), s1);
+  assert.ok(!s1.includes('建议约面'), '分数没到约面线，总结不许说约面：' + s1);
+  // 高级经理要求：高分 + 零短板 + 约面，三者同向
+  const a2 = analyze(r, '5年左右高级招商经理', { now: NOW });
+  const p2 = professional(r, '5年左右高级招商经理', a2);
+  const s2 = summary(r, a2, p2);
+  assert.ok(a2.overall >= 75, '经理要求应高匹配：' + a2.overall);
+  assert.equal(p2.gaps.length, 0);
+  assert.ok(s2.includes('建议约面'), s2);
+});
