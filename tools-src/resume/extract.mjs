@@ -183,7 +183,7 @@ function parseResume(text, opts) {
       if (/[A-Za-z]/.test(t) || /[\u4e00-\u9fa5]{2,}/.test(t)) r.skills.push(t);
     }
   }
-  const engHay = skillLines.join(' ') + ' ' + r.jobs.map((j) => j.role + ' ' + j.desc.join(' ')).join(' ');
+  const engHay = skillLines.join(' ');
   const eng = new Set((engHay.match(/\b[A-Za-z][A-Za-z0-9+#.-]{1,18}\b/g) || []).map((x) => x.replace(/[.,;:)）]+$/, '')).filter(Boolean));
   const KNOWN = ['excel', 'word', 'ppt', 'powerpoint', 'sql', 'python', 'java', 'photoshop', 'autocad', 'solidworks', 'sap', 'oracle', 'visio', 'xmind', 'matlab', 'tableau', 'cadr', 'c1', 'b2', 'cet-4', 'cet-6', 'cam350', 'uml', 'linux', 'vlookup', 'wps', 'tms', 'erp', 'crm', 'oa'];
   const flatLow0 = flat.toLowerCase();

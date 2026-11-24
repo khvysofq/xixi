@@ -18,6 +18,8 @@ const SYNONYMS = {
   '物流': ['物流', '货运', '运输', '干线', '配送', '快递', '仓储'],
   '调度': ['调度', '排线', '派车', '运力', '配载', '车辆安排'],
   '仓储': ['仓储', '仓库', '库存', '出入库', '盘点', 'wms'],
+  '招商': ['招商', '签约品牌', '品牌落位', '租赁', '去化'],
+  '商业地产': ['商业地产', '购物中心', '商业项目', '综合体', '天街', '万达广场', '写字楼'],
   '承运商': ['承运商', '车队', '供应商', '三方', '物流商'],
   '结算': ['结算', '对账', '账单', '核销'],
   '财务': ['财务', '会计', '出纳', '记账', '凭证', '税务', '发票'],
@@ -90,7 +92,9 @@ function kwScore(reqText, r) {
       const gs = countIn(strongHay, k.grams);
       const gw = countIn(hay, k.grams);
       sc = gs >= 2 ? 70 : gs === 1 ? 65 : gw >= 3 ? 50 : gw >= 1 ? 45 : 0;
-      word = k.grams.find((g) => (gs ? strongHay : hay).includes(g)) || k.token;
+      { const src = gs ? strongHay : hay; let bg = '', bc = 0;
+        for (const g of k.grams) { const c = src.split(g).length - 1; if (c > bc) { bc = c; bg = g; } }
+        word = bg || k.token; }
     }
     if (sc > bestScore) {
       bestScore = sc; bestWord = word;
@@ -185,6 +189,7 @@ function guessDomain(resume) {
   if (/销售|业务|客户/.test(roles)) return '销售';
   if (/工程师|技术|开发|架构/.test(roles)) return '技术';
   if (/运营|策划|内容/.test(roles)) return '运营';
+  if (/招商|商业|地产|置业|购物中心|天街|万达|龙湖/.test(roles + resume.school + resume.intent)) return '商业地产招商';
   return '';
 }
 
