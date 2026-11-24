@@ -645,7 +645,7 @@ function summary(resume, match) {
   else parts.push(who);
   if (resume.school) parts.push(resume.school + (resume.degree || '') + (resume.major ? '·' + resume.major : ''));
   const good = match.items.filter((x) => x.score >= 75).map((x) => x.hit || x.req.slice(0, 14)).slice(0, 3);
-  if (good.length) parts.push('命中' + good.join('、').slice(0, 24));
+  if (good.length) parts.push('命中' + good.join('、'));
   const bad = match.items.filter((x) => x.score <= 40).map((x) => x.req.slice(0, 14)).slice(0, 3);
   if (bad.length) parts.push('但' + bad.join('、') + '未见体现');
   parts.push('综合匹配' + match.overall + '%，' + (match.overall >= 75 ? '建议约面' : match.overall >= 50 ? '可电话初筛' : '不建议投入'));
