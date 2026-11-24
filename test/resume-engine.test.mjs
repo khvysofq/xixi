@@ -239,3 +239,25 @@ test('pdf 乱序 items：写入顺序颠倒也能拼回正确行', () => {
   assert.equal(r.jobs[0].company, '中海商业上海环宇城 MAX');
   assert.equal(r.jobs[0].role, '高级招商经理');
 });
+
+test('大悦城段（主人第二张截图）：控股系无后缀公司、全角破折号、职责业绩带前导空格', () => {
+  const DC = `工作经历
+大悦城控股上海长风大悦城 2021.03－2023.04（2年1个月）
+招商经理
+所在部门： 汇报对象：
+职责业绩： 负责项目零售业态招商，代理招商负责人，引入多家上海首店、区域首店；
+【专项工作】项目年度招商目标制定及预算编制工作；主责招商调改报告、经营分析报告撰写等；
+【管理角色】零售业态组招商组长，组员2人，完成项目核心户外运动零售区招商调改工作；部门成员4人，完成项目LG层超市区改造及招商升级工作。
+【公司表彰与晋升】集团3040总监班储备人才；获得职位晋升一次。`;
+  const r = parseResume(DC, { now: new Date(NOW) });
+  assert.equal(r.jobs.length, 1);
+  assert.equal(r.jobs[0].company, '大悦城控股上海长风大悦城');
+  assert.equal(r.jobs[0].role, '招商经理');
+  assert.equal(r.jobs[0].from, '2021.03');
+  assert.equal(r.jobs[0].to, '2023.04');
+  assert.equal(r.yearsTotal, 2.1, '2年1个月：' + r.yearsTotal);
+  assert.ok(r.jobs[0].desc.length >= 3, '职责业绩+【】行：' + r.jobs[0].desc.length);
+  const a = analyze(r, '3年以上商业地产招商经验\n带过团队|25', { now: NOW });
+  const team = a.items.find((x) => x.req.includes('带过团队'));
+  assert.ok(team.score >= 55, '“招商组长，组员2人”应算带团队：' + team.score + ' ' + team.evidence);
+});
