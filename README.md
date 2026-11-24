@@ -160,7 +160,8 @@ POST /api/scene-guide          → {ok, data}
 线上入口：https://xixi.publicrandom.com/tools/resume-check/ （单文件 1.9MB，PDF/DOCX/TXT 全在本机浏览器解析，简历不出设备；本地双击 dist/简历速看.html 同产物）
 
 - **引擎**：`tools-src/resume/extract.mjs`（纯文本→姓名/年龄/学历/院校/履职段/年限/技能）+ `tools-src/resume/match.mjs`（岗位要点→硬规则：年限/学历/985·211/年龄；软规则：关键词+同义词+n-gram；支持 `30% 要点` / `要点|30` 权重）。`node tools-src/resume/build.mjs` 内联 vendor（jszip、pdf.js legacy + worker base64）产出单文件。
-- **产出**：逐条匹配证据、总结（≤300 字）、台账多行版 + 一行 Tab 版（直接贴 Excel/飞书表格），全部一键复制。
+- **产出**：逐条匹配证据、总结（≤300 字，与专业意见同向：级别校正直接参与打分）、台账多行版 + 一行 Tab 版（直接贴 Excel/飞书表格），全部一键复制。
+- **专业意见双轨**：本地规则引擎（级别画像×管理幅度×行业能力词典）+ 可选「AI 深度点评」：按候选人实际职能（如购物中心零售招商）以同领域操盘者+HRD 视角给行内口径点评、背调要点、验真伪面试追问；简历在本机脱敏（姓名/电话/邮箱/年龄/身份证/微信/所在地）后仅走 `/api/resume-pro`（`lib/resume-pro.js`，同网关模型通道，env `RESUME_PRO_MODEL` 可换模型），每日/每 IP 限次。
 - **已知边界**：扫描版图片 PDF 提不出字会明说；英文简历只认电话/日期段，姓名/学历词表是中文的；老 `.doc` 引导另存。
 - **猎聘/智联导出格式已适配**（2026-11-24）：公司名无“公司”后缀取日期前抬头、职位独立行、`职责业绩：`长文与【】行入描述、`（3年6个月）`显式时长优先于日期差、PDF 左右列拆行自动合并；品牌英文名（SnowPeak 等）不进技能列。
 - **测试**：`test/resume-engine.test.mjs`（10 条）+ `test/resume-page.test.mjs`（7 条 jsdom 端到端：TXT 拖入/粘贴/真 docx/pdf 桩/防呆/恢复/权重）。jsdom 里 JSZip 需要注入 `setImmediate`（真实浏览器无此问题）。
